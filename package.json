@@ -3,6 +3,7 @@
   "productName": "Mental LEGOs",
   "version": "0.1.0",
   "description": "Local-first language LEGO training for professional spoken communication.",
+  "author": "Mental LEGOs Contributors",
   "main": ".vite/build/main.js",
   "private": true,
   "scripts": {
