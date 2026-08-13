@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+import { mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -35,6 +37,10 @@ let mainWindow: BrowserWindow | null = null;
 let agentWorkerHost: AgentWorkerHost | null = null;
 let asrWorkerHost: AsrWorkerHost | null = null;
 const isPackagedSmokeTest = process.argv.includes('--smoke-test');
+const isAgentE2eSmokeTest = process.argv.includes('--agent-e2e-smoke');
+const agentE2eBashRuntimeDirectory = process.argv
+  .find((argument) => argument.startsWith('--agent-e2e-bash-runtime='))
+  ?.slice('--agent-e2e-bash-runtime='.length);
 const asrSmokeModelDirectory = process.argv
   .find((argument) => argument.startsWith('--asr-smoke-model='))
   ?.slice('--asr-smoke-model='.length);
@@ -101,6 +107,69 @@ function getAgentRuntimePaths() {
         'MentalLegos.ProviderProxy.exe',
       ),
   };
+}
+
+async function runPackagedAgentE2eSmoke(): Promise<void> {
+  if (!agentWorkerHost || !agentE2eBashRuntimeDirectory) {
+    throw new Error('Packaged Agent E2E requires its verified Bash runtime path.');
+  }
+  const temporaryRoot = path.resolve(app.getPath('temp'));
+  const sessionsRoot = path.join(
+    temporaryRoot,
+    `mental-legos-packaged-agent-e2e-${randomUUID()}`,
+  );
+  const relative = path.relative(temporaryRoot, sessionsRoot);
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error('Packaged Agent E2E temporary root is unsafe.');
+  }
+  const workspaceSessionId = `packaged-${randomUUID()}`;
+  await mkdir(sessionsRoot, { recursive: false });
+  const runtimePaths = getAgentRuntimePaths();
+  const request = {
+    prompt: 'Return the packaged synthetic first-run response without using tools.',
+    workspace: {
+      sessionsRoot,
+      sessionId: workspaceSessionId,
+      create: true,
+    },
+    paths: runtimePaths,
+    provider: {
+      baseUrl: 'https://provider.invalid',
+      apiKey: 'synthetic-packaged-host-only-key',
+      model: 'claude-sonnet-4-6',
+    },
+    limits: { maxTurns: 2 },
+    bashRuntime: {
+      manifestPath: path.join(
+        app.isPackaged ? process.resourcesPath : path.join(app.getAppPath(), 'resources'),
+        'bash-runtime',
+        'windows-x64-wasmer-bash.json',
+      ),
+      runtimeDirectory: path.resolve(agentE2eBashRuntimeDirectory),
+      cacheDirectory: path.join(sessionsRoot, '.wasmer-cache'),
+    },
+    governanceDatabasePath: path.join(sessionsRoot, 'governance.sqlite'),
+  };
+  try {
+    const first = await agentWorkerHost.run(request);
+    if (!JSON.stringify(first.messages).includes('packaged-agent-first-run-ok')) {
+      throw new Error('Packaged Agent first-run response was not observed.');
+    }
+    const resumed = await agentWorkerHost.run({
+      ...request,
+      prompt: 'Return the packaged synthetic resume response.',
+      workspace: { ...request.workspace, create: false },
+      resume: first.agentSessionId,
+    });
+    if (
+      resumed.agentSessionId !== first.agentSessionId
+      || !JSON.stringify(resumed.messages).includes('packaged-agent-resume-ok')
+    ) {
+      throw new Error('Packaged Agent resume response was not observed.');
+    }
+  } finally {
+    await rm(sessionsRoot, { recursive: true, force: true });
+  }
 }
 
 protocol.registerSchemesAsPrivileged([
@@ -235,8 +304,10 @@ app.whenReady().then(async () => {
   agentWorkerHost = new AgentWorkerHost(
     path.join(__dirname, 'worker.mjs'),
     isPackagedSmokeTest,
+    isAgentE2eSmokeTest,
   );
-  void agentWorkerHost.diagnose(getAgentRuntimePaths()).then(() => {
+  void agentWorkerHost.diagnose(getAgentRuntimePaths()).then(async () => {
+    if (isAgentE2eSmokeTest) await runPackagedAgentE2eSmoke();
     agentSmokeReady = true;
     completePackagedSmokeTest();
   }).catch((reason: unknown) => {
@@ -269,7 +340,7 @@ app.whenReady().then(async () => {
     setTimeout(() => {
       console.error('Packaged smoke test timed out before renderer readiness.');
       app.exit(1);
-    }, isAsrTranscriptionSmokeTest ? 30_000 : 8_000).unref();
+    }, isAgentE2eSmokeTest ? 120_000 : isAsrTranscriptionSmokeTest ? 30_000 : 8_000).unref();
   }
 
   app.on('activate', () => {

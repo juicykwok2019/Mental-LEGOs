@@ -11,6 +11,7 @@ import { createGovernanceKernel, GovernanceRepository } from '../../src/agent/go
 import {
   copyAuthorizedInput,
   createSessionWorkspace,
+  openSessionWorkspace,
   purgeSessionWorkspace,
   stageSessionBashProxy,
   stageSessionProviderProxy,
@@ -109,6 +110,12 @@ describe('Claude Agent SDK runtime boundary', () => {
         workspace,
         verifiedProxyPath: providerProxyPath,
       });
+      const reopened = await openSessionWorkspace({
+        sessionsRoot,
+        sessionId,
+        capabilityBundlePath,
+      });
+      expect(reopened).toEqual(workspace);
       await stageSessionProviderProxy({
         workspace,
         verifiedProxyPath: providerProxyPath,

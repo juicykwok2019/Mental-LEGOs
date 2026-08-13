@@ -149,6 +149,69 @@ export async function createSessionWorkspace(options: {
   };
 }
 
+export async function openSessionWorkspace(options: {
+  sessionsRoot: string;
+  sessionId: string;
+  capabilityBundlePath: string;
+}): Promise<SessionWorkspace> {
+  if (!sessionIdPattern.test(options.sessionId)) {
+    throw new Error('Invalid session identifier.');
+  }
+  const root = resolveWithin(options.sessionsRoot, options.sessionId);
+  const packagedBundle = await verifyCapabilityBundle(options.capabilityBundlePath);
+  const sessionBundle = await verifyCapabilityBundle(root);
+  if (sessionBundle.bundleSha256 !== packagedBundle.bundleSha256) {
+    throw new Error('Session capability bundle does not match the installed application.');
+  }
+  const marker = JSON.parse(
+    await readFile(path.join(root, '.workspace-policy.json'), 'utf8'),
+  ) as {
+    session_id?: unknown;
+    capability_bundle_sha256?: unknown;
+    sandbox_profile?: unknown;
+  };
+  if (
+    marker.session_id !== options.sessionId
+    || marker.capability_bundle_sha256 !== sessionBundle.bundleSha256
+    || typeof marker.sandbox_profile !== 'string'
+  ) {
+    throw new Error('Session workspace marker is invalid.');
+  }
+  const input = resolveWithin(root, 'input');
+  const scratch = resolveWithin(root, 'scratch');
+  const output = resolveWithin(root, 'output');
+  const temporary = resolveWithin(root, 'tmp');
+  const config = resolveWithin(root, '.agent-config');
+  const bashIpc = resolveWithin(
+    resolveWithin(options.sessionsRoot, '.runtime-ipc'),
+    options.sessionId,
+  );
+  const providerIpc = resolveWithin(
+    resolveWithin(options.sessionsRoot, '.runtime-provider-ipc'),
+    options.sessionId,
+  );
+  const bashGuestRoot = resolveWithin(
+    resolveWithin(options.sessionsRoot, '.runtime-guests'),
+    options.sessionId,
+  );
+  const runtimeDirectory = resolveWithin(root, '.runtime');
+  return {
+    root,
+    input,
+    scratch,
+    output,
+    temporary,
+    config,
+    bashIpc,
+    providerIpc,
+    bashGuestRoot,
+    bashProxy: resolveWithin(runtimeDirectory, 'bash.exe'),
+    providerProxy: resolveWithin(runtimeDirectory, 'provider-proxy.exe'),
+    sandboxProfile: marker.sandbox_profile,
+    initialBundleSha256: sessionBundle.bundleSha256,
+  };
+}
+
 export async function stageSessionBashProxy(options: {
   workspace: SessionWorkspace;
   verifiedProxyPath: string;

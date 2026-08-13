@@ -48,3 +48,57 @@ export const agentDiagnosticResultSchema = z.object({
 });
 
 export type AgentDiagnosticResult = z.infer<typeof agentDiagnosticResultSchema>;
+
+const agentRuntimePathsSchema = z.object({
+  binaryPath: z.string().min(1),
+  runtimeManifestPath: z.string().min(1),
+  capabilityBundlePath: z.string().min(1),
+  sandboxLauncherPath: z.string().min(1),
+  credentialVaultPath: z.string().min(1),
+  bashProxyPath: z.string().min(1),
+  providerProxyPath: z.string().min(1),
+});
+
+export const agentRunRequestSchema = z.object({
+  type: z.literal('runtime:run'),
+  requestId: z.string().uuid(),
+  prompt: z.string().min(1).max(2 * 1024 * 1024),
+  workspace: z.object({
+    sessionsRoot: z.string().min(1),
+    sessionId: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/u),
+    create: z.boolean(),
+  }),
+  paths: agentRuntimePathsSchema,
+  provider: z.object({
+    baseUrl: z.string().url().startsWith('https://'),
+    apiKey: z.string().min(1).max(16 * 1024),
+    model: z.string().min(1).max(256).optional(),
+  }),
+  limits: z.object({
+    maxTurns: z.number().int().min(1).max(64),
+    maxBudgetUsd: z.number().positive().max(1000).optional(),
+  }),
+  bashRuntime: z.object({
+    manifestPath: z.string().min(1),
+    runtimeDirectory: z.string().min(1),
+    cacheDirectory: z.string().min(1),
+  }),
+  governanceDatabasePath: z.string().min(1),
+  resume: z.string().uuid().optional(),
+});
+
+export type AgentWorkerRunRequest = z.infer<typeof agentRunRequestSchema>;
+
+export const agentRunResultSchema = z.object({
+  type: z.literal('runtime:run-result'),
+  requestId: z.string().uuid(),
+  ok: z.boolean(),
+  result: z.object({
+    workspaceSessionId: z.string(),
+    agentSessionId: z.string().uuid(),
+    messages: z.array(z.unknown()),
+  }).optional(),
+  error: z.string().optional(),
+});
+
+export type AgentWorkerRunResult = z.infer<typeof agentRunResultSchema>;

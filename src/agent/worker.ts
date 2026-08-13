@@ -1,16 +1,89 @@
 import {
   agentDiagnosticRequestSchema,
+  agentRunRequestSchema,
   type AgentDiagnosticResult,
+  type AgentWorkerRunResult,
 } from './contracts';
-import { diagnoseAgentRuntime } from './runtime';
+import { createGovernanceKernel, GovernanceRepository } from './governance';
+import { diagnoseAgentRuntime, runAgent } from './runtime';
+import { createSessionWorkspace, openSessionWorkspace } from './workspace';
+import { createSyntheticProviderExecutor } from './synthetic-provider';
 
 const parentPort = process.parentPort;
 if (!parentPort) {
   throw new Error('Agent worker must run as an Electron utility process.');
 }
+const syntheticProviderE2e = process.argv.includes('--synthetic-provider-e2e');
+const syntheticProviderExecutor = syntheticProviderE2e
+  ? createSyntheticProviderExecutor()
+  : undefined;
 
-parentPort.on('message', (event) => {
-  const parsed = agentDiagnosticRequestSchema.safeParse(event.data);
+async function handleMessage(value: unknown): Promise<void> {
+  const runRequest = agentRunRequestSchema.safeParse(value);
+  if (runRequest.success) {
+    let repository: GovernanceRepository | undefined;
+    try {
+      const workspace = runRequest.data.workspace.create
+        ? await createSessionWorkspace({
+          sessionsRoot: runRequest.data.workspace.sessionsRoot,
+          sessionId: runRequest.data.workspace.sessionId,
+          capabilityBundlePath: runRequest.data.paths.capabilityBundlePath,
+        })
+        : await openSessionWorkspace({
+          sessionsRoot: runRequest.data.workspace.sessionsRoot,
+          sessionId: runRequest.data.workspace.sessionId,
+          capabilityBundlePath: runRequest.data.paths.capabilityBundlePath,
+        });
+      repository = new GovernanceRepository(runRequest.data.governanceDatabasePath);
+      const result = await runAgent({
+        prompt: runRequest.data.prompt,
+        workspace,
+        paths: runRequest.data.paths,
+        provider: {
+          baseUrl: runRequest.data.provider.baseUrl,
+          apiKey: runRequest.data.provider.apiKey,
+          ...(runRequest.data.provider.model === undefined
+            ? {}
+            : { model: runRequest.data.provider.model }),
+        },
+        limits: {
+          maxTurns: runRequest.data.limits.maxTurns,
+          ...(runRequest.data.limits.maxBudgetUsd === undefined
+            ? {}
+            : { maxBudgetUsd: runRequest.data.limits.maxBudgetUsd }),
+        },
+        bashRuntime: runRequest.data.bashRuntime,
+        ...(runRequest.data.resume === undefined ? {} : { resume: runRequest.data.resume }),
+        mcpServers: createGovernanceKernel(repository),
+      }, syntheticProviderExecutor === undefined
+        ? {}
+        : { providerExecutor: syntheticProviderExecutor });
+      const response: AgentWorkerRunResult = {
+        type: 'runtime:run-result',
+        requestId: runRequest.data.requestId,
+        ok: true,
+        result: {
+          workspaceSessionId: runRequest.data.workspace.sessionId,
+          agentSessionId: result.sessionId,
+          messages: result.messages,
+        },
+      };
+      parentPort.postMessage(response);
+    } catch {
+      const response: AgentWorkerRunResult = {
+        type: 'runtime:run-result',
+        requestId: runRequest.data.requestId,
+        ok: false,
+        error: 'Agent execution failed.',
+      };
+      parentPort.postMessage(response);
+    } finally {
+      repository?.close();
+    }
+    return;
+  }
+
+  const parsed = agentDiagnosticRequestSchema.safeParse(value);
   if (!parsed.success) {
     const response: AgentDiagnosticResult = {
       type: 'runtime:diagnostic-result',
@@ -22,15 +95,16 @@ parentPort.on('message', (event) => {
     return;
   }
 
-  void diagnoseAgentRuntime({
-    binaryPath: parsed.data.binaryPath,
-    runtimeManifestPath: parsed.data.runtimeManifestPath,
-    capabilityBundlePath: parsed.data.capabilityBundlePath,
-    sandboxLauncherPath: parsed.data.sandboxLauncherPath,
-    credentialVaultPath: parsed.data.credentialVaultPath,
-    bashProxyPath: parsed.data.bashProxyPath,
-    providerProxyPath: parsed.data.providerProxyPath,
-  }).then((report) => {
+  try {
+    const report = await diagnoseAgentRuntime({
+      binaryPath: parsed.data.binaryPath,
+      runtimeManifestPath: parsed.data.runtimeManifestPath,
+      capabilityBundlePath: parsed.data.capabilityBundlePath,
+      sandboxLauncherPath: parsed.data.sandboxLauncherPath,
+      credentialVaultPath: parsed.data.credentialVaultPath,
+      bashProxyPath: parsed.data.bashProxyPath,
+      providerProxyPath: parsed.data.providerProxyPath,
+    });
     const response: AgentDiagnosticResult = {
       type: 'runtime:diagnostic-result',
       requestId: parsed.data.requestId,
@@ -38,7 +112,7 @@ parentPort.on('message', (event) => {
       report,
     };
     parentPort.postMessage(response);
-  }).catch((reason: unknown) => {
+  } catch (reason) {
     const response: AgentDiagnosticResult = {
       type: 'runtime:diagnostic-result',
       requestId: parsed.data.requestId,
@@ -46,5 +120,10 @@ parentPort.on('message', (event) => {
       error: reason instanceof Error ? reason.message : 'Unknown runtime error.',
     };
     parentPort.postMessage(response);
-  });
+  }
+}
+
+let requestQueue = Promise.resolve();
+parentPort.on('message', (event) => {
+  requestQueue = requestQueue.then(() => handleMessage(event.data));
 });
