@@ -8,6 +8,11 @@ import { FuseV1Options, FuseVersion } from '@electron/fuses';
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
+    extraResource: [
+      'resources/capability-bundle',
+      'resources/agent-runtime-manifest.json',
+      'node_modules/@anthropic-ai/claude-agent-sdk-win32-x64/claude.exe',
+    ],
   },
   rebuildConfig: {},
   makers: [
@@ -26,6 +31,11 @@ const config: ForgeConfig = {
           entry: 'src/preload/preload.ts',
           config: 'vite.preload.config.ts',
           target: 'preload',
+        },
+        {
+          entry: 'src/agent/worker.ts',
+          config: 'vite.agent.config.ts',
+          target: 'main',
         },
       ],
       renderer: [

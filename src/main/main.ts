@@ -9,6 +9,8 @@ import {
   protocol,
 } from 'electron';
 
+import { AgentWorkerHost } from './agent-worker-host';
+
 import {
   APP_INFO_CHANNEL,
   RENDERER_READY_CHANNEL,
@@ -29,7 +31,36 @@ declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 declare const MAIN_WINDOW_VITE_NAME: string;
 
 let mainWindow: BrowserWindow | null = null;
+let agentWorkerHost: AgentWorkerHost | null = null;
 const isPackagedSmokeTest = process.argv.includes('--smoke-test');
+let rendererSmokeReady = false;
+let agentSmokeReady = false;
+
+function completePackagedSmokeTest(): void {
+  if (isPackagedSmokeTest && rendererSmokeReady && agentSmokeReady) {
+    agentWorkerHost?.close();
+    app.exit(0);
+  }
+}
+
+function getAgentRuntimePaths() {
+  const resourcesRoot = app.isPackaged
+    ? process.resourcesPath
+    : path.join(app.getAppPath(), 'resources');
+  return {
+    binaryPath: app.isPackaged
+      ? path.join(resourcesRoot, 'claude.exe')
+      : path.join(
+        app.getAppPath(),
+        'node_modules',
+        '@anthropic-ai',
+        'claude-agent-sdk-win32-x64',
+        'claude.exe',
+      ),
+    runtimeManifestPath: path.join(resourcesRoot, 'agent-runtime-manifest.json'),
+    capabilityBundlePath: path.join(resourcesRoot, 'capability-bundle'),
+  };
+}
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -110,7 +141,8 @@ function registerIpcHandlers(): void {
 
     assertTrustedIpcSender(event.sender.id, senderUrl);
     if (isPackagedSmokeTest) {
-      app.exit(0);
+      rendererSmokeReady = true;
+      completePackagedSmokeTest();
     }
   });
 }
@@ -159,6 +191,18 @@ app.whenReady().then(async () => {
   registerIpcHandlers();
   await createMainWindow();
 
+  agentWorkerHost = new AgentWorkerHost(
+    path.join(__dirname, 'worker.mjs'),
+    isPackagedSmokeTest,
+  );
+  void agentWorkerHost.diagnose(getAgentRuntimePaths()).then(() => {
+    agentSmokeReady = true;
+    completePackagedSmokeTest();
+  }).catch((reason: unknown) => {
+    console.error('Agent runtime diagnostic failed.', reason);
+    if (isPackagedSmokeTest) app.exit(1);
+  });
+
   if (isPackagedSmokeTest) {
     setTimeout(() => {
       console.error('Packaged smoke test timed out before renderer readiness.');
@@ -177,5 +221,6 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
+  agentWorkerHost?.close();
   app.quit();
 });
