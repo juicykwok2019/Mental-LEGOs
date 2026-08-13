@@ -4,7 +4,12 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { diagnoseAgentRuntime, buildAgentOptions, buildMinimalAgentEnvironment } from '../../src/agent/runtime';
+import {
+  diagnoseAgentRuntime,
+  buildAgentOptions,
+  buildMinimalAgentEnvironment,
+  describeSafeAgentFailure,
+} from '../../src/agent/runtime';
 import { evaluateToolUse } from '../../src/agent/policy';
 import { buildSandboxLauncherArguments } from '../../src/agent/sandbox';
 import { createGovernanceKernel, GovernanceRepository } from '../../src/agent/governance';
@@ -61,6 +66,21 @@ const bashRuntimeManifestPath = path.join(
 );
 
 describe('Claude Agent SDK runtime boundary', () => {
+  it('reports only bounded provider diagnostics after real execution failures', () => {
+    expect(describeSafeAgentFailure({
+      agentRequestCount: 1,
+      upstreamRequestCount: 1,
+      lastPath: '/v1/messages',
+      lastUpstreamStatus: 401,
+    }).message).toBe('Provider returned HTTP 401, but Agent execution did not complete.');
+    expect(describeSafeAgentFailure({
+      agentRequestCount: 1,
+      upstreamRequestCount: 1,
+      lastPath: '/v1/messages',
+      lastFailure: 'timeout',
+    }).message).toBe('Provider transport failed (timeout).');
+  });
+
   it('verifies the pinned SDK binary and all ten Skills', async () => {
     const report = await diagnoseAgentRuntime({
       binaryPath,

@@ -61,6 +61,23 @@ export type ProviderExecutor = (
   signal: AbortSignal,
 ) => Promise<ProviderBrokerResponse>;
 
+export type ProviderBrokerFailure =
+  | 'aborted'
+  | 'dns'
+  | 'network'
+  | 'policy-rejected'
+  | 'request-rejected'
+  | 'timeout'
+  | 'unsafe-dns';
+
+export interface ProviderBrokerDiagnostics {
+  agentRequestCount: number;
+  upstreamRequestCount: number;
+  lastPath?: string;
+  lastUpstreamStatus?: number;
+  lastFailure?: ProviderBrokerFailure;
+}
+
 interface ParsedProviderRequest {
   method: 'POST';
   path: string;
@@ -330,6 +347,16 @@ function brokerErrorResponse(status: number): ProviderBrokerResponse {
   };
 }
 
+function classifyProviderFailure(reason: unknown): ProviderBrokerFailure {
+  const error = reason as NodeJS.ErrnoException | undefined;
+  const message = reason instanceof Error ? reason.message : '';
+  if (error?.name === 'AbortError' || error?.code === 'ABORT_ERR') return 'aborted';
+  if (/timed out/iu.test(message)) return 'timeout';
+  if (message === 'Provider hostname resolved to a non-public address.') return 'unsafe-dns';
+  if (error?.code === 'ENOTFOUND' || error?.code === 'EAI_AGAIN') return 'dns';
+  return 'network';
+}
+
 export class ProviderBroker {
   readonly #ipcDirectory: string;
   readonly #workspaceRoot: string;
@@ -339,6 +366,11 @@ export class ProviderBroker {
   readonly #requestToken = randomBytes(32).toString('hex');
   readonly #executor: ProviderExecutor;
   readonly #activeRequests = new Set<AbortController>();
+  #agentRequestCount = 0;
+  #upstreamRequestCount = 0;
+  #lastPath: string | undefined;
+  #lastUpstreamStatus: number | undefined;
+  #lastFailure: ProviderBrokerFailure | undefined;
   #running = false;
   #loop: Promise<void> | undefined;
   #port: number | undefined;
@@ -379,6 +411,18 @@ export class ProviderBroker {
       ANTHROPIC_BASE_URL: `http://127.0.0.1:${this.#port}`,
       ANTHROPIC_API_KEY: this.#requestToken,
       NO_PROXY: '127.0.0.1,localhost',
+    };
+  }
+
+  diagnostics(): ProviderBrokerDiagnostics {
+    return {
+      agentRequestCount: this.#agentRequestCount,
+      upstreamRequestCount: this.#upstreamRequestCount,
+      ...(this.#lastPath === undefined ? {} : { lastPath: this.#lastPath }),
+      ...(this.#lastUpstreamStatus === undefined
+        ? {}
+        : { lastUpstreamStatus: this.#lastUpstreamStatus }),
+      ...(this.#lastFailure === undefined ? {} : { lastFailure: this.#lastFailure }),
     };
   }
 
@@ -463,15 +507,24 @@ export class ProviderBroker {
         throw new Error('Provider request file is unsafe.');
       }
       const parsed = parseProviderRequest(await readFile(processingPath), this.#ipcToken);
+      this.#agentRequestCount += 1;
+      this.#lastPath = parsed.path;
+      this.#lastFailure = undefined;
       let response: ProviderBrokerResponse;
       try {
         buildProviderTarget(this.#providerBaseUrl, parsed.path);
+        this.#upstreamRequestCount += 1;
         response = await this.#executor({
           ...parsed,
           providerBaseUrl: this.#providerBaseUrl,
           providerApiKey: this.#providerApiKey,
         }, controller.signal);
+        this.#lastUpstreamStatus = response.status;
       } catch (reason) {
+        this.#lastFailure = reason instanceof Error
+          && reason.message === 'Provider request path is not permitted.'
+          ? 'policy-rejected'
+          : classifyProviderFailure(reason);
         response = brokerErrorResponse(
           reason instanceof Error && reason.message === 'Provider request path is not permitted.'
             ? 403
@@ -485,6 +538,7 @@ export class ProviderBroker {
         response,
       });
     } catch {
+      this.#lastFailure = 'request-rejected';
       await writeResponse({
         ipcDirectory: this.#ipcDirectory,
         ipcToken: this.#ipcToken,

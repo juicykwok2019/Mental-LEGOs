@@ -7,7 +7,7 @@ import {
   type AgentWorkerRunResult,
 } from './contracts';
 import { createGovernanceKernel, GovernanceRepository } from './governance';
-import { diagnoseAgentRuntime, runAgent } from './runtime';
+import { diagnoseAgentRuntime, runAgent, SafeAgentExecutionError } from './runtime';
 import { createSessionWorkspace, openSessionWorkspace } from './workspace';
 import { createSyntheticProviderExecutor } from './synthetic-provider';
 
@@ -80,9 +80,11 @@ async function handleMessage(value: unknown): Promise<void> {
         type: 'runtime:run-result',
         requestId: runRequest.data.requestId,
         ok: false,
-        error: syntheticProviderE2e && reason instanceof Error
-          ? `Synthetic Agent E2E failed: ${reason.message}`
-          : 'Agent execution failed.',
+        error: reason instanceof SafeAgentExecutionError
+          ? reason.message
+          : syntheticProviderE2e && reason instanceof Error
+            ? `Synthetic Agent E2E failed: ${reason.message}`
+            : 'Agent execution failed.',
       };
       parentPort.postMessage(response);
     } finally {

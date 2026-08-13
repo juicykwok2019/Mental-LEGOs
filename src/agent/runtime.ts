@@ -7,7 +7,11 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { WasmerBashBroker } from '../bash/broker';
 import { resolveVerifiedBashRuntime } from '../bash/runtime-manager';
 import { loadBashRuntimeManifest } from '../bash/runtime-manifest';
-import { ProviderBroker, type ProviderExecutor } from '../provider/broker';
+import {
+  ProviderBroker,
+  type ProviderBrokerDiagnostics,
+  type ProviderExecutor,
+} from '../provider/broker';
 import { skillNames } from './contracts';
 import { governanceToolNames } from './governance';
 import { createCanUseTool, createPolicyHooks } from './policy';
@@ -95,6 +99,41 @@ export interface AgentRunResult {
 
 export interface AgentRunDependencies {
   providerExecutor?: ProviderExecutor;
+}
+
+export class SafeAgentExecutionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SafeAgentExecutionError';
+  }
+}
+
+export function describeSafeAgentFailure(
+  diagnostics: ProviderBrokerDiagnostics,
+): SafeAgentExecutionError {
+  if (diagnostics.agentRequestCount === 0) {
+    return new SafeAgentExecutionError(
+      'Agent stopped before issuing an Anthropic Messages request.',
+    );
+  }
+  if (diagnostics.upstreamRequestCount === 0) {
+    return new SafeAgentExecutionError(
+      `Provider request was blocked locally (${diagnostics.lastFailure ?? 'unknown'}).`,
+    );
+  }
+  if (diagnostics.lastFailure) {
+    return new SafeAgentExecutionError(
+      `Provider transport failed (${diagnostics.lastFailure}).`,
+    );
+  }
+  if (diagnostics.lastUpstreamStatus !== undefined) {
+    return new SafeAgentExecutionError(
+      `Provider returned HTTP ${diagnostics.lastUpstreamStatus}, but Agent execution did not complete.`,
+    );
+  }
+  return new SafeAgentExecutionError(
+    'Provider request started, but no safe completion diagnostic was available.',
+  );
 }
 
 const inheritedEnvironmentKeys = [
@@ -443,7 +482,7 @@ export async function runAgent(
   const cleanupFailure = [...cleanup, ...sandboxCleanup]
     .find((result) => result.status === 'rejected');
   if (cleanupFailure?.status === 'rejected') throw cleanupFailure.reason;
-  if (executionError) throw executionError;
+  if (executionError) throw describeSafeAgentFailure(providerBroker.diagnostics());
 
   if (!init || !sessionId) {
     throw new Error('Claude Agent SDK did not emit a valid init message.');

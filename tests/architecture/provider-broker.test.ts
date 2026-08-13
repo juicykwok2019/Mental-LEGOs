@@ -127,6 +127,10 @@ describe.skipIf(process.platform !== 'win32')('provider credential boundary', ()
       executor,
     });
     await broker.start();
+    expect(broker.diagnostics()).toEqual({
+      agentRequestCount: 0,
+      upstreamRequestCount: 0,
+    });
     const child = spawn(proxyPath, [], {
       env: {
         ...broker.proxyEnvironment(),
@@ -159,6 +163,12 @@ describe.skipIf(process.platform !== 'win32')('provider credential boundary', ()
         providerApiKey: actualCredential,
       });
       expect(observed[0]?.headers).not.toHaveProperty('x-api-key');
+      expect(broker.diagnostics()).toEqual({
+        agentRequestCount: 1,
+        upstreamRequestCount: 1,
+        lastPath: '/v1/messages',
+        lastUpstreamStatus: 200,
+      });
 
       const beta = await invokeProxy({
         port,
@@ -178,6 +188,13 @@ describe.skipIf(process.platform !== 'win32')('provider credential boundary', ()
       expect(denied.status).toBe(403);
       expect(denied.body).toContain('not permitted');
       expect(observed).toHaveLength(2);
+      expect(broker.diagnostics()).toEqual({
+        agentRequestCount: 3,
+        upstreamRequestCount: 2,
+        lastPath: '/v1/complete',
+        lastUpstreamStatus: 200,
+        lastFailure: 'policy-rejected',
+      });
 
       const unauthenticated = await invokeProxy({
         port,
