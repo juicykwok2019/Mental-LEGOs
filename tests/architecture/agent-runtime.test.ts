@@ -77,8 +77,11 @@ describe('Claude Agent SDK runtime boundary', () => {
       agentRequestCount: 1,
       upstreamRequestCount: 1,
       lastPath: '/v1/messages',
+      lastRequestBytes: 2400,
       lastFailure: 'timeout',
-    }).message).toBe('Provider transport failed (timeout).');
+    }).message).toBe(
+      'Provider transport failed (timeout). Upstream requests: 1. Path: /v1/messages. Request bytes: 2400.',
+    );
   });
 
   it('verifies the pinned SDK binary and all ten Skills', async () => {

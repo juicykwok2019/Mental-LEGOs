@@ -63,17 +63,24 @@ export type ProviderExecutor = (
 
 export type ProviderBrokerFailure =
   | 'aborted'
+  | 'certificate'
+  | 'connection-refused'
+  | 'connection-reset'
   | 'dns'
+  | 'internal-network-client'
   | 'network'
+  | 'network-unreachable'
   | 'policy-rejected'
   | 'request-rejected'
   | 'timeout'
+  | 'tls'
   | 'unsafe-dns';
 
 export interface ProviderBrokerDiagnostics {
   agentRequestCount: number;
   upstreamRequestCount: number;
   lastPath?: string;
+  lastRequestBytes?: number;
   lastUpstreamStatus?: number;
   lastFailure?: ProviderBrokerFailure;
 }
@@ -348,12 +355,29 @@ function brokerErrorResponse(status: number): ProviderBrokerResponse {
 }
 
 function classifyProviderFailure(reason: unknown): ProviderBrokerFailure {
-  const error = reason as NodeJS.ErrnoException | undefined;
+  const error = reason as (NodeJS.ErrnoException & { cause?: NodeJS.ErrnoException }) | undefined;
   const message = reason instanceof Error ? reason.message : '';
-  if (error?.name === 'AbortError' || error?.code === 'ABORT_ERR') return 'aborted';
-  if (/timed out/iu.test(message)) return 'timeout';
+  const code = error?.code ?? error?.cause?.code;
+  if (error?.name === 'AbortError' || code === 'ABORT_ERR') return 'aborted';
+  if (code === 'ETIMEDOUT' || /timed out/iu.test(message)) return 'timeout';
   if (message === 'Provider hostname resolved to a non-public address.') return 'unsafe-dns';
-  if (error?.code === 'ENOTFOUND' || error?.code === 'EAI_AGAIN') return 'dns';
+  if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') return 'dns';
+  if (code === 'ECONNREFUSED') return 'connection-refused';
+  if (code === 'ECONNRESET' || code === 'EPIPE') return 'connection-reset';
+  if (code === 'ENETUNREACH' || code === 'EHOSTUNREACH') return 'network-unreachable';
+  if (
+    code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE'
+    || code === 'DEPTH_ZERO_SELF_SIGNED_CERT'
+    || code === 'SELF_SIGNED_CERT_IN_CHAIN'
+    || code === 'CERT_HAS_EXPIRED'
+    || code === 'ERR_TLS_CERT_ALTNAME_INVALID'
+  ) return 'certificate';
+  if (code?.startsWith('ERR_SSL_') || code?.startsWith('ERR_TLS_') || code === 'EPROTO') {
+    return 'tls';
+  }
+  if (code === 'ERR_INVALID_ARG_TYPE' || code === 'ERR_INVALID_ARG_VALUE') {
+    return 'internal-network-client';
+  }
   return 'network';
 }
 
@@ -369,6 +393,7 @@ export class ProviderBroker {
   #agentRequestCount = 0;
   #upstreamRequestCount = 0;
   #lastPath: string | undefined;
+  #lastRequestBytes: number | undefined;
   #lastUpstreamStatus: number | undefined;
   #lastFailure: ProviderBrokerFailure | undefined;
   #running = false;
@@ -419,6 +444,9 @@ export class ProviderBroker {
       agentRequestCount: this.#agentRequestCount,
       upstreamRequestCount: this.#upstreamRequestCount,
       ...(this.#lastPath === undefined ? {} : { lastPath: this.#lastPath }),
+      ...(this.#lastRequestBytes === undefined
+        ? {}
+        : { lastRequestBytes: this.#lastRequestBytes }),
       ...(this.#lastUpstreamStatus === undefined
         ? {}
         : { lastUpstreamStatus: this.#lastUpstreamStatus }),
@@ -509,6 +537,7 @@ export class ProviderBroker {
       const parsed = parseProviderRequest(await readFile(processingPath), this.#ipcToken);
       this.#agentRequestCount += 1;
       this.#lastPath = parsed.path;
+      this.#lastRequestBytes = parsed.body.length;
       this.#lastFailure = undefined;
       let response: ProviderBrokerResponse;
       try {

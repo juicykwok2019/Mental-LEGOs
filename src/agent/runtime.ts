@@ -123,7 +123,14 @@ export function describeSafeAgentFailure(
   }
   if (diagnostics.lastFailure) {
     return new SafeAgentExecutionError(
-      `Provider transport failed (${diagnostics.lastFailure}).`,
+      [
+        `Provider transport failed (${diagnostics.lastFailure}).`,
+        `Upstream requests: ${diagnostics.upstreamRequestCount}.`,
+        diagnostics.lastPath ? `Path: ${diagnostics.lastPath}.` : '',
+        diagnostics.lastRequestBytes === undefined
+          ? ''
+          : `Request bytes: ${diagnostics.lastRequestBytes}.`,
+      ].filter(Boolean).join(' '),
     );
   }
   if (diagnostics.lastUpstreamStatus !== undefined) {

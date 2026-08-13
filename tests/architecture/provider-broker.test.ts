@@ -167,6 +167,7 @@ describe.skipIf(process.platform !== 'win32')('provider credential boundary', ()
         agentRequestCount: 1,
         upstreamRequestCount: 1,
         lastPath: '/v1/messages',
+        lastRequestBytes: 21,
         lastUpstreamStatus: 200,
       });
 
@@ -192,6 +193,7 @@ describe.skipIf(process.platform !== 'win32')('provider credential boundary', ()
         agentRequestCount: 3,
         upstreamRequestCount: 2,
         lastPath: '/v1/complete',
+        lastRequestBytes: 2,
         lastUpstreamStatus: 200,
         lastFailure: 'policy-rejected',
       });
