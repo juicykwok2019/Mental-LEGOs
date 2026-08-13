@@ -13,6 +13,7 @@ const config: ForgeConfig = {
       'resources/agent-runtime-manifest.json',
       'node_modules/@anthropic-ai/claude-agent-sdk-win32-x64/claude.exe',
       'resources/windows-sandbox/MentalLegos.SandboxLauncher.exe',
+      'resources/windows-sandbox/MentalLegos.CredentialVault.exe',
     ],
   },
   rebuildConfig: {},

@@ -66,6 +66,13 @@ function getAgentRuntimePaths() {
         'windows-sandbox',
         'MentalLegos.SandboxLauncher.exe',
       ),
+    credentialVaultPath: app.isPackaged
+      ? path.join(resourcesRoot, 'MentalLegos.CredentialVault.exe')
+      : path.join(
+        resourcesRoot,
+        'windows-sandbox',
+        'MentalLegos.CredentialVault.exe',
+      ),
   };
 }
 

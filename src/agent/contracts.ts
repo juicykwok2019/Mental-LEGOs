@@ -20,6 +20,7 @@ export const agentDiagnosticRequestSchema = z.object({
   runtimeManifestPath: z.string().min(1),
   capabilityBundlePath: z.string().min(1),
   sandboxLauncherPath: z.string().min(1),
+  credentialVaultPath: z.string().min(1),
 });
 
 export type AgentDiagnosticRequest = z.infer<typeof agentDiagnosticRequestSchema>;
@@ -34,6 +35,7 @@ export const agentDiagnosticResultSchema = z.object({
     binarySha256: z.string(),
     bundleSha256: z.string(),
     sandboxLauncherSha256: z.string(),
+    credentialVaultSha256: z.string(),
     skills: z.array(z.enum(skillNames)),
     tools: z.array(z.string()),
     subagentsEnabled: z.literal(false),

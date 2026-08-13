@@ -8,6 +8,7 @@ import { createWindowsSandboxSpawner } from './sandbox';
 import {
   verifyAgentBinary,
   verifyCapabilityBundle,
+  verifyCredentialVault,
   verifySandboxLauncher,
 } from './integrity';
 import type { SessionWorkspace } from './workspace';
@@ -41,6 +42,7 @@ export interface AgentRuntimePaths {
   runtimeManifestPath: string;
   capabilityBundlePath: string;
   sandboxLauncherPath: string;
+  credentialVaultPath: string;
 }
 
 export interface AgentRuntimeLimits {
@@ -152,10 +154,11 @@ export function buildAgentOptions(request: AgentRunRequest): Options {
 }
 
 export async function diagnoseAgentRuntime(paths: AgentRuntimePaths) {
-  const [runtime, bundle, sandbox] = await Promise.all([
+  const [runtime, bundle, sandbox, credentialVault] = await Promise.all([
     verifyAgentBinary(paths.binaryPath, paths.runtimeManifestPath),
     verifyCapabilityBundle(paths.capabilityBundlePath),
     verifySandboxLauncher(paths.sandboxLauncherPath, paths.runtimeManifestPath),
+    verifyCredentialVault(paths.credentialVaultPath, paths.runtimeManifestPath),
   ]);
 
   return {
@@ -164,6 +167,7 @@ export async function diagnoseAgentRuntime(paths: AgentRuntimePaths) {
     binarySha256: runtime.sha256,
     bundleSha256: bundle.bundleSha256,
     sandboxLauncherSha256: sandbox.sha256,
+    credentialVaultSha256: credentialVault.sha256,
     skills: bundle.skills,
     tools: [...nativeAgentTools, ...governanceToolNames],
     subagentsEnabled: false as const,
@@ -193,6 +197,10 @@ export async function runAgent(request: AgentRunRequest): Promise<AgentRunResult
     verifySessionCapabilityIntegrity(request.workspace),
     verifySandboxLauncher(
       request.paths.sandboxLauncherPath,
+      request.paths.runtimeManifestPath,
+    ),
+    verifyCredentialVault(
+      request.paths.credentialVaultPath,
       request.paths.runtimeManifestPath,
     ),
   ]);

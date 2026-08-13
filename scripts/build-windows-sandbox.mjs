@@ -33,6 +33,7 @@ mkdirSync(outputRoot, { recursive: true });
 for (const target of [
   ['MentalLegos.SandboxLauncher.cs', 'MentalLegos.SandboxLauncher.exe'],
   ['MentalLegos.SandboxProbe.cs', 'MentalLegos.SandboxProbe.exe'],
+  ['MentalLegos.CredentialVault.cs', 'MentalLegos.CredentialVault.exe'],
 ]) {
   const result = spawnSync(compiler, [
     '/nologo',
