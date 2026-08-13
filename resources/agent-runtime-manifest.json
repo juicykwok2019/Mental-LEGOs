@@ -1,10 +1,15 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "agent_sdk_version": "0.3.229",
   "claude_code_version": "2.1.229",
   "binary": {
     "file": "claude.exe",
     "bytes": 307186848,
     "sha256": "5736c66be98a372d5e5e3b3598ead89ab5a9d1aca60d347fe7b561801c58376c"
+  },
+  "sandbox_launcher": {
+    "file": "MentalLegos.SandboxLauncher.exe",
+    "bytes": 14336,
+    "sha256": "e4db0006174d252565320d086bda1f6b79d4d9119e53f43282ffe32fbdd103c8"
   }
 }

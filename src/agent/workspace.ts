@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -12,6 +13,7 @@ export interface SessionWorkspace {
   output: string;
   temporary: string;
   config: string;
+  sandboxProfile: string;
   initialBundleSha256: string;
 }
 
@@ -40,6 +42,10 @@ export async function createSessionWorkspace(options: {
   const output = resolveWithin(root, 'output');
   const temporary = resolveWithin(root, 'tmp');
   const config = resolveWithin(root, '.agent-config');
+  const sandboxProfile = `MentalLEGOs.Agent.${createHash('sha256')
+    .update(options.sessionId, 'utf8')
+    .digest('hex')
+    .slice(0, 32)}`;
 
   await mkdir(root, { recursive: true });
   await Promise.all([
@@ -74,6 +80,7 @@ export async function createSessionWorkspace(options: {
       schema_version: 1,
       session_id: options.sessionId,
       capability_bundle_sha256: verifiedBundle.bundleSha256,
+      sandbox_profile: sandboxProfile,
       writable_directories: ['scratch', 'output', 'tmp'],
     }, null, 2)}\n`,
     { encoding: 'utf8', flag: 'wx' },
@@ -86,6 +93,7 @@ export async function createSessionWorkspace(options: {
     output,
     temporary,
     config,
+    sandboxProfile,
     initialBundleSha256: verifiedBundle.bundleSha256,
   };
 }

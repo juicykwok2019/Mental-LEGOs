@@ -17,6 +17,12 @@ import {
 const repositoryRoot = path.resolve('.');
 const capabilityBundlePath = path.join(repositoryRoot, 'resources', 'capability-bundle');
 const runtimeManifestPath = path.join(repositoryRoot, 'resources', 'agent-runtime-manifest.json');
+const sandboxLauncherPath = path.join(
+  repositoryRoot,
+  'resources',
+  'windows-sandbox',
+  'MentalLegos.SandboxLauncher.exe',
+);
 const binaryPath = path.join(
   repositoryRoot,
   'node_modules',
@@ -31,6 +37,7 @@ describe('Claude Agent SDK runtime boundary', () => {
       binaryPath,
       runtimeManifestPath,
       capabilityBundlePath,
+      sandboxLauncherPath,
     });
 
     expect(report).toMatchObject({
@@ -96,7 +103,12 @@ describe('Claude Agent SDK runtime boundary', () => {
       const options = buildAgentOptions({
         prompt: 'Synthetic runtime option test.',
         workspace,
-        paths: { binaryPath, runtimeManifestPath, capabilityBundlePath },
+        paths: {
+          binaryPath,
+          runtimeManifestPath,
+          capabilityBundlePath,
+          sandboxLauncherPath,
+        },
         provider: {
           baseUrl: 'https://provider.invalid/anthropic',
           apiKey: 'synthetic-test-value',
@@ -115,6 +127,7 @@ describe('Claude Agent SDK runtime boundary', () => {
         'Agent', 'Task', 'WebSearch', 'WebFetch',
       ]));
       expect(options.allowedTools).toEqual([]);
+      expect(options.spawnClaudeCodeProcess).toBeTypeOf('function');
     } finally {
       governanceRepository.close();
       await purgeSessionWorkspace(sessionsRoot, sessionId);

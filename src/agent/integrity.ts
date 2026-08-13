@@ -7,11 +7,16 @@ import { z } from 'zod';
 import { skillNames } from './contracts';
 
 const runtimeManifestSchema = z.object({
-  schema_version: z.literal(1),
+  schema_version: z.literal(2),
   agent_sdk_version: z.string().min(1),
   claude_code_version: z.string().min(1),
   binary: z.object({
     file: z.literal('claude.exe'),
+    bytes: z.number().int().positive(),
+    sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+  }),
+  sandbox_launcher: z.object({
+    file: z.literal('MentalLegos.SandboxLauncher.exe'),
     bytes: z.number().int().positive(),
     sha256: z.string().regex(/^[a-f0-9]{64}$/u),
   }),
@@ -55,6 +60,22 @@ export async function verifyAgentBinary(
     claudeCodeVersion: manifest.claude_code_version,
     sha256: actual.sha256,
   };
+}
+
+export async function verifySandboxLauncher(
+  launcherPath: string,
+  manifestPath: string,
+): Promise<{ sha256: string }> {
+  const manifest = runtimeManifestSchema.parse(
+    JSON.parse(await readFile(manifestPath, 'utf8')),
+  );
+  const actual = await sha256File(launcherPath);
+
+  if (actual.bytes !== manifest.sandbox_launcher.bytes
+    || actual.sha256 !== manifest.sandbox_launcher.sha256) {
+    throw new Error('Windows AppContainer launcher integrity verification failed.');
+  }
+  return { sha256: actual.sha256 };
 }
 
 export async function verifyCapabilityBundle(

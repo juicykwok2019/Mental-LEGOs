@@ -218,7 +218,22 @@ internal static class SandboxLauncher
             }
             if (String.Equals(args[0], "delete-profile", StringComparison.Ordinal))
             {
-                if (args.Length != 2) throw new ArgumentException("delete-profile requires a profile name.");
+                if (args.Length < 2) throw new ArgumentException("delete-profile requires a profile name.");
+                IntPtr sidPointer = IntPtr.Zero;
+                try
+                {
+                    int deriveResult = DeriveAppContainerSidFromAppContainerName(args[1], out sidPointer);
+                    if (deriveResult < 0) Marshal.ThrowExceptionForHR(deriveResult);
+                    SecurityIdentifier sid = new SecurityIdentifier(sidPointer);
+                    for (int index = 2; index < args.Length; index++)
+                    {
+                        RemoveSandboxAccess(Path.GetFullPath(args[index]), sid);
+                    }
+                }
+                finally
+                {
+                    if (sidPointer != IntPtr.Zero) FreeSid(sidPointer);
+                }
                 int result = DeleteAppContainerProfile(args[1]);
                 if (result < 0) Marshal.ThrowExceptionForHR(result);
                 return 0;
@@ -318,6 +333,25 @@ internal static class SandboxLauncher
         catch (Exception exception)
         {
             throw new InvalidOperationException("Could not grant sandbox file access to " + path, exception);
+        }
+    }
+
+    private static void RemoveSandboxAccess(string path, SecurityIdentifier sid)
+    {
+        if (Directory.Exists(path))
+        {
+            DirectoryInfo directory = new DirectoryInfo(path);
+            DirectorySecurity security = directory.GetAccessControl(AccessControlSections.Access);
+            security.PurgeAccessRules(sid);
+            directory.SetAccessControl(security);
+            return;
+        }
+        if (File.Exists(path))
+        {
+            FileInfo file = new FileInfo(path);
+            FileSecurity security = file.GetAccessControl(AccessControlSections.Access);
+            security.PurgeAccessRules(sid);
+            file.SetAccessControl(security);
         }
     }
 

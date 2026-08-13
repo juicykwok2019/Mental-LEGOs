@@ -114,6 +114,6 @@ try {
   console.log('Windows AppContainer isolation probe passed.');
 } finally {
   server.close();
-  await run(launcher, ['delete-profile', profile]);
+  await run(launcher, ['delete-profile', profile, path.dirname(probe), probe]);
   await rm(temporaryRoot, { recursive: true, force: true });
 }

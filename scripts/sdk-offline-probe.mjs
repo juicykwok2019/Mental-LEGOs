@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process';
 import { cp, mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
@@ -7,6 +8,13 @@ import { createSdkMcpServer, query, tool } from '@anthropic-ai/claude-agent-sdk'
 const repositoryRoot = process.cwd();
 const probeRoot = path.join(repositoryRoot, '.private', 'sdk-offline-probe');
 const bundleRoot = path.join(repositoryRoot, 'resources', 'capability-bundle');
+const sandboxLauncher = path.join(
+  repositoryRoot,
+  'resources',
+  'windows-sandbox',
+  'MentalLegos.SandboxLauncher.exe',
+);
+const sandboxProfile = `MentalLEGOs.SDKProbe.${process.pid}.${Date.now()}`;
 const expectedSkills = [
   'deep-research',
   'first-attempt-coach',
@@ -37,7 +45,13 @@ const mcpServers = Object.fromEntries(governanceServerNames.map((name) => [
 ]));
 
 await rm(probeRoot, { recursive: true, force: true });
-await mkdir(path.join(probeRoot, '.agent-config'), { recursive: true });
+await Promise.all([
+  mkdir(path.join(probeRoot, '.agent-config'), { recursive: true }),
+  mkdir(path.join(probeRoot, 'input'), { recursive: true }),
+  mkdir(path.join(probeRoot, 'scratch'), { recursive: true }),
+  mkdir(path.join(probeRoot, 'output'), { recursive: true }),
+  mkdir(path.join(probeRoot, 'tmp'), { recursive: true }),
+]);
 await cp(path.join(bundleRoot, '.claude'), path.join(probeRoot, '.claude'), {
   recursive: true,
 });
@@ -70,6 +84,25 @@ const stream = query({
       'claude-agent-sdk-win32-x64',
       'claude.exe',
     ),
+    spawnClaudeCodeProcess: (options) => spawn(sandboxLauncher, [
+      'run',
+      '--profile', sandboxProfile,
+      '--workspace', probeRoot,
+      '--target', options.command,
+      '--writable', path.join(probeRoot, '.agent-config'),
+      '--writable', path.join(probeRoot, 'scratch'),
+      '--writable', path.join(probeRoot, 'output'),
+      '--writable', path.join(probeRoot, 'tmp'),
+      '--',
+      ...options.args,
+    ], {
+      cwd: probeRoot,
+      env: options.env,
+      shell: false,
+      signal: options.signal,
+      stdio: ['pipe', 'pipe', 'inherit'],
+      windowsHide: true,
+    }),
     settingSources: ['project'],
     strictMcpConfig: true,
     systemPrompt: { type: 'preset', preset: 'claude_code' },
@@ -88,6 +121,7 @@ const stream = query({
 });
 
 let foundInit = false;
+let cleanupError;
 try {
   for await (const message of stream) {
     if (message.type !== 'system' || message.subtype !== 'init') continue;
@@ -126,6 +160,39 @@ try {
 } finally {
   stream.close();
   await new Promise((resolve) => setTimeout(resolve, 500));
+  try {
+    const deleteResult = await new Promise((resolve, reject) => {
+      const child = spawn(sandboxLauncher, [
+        'delete-profile',
+        sandboxProfile,
+        path.dirname(path.join(
+          repositoryRoot,
+          'node_modules',
+          '@anthropic-ai',
+          'claude-agent-sdk-win32-x64',
+          'claude.exe',
+        )),
+        path.join(
+          repositoryRoot,
+          'node_modules',
+          '@anthropic-ai',
+          'claude-agent-sdk-win32-x64',
+          'claude.exe',
+        ),
+      ], { windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] });
+      let stderr = '';
+      child.stderr.setEncoding('utf8').on('data', (chunk) => { stderr += chunk; });
+      child.once('error', reject);
+      child.once('exit', (code) => resolve({ code, stderr }));
+    });
+    if (deleteResult.code !== 0) {
+      cleanupError = new Error(
+        deleteResult.stderr || 'Could not delete the SDK probe AppContainer profile.',
+      );
+    }
+  } catch (reason) {
+    cleanupError = reason instanceof Error ? reason : new Error('Sandbox cleanup failed.');
+  }
   await rm(probeRoot, {
     recursive: true,
     force: true,
@@ -134,6 +201,7 @@ try {
   });
 }
 
+if (cleanupError) throw cleanupError;
 if (!foundInit) {
   throw new Error('Claude Agent SDK did not emit an init message during the offline probe.');
 }

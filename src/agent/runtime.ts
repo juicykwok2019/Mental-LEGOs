@@ -4,7 +4,12 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { skillNames } from './contracts';
 import { governanceToolNames } from './governance';
 import { createCanUseTool, createPolicyHooks } from './policy';
-import { verifyAgentBinary, verifyCapabilityBundle } from './integrity';
+import { createWindowsSandboxSpawner } from './sandbox';
+import {
+  verifyAgentBinary,
+  verifyCapabilityBundle,
+  verifySandboxLauncher,
+} from './integrity';
 import type { SessionWorkspace } from './workspace';
 import { verifySessionCapabilityIntegrity } from './workspace';
 
@@ -35,6 +40,7 @@ export interface AgentRuntimePaths {
   binaryPath: string;
   runtimeManifestPath: string;
   capabilityBundlePath: string;
+  sandboxLauncherPath: string;
 }
 
 export interface AgentRuntimeLimits {
@@ -106,6 +112,10 @@ export function buildAgentOptions(request: AgentRunRequest): Options {
   return {
     cwd: request.workspace.root,
     pathToClaudeCodeExecutable: request.paths.binaryPath,
+    spawnClaudeCodeProcess: createWindowsSandboxSpawner({
+      launcherPath: request.paths.sandboxLauncherPath,
+      workspace: request.workspace,
+    }),
     settingSources: ['project'],
     strictMcpConfig: true,
     systemPrompt: {
@@ -142,9 +152,10 @@ export function buildAgentOptions(request: AgentRunRequest): Options {
 }
 
 export async function diagnoseAgentRuntime(paths: AgentRuntimePaths) {
-  const [runtime, bundle] = await Promise.all([
+  const [runtime, bundle, sandbox] = await Promise.all([
     verifyAgentBinary(paths.binaryPath, paths.runtimeManifestPath),
     verifyCapabilityBundle(paths.capabilityBundlePath),
+    verifySandboxLauncher(paths.sandboxLauncherPath, paths.runtimeManifestPath),
   ]);
 
   return {
@@ -152,6 +163,7 @@ export async function diagnoseAgentRuntime(paths: AgentRuntimePaths) {
     claudeCodeVersion: runtime.claudeCodeVersion,
     binarySha256: runtime.sha256,
     bundleSha256: bundle.bundleSha256,
+    sandboxLauncherSha256: sandbox.sha256,
     skills: bundle.skills,
     tools: [...nativeAgentTools, ...governanceToolNames],
     subagentsEnabled: false as const,
@@ -179,6 +191,10 @@ export async function runAgent(request: AgentRunRequest): Promise<AgentRunResult
   await Promise.all([
     verifyAgentBinary(request.paths.binaryPath, request.paths.runtimeManifestPath),
     verifySessionCapabilityIntegrity(request.workspace),
+    verifySandboxLauncher(
+      request.paths.sandboxLauncherPath,
+      request.paths.runtimeManifestPath,
+    ),
   ]);
 
   const messages: SDKMessage[] = [];

@@ -59,6 +59,13 @@ function getAgentRuntimePaths() {
       ),
     runtimeManifestPath: path.join(resourcesRoot, 'agent-runtime-manifest.json'),
     capabilityBundlePath: path.join(resourcesRoot, 'capability-bundle'),
+    sandboxLauncherPath: app.isPackaged
+      ? path.join(resourcesRoot, 'MentalLegos.SandboxLauncher.exe')
+      : path.join(
+        resourcesRoot,
+        'windows-sandbox',
+        'MentalLegos.SandboxLauncher.exe',
+      ),
   };
 }
 
