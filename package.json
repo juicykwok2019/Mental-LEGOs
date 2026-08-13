@@ -6,8 +6,11 @@
   "main": ".vite/build/main.js",
   "private": true,
   "scripts": {
+    "prestart": "npm run build:sandbox:windows",
     "start": "electron-forge start",
+    "prepackage": "npm run build:sandbox:windows",
     "package": "electron-forge package",
+    "premake": "npm run build:sandbox:windows",
     "make": "electron-forge make",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
@@ -19,6 +22,8 @@
     "bundle:skills:write": "node scripts/skill-bundle-manifest.mjs --write",
     "guard:skills": "node scripts/skill-bundle-manifest.mjs",
     "probe:sdk:offline": "node scripts/sdk-offline-probe.mjs",
+    "build:sandbox:windows": "node scripts/build-windows-sandbox.mjs",
+    "probe:sandbox:windows": "npm run build:sandbox:windows && node scripts/windows-sandbox-probe.mjs",
     "check": "npm run typecheck && npm run lint && npm run test && npm run guard:architecture && npm run guard:skills && npm run guard:privacy"
   },
   "dependencies": {
