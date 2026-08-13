@@ -13,12 +13,21 @@ import {
 
 import { AgentWorkerHost } from './agent-worker-host';
 import { AsrWorkerHost } from './asr-worker-host';
+import { CredentialVault } from './credential-vault';
+import { ProviderConfigurationService } from './provider-configuration';
+import { ProviderSettingsStore } from './provider-settings-store';
 
 import {
   APP_INFO_CHANNEL,
+  PROVIDER_SETUP_CLEAR_CHANNEL,
+  PROVIDER_SETUP_GET_CHANNEL,
+  PROVIDER_SETUP_SAVE_CHANNEL,
   RENDERER_READY_CHANNEL,
   appInfoSchema,
+  providerSetupInputSchema,
+  providerSetupStateSchema,
 } from '../shared/contracts';
+import { providerRegistry } from '../shared/providers';
 import {
   isPermittedRendererUrl,
   secureWebPreferences,
@@ -36,6 +45,8 @@ declare const MAIN_WINDOW_VITE_NAME: string;
 let mainWindow: BrowserWindow | null = null;
 let agentWorkerHost: AgentWorkerHost | null = null;
 let asrWorkerHost: AsrWorkerHost | null = null;
+let credentialVault: CredentialVault | null = null;
+let providerConfiguration: ProviderConfigurationService | null = null;
 const isPackagedSmokeTest = process.argv.includes('--smoke-test');
 const isAgentE2eSmokeTest = process.argv.includes('--agent-e2e-smoke');
 const agentE2eBashRuntimeDirectory = process.argv
@@ -287,6 +298,40 @@ function registerIpcHandlers(): void {
       completePackagedSmokeTest();
     }
   });
+
+  ipcMain.handle(PROVIDER_SETUP_GET_CHANNEL, (event) => {
+    const senderUrl = event.senderFrame?.url;
+    if (!senderUrl) throw new Error('IPC request rejected: missing sender frame.');
+    assertTrustedIpcSender(event.sender.id, senderUrl);
+    if (!providerConfiguration) throw new Error('Provider configuration is unavailable.');
+    return providerSetupStateSchema.parse({
+      providers: providerRegistry,
+      configured: providerConfiguration.getSummary(),
+    });
+  });
+
+  ipcMain.handle(PROVIDER_SETUP_SAVE_CHANNEL, async (event, value: unknown) => {
+    const senderUrl = event.senderFrame?.url;
+    if (!senderUrl) throw new Error('IPC request rejected: missing sender frame.');
+    assertTrustedIpcSender(event.sender.id, senderUrl);
+    if (!providerConfiguration) throw new Error('Provider configuration is unavailable.');
+    const configured = await providerConfiguration.save(
+      providerSetupInputSchema.parse(value),
+    );
+    return providerSetupStateSchema.parse({ providers: providerRegistry, configured });
+  });
+
+  ipcMain.handle(PROVIDER_SETUP_CLEAR_CHANNEL, async (event) => {
+    const senderUrl = event.senderFrame?.url;
+    if (!senderUrl) throw new Error('IPC request rejected: missing sender frame.');
+    assertTrustedIpcSender(event.sender.id, senderUrl);
+    if (!providerConfiguration) throw new Error('Provider configuration is unavailable.');
+    await providerConfiguration.clear();
+    return providerSetupStateSchema.parse({
+      providers: providerRegistry,
+      configured: null,
+    });
+  });
 }
 
 async function createMainWindow(): Promise<void> {
@@ -330,6 +375,13 @@ async function createMainWindow(): Promise<void> {
 
 app.whenReady().then(async () => {
   registerPackagedRendererProtocol();
+  const runtimePaths = getAgentRuntimePaths();
+  credentialVault = new CredentialVault(runtimePaths.credentialVaultPath);
+  providerConfiguration = new ProviderConfigurationService(
+    credentialVault,
+    new ProviderSettingsStore(path.join(app.getPath('userData'), 'settings')),
+  );
+  await providerConfiguration.initialize();
   registerIpcHandlers();
   await createMainWindow();
 
@@ -338,7 +390,7 @@ app.whenReady().then(async () => {
     isPackagedSmokeTest,
     isAgentE2eSmokeTest,
   );
-  void agentWorkerHost.diagnose(getAgentRuntimePaths()).then(async () => {
+  void agentWorkerHost.diagnose(runtimePaths).then(async () => {
     if (isAgentE2eSmokeTest) await runPackagedAgentE2eSmoke();
     agentSmokeReady = true;
     completePackagedSmokeTest();
@@ -386,6 +438,7 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
+  credentialVault?.clearSessionSecrets();
   agentWorkerHost?.close();
   asrWorkerHost?.close();
   app.quit();
