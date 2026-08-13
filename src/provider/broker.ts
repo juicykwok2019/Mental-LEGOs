@@ -21,7 +21,9 @@ const maximumResponseBytes = 32 * 1024 * 1024;
 const maximumHeaders = 32;
 const permittedPaths = new Set([
   '/v1/messages',
+  '/v1/messages?beta=true',
   '/v1/messages/count_tokens',
+  '/v1/messages/count_tokens?beta=true',
 ]);
 const forwardedRequestHeaders = new Set([
   'accept',
@@ -192,14 +194,18 @@ function buildProviderTarget(baseUrl: string, requestPath: string): URL {
     throw new Error('Provider Base URL is unsafe.');
   }
   const requested = new URL(requestPath, 'https://provider-request.invalid');
-  if (requested.origin !== 'https://provider-request.invalid' || requested.search || requested.hash) {
+  if (requested.origin !== 'https://provider-request.invalid' || requested.hash) {
     throw new Error('Provider request URL is unsafe.');
   }
-  if (requestPath !== requested.pathname || !permittedPaths.has(requested.pathname)) {
+  if (
+    requestPath !== `${requested.pathname}${requested.search}`
+    || !permittedPaths.has(requestPath)
+  ) {
     throw new Error('Provider request path is not permitted.');
   }
   const basePath = base.pathname.replace(/\/+$/u, '');
   base.pathname = `${basePath}${requested.pathname}`;
+  base.search = requested.search;
   return base;
 }
 
@@ -255,6 +261,7 @@ function encodeHeaderLine(name: string, value: string): string {
 
 async function writeResponse(options: {
   ipcDirectory: string;
+  ipcToken: string;
   requestId: string;
   response: ProviderBrokerResponse;
 }): Promise<void> {
@@ -276,6 +283,7 @@ async function writeResponse(options: {
   try {
     await writeFile(headTemporary, [
       'MLPR1',
+      options.ipcToken,
       String(options.response.status),
       String(headers.length),
       ...headers.map(([name, value]) => encodeHeaderLine(name, value)),
@@ -470,10 +478,16 @@ export class ProviderBroker {
             : 502,
         );
       }
-      await writeResponse({ ipcDirectory: this.#ipcDirectory, requestId, response });
+      await writeResponse({
+        ipcDirectory: this.#ipcDirectory,
+        ipcToken: this.#ipcToken,
+        requestId,
+        response,
+      });
     } catch {
       await writeResponse({
         ipcDirectory: this.#ipcDirectory,
+        ipcToken: this.#ipcToken,
         requestId,
         response: brokerErrorResponse(502),
       }).catch(() => undefined);

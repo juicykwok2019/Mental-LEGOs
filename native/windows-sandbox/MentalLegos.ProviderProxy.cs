@@ -112,7 +112,7 @@ internal static class ProviderProxy
 
             requestId = CreateRequestId();
             WriteBrokerRequest(ipcDirectory, requestId, ipcToken, request);
-            ResponseHead head = WaitForResponseHead(ipcDirectory, requestId);
+            ResponseHead head = WaitForResponseHead(ipcDirectory, requestId, ipcToken);
             WriteResponseHead(stream, head);
             responseStarted = true;
             StreamResponseBody(stream, ipcDirectory, requestId);
@@ -327,7 +327,10 @@ internal static class ProviderProxy
         File.Move(temporaryPath, requestPath);
     }
 
-    private static ResponseHead WaitForResponseHead(string ipcDirectory, string requestId)
+    private static ResponseHead WaitForResponseHead(
+        string ipcDirectory,
+        string requestId,
+        string ipcToken)
     {
         string headPath = Path.Combine(ipcDirectory, requestId + ".response.head");
         DateTime deadline = DateTime.UtcNow.AddMilliseconds(BrokerTimeoutMilliseconds);
@@ -337,20 +340,21 @@ internal static class ProviderProxy
             Thread.Sleep(20);
         }
         string[] lines = File.ReadAllLines(headPath, Utf8);
-        if (lines.Length < 3 || lines[0] != "MLPR1") throw new InvalidDataException("Invalid broker response.");
+        if (lines.Length < 4 || lines[0] != "MLPR1" || !FixedTimeEquals(lines[1], ipcToken))
+            throw new InvalidDataException("Invalid broker response.");
         int status;
         int headerCount;
-        if (!Int32.TryParse(lines[1], NumberStyles.None, CultureInfo.InvariantCulture, out status)
+        if (!Int32.TryParse(lines[2], NumberStyles.None, CultureInfo.InvariantCulture, out status)
             || status < 100 || status > 599
-            || !Int32.TryParse(lines[2], NumberStyles.None, CultureInfo.InvariantCulture, out headerCount)
+            || !Int32.TryParse(lines[3], NumberStyles.None, CultureInfo.InvariantCulture, out headerCount)
             || headerCount < 0 || headerCount > 32
-            || lines.Length != 3 + headerCount)
+            || lines.Length != 4 + headerCount)
             throw new InvalidDataException("Invalid broker response head.");
         ResponseHead result = new ResponseHead();
         result.Status = status;
         for (int index = 0; index < headerCount; index++)
         {
-            string[] parts = lines[3 + index].Split(new char[] { '\t' }, 2);
+            string[] parts = lines[4 + index].Split(new char[] { '\t' }, 2);
             if (parts.Length != 2) throw new InvalidDataException("Invalid broker response header.");
             result.Headers.Add(new KeyValuePair<string, string>(
                 Utf8.GetString(Convert.FromBase64String(parts[0])),

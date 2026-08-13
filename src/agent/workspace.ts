@@ -15,8 +15,10 @@ export interface SessionWorkspace {
   temporary: string;
   config: string;
   bashIpc: string;
+  providerIpc: string;
   bashGuestRoot: string;
   bashProxy: string;
+  providerProxy: string;
   sandboxProfile: string;
   initialBundleSha256: string;
 }
@@ -48,10 +50,13 @@ export async function createSessionWorkspace(options: {
   const config = resolveWithin(root, '.agent-config');
   const ipcRoot = resolveWithin(options.sessionsRoot, '.runtime-ipc');
   const bashIpc = resolveWithin(ipcRoot, options.sessionId);
+  const providerIpcRoot = resolveWithin(options.sessionsRoot, '.runtime-provider-ipc');
+  const providerIpc = resolveWithin(providerIpcRoot, options.sessionId);
   const guestRoot = resolveWithin(options.sessionsRoot, '.runtime-guests');
   const bashGuestRoot = resolveWithin(guestRoot, options.sessionId);
   const runtimeDirectory = resolveWithin(root, '.runtime');
   const bashProxy = resolveWithin(runtimeDirectory, 'bash.exe');
+  const providerProxy = resolveWithin(runtimeDirectory, 'provider-proxy.exe');
   const sandboxProfile = `MentalLEGOs.Agent.${createHash('sha256')
     .update(options.sessionId, 'utf8')
     .digest('hex')
@@ -65,6 +70,7 @@ export async function createSessionWorkspace(options: {
     mkdir(temporary, { recursive: true }),
     mkdir(config, { recursive: true }),
     mkdir(bashIpc, { recursive: true }),
+    mkdir(providerIpc, { recursive: true }),
     mkdir(bashGuestRoot, { recursive: true }),
     mkdir(runtimeDirectory, { recursive: true }),
   ]);
@@ -116,6 +122,15 @@ export async function createSessionWorkspace(options: {
     }, null, 2)}\n`,
     { encoding: 'utf8', flag: 'wx' },
   );
+  await writeFile(
+    path.join(providerIpc, '.ipc-policy.json'),
+    `${JSON.stringify({
+      schema_version: 1,
+      session_id: options.sessionId,
+      workspace_root_sha256: createHash('sha256').update(root, 'utf8').digest('hex'),
+    }, null, 2)}\n`,
+    { encoding: 'utf8', flag: 'wx' },
+  );
 
   return {
     root,
@@ -125,8 +140,10 @@ export async function createSessionWorkspace(options: {
     temporary,
     config,
     bashIpc,
+    providerIpc,
     bashGuestRoot,
     bashProxy,
+    providerProxy,
     sandboxProfile,
     initialBundleSha256: verifiedBundle.bundleSha256,
   };
@@ -146,6 +163,22 @@ export async function stageSessionBashProxy(options: {
     if ((reason as NodeJS.ErrnoException).code !== 'EEXIST') throw reason;
   }
   return options.workspace.bashProxy;
+}
+
+export async function stageSessionProviderProxy(options: {
+  workspace: SessionWorkspace;
+  verifiedProxyPath: string;
+}): Promise<string> {
+  try {
+    await copyFile(
+      path.resolve(options.verifiedProxyPath),
+      options.workspace.providerProxy,
+      constants.COPYFILE_EXCL,
+    );
+  } catch (reason) {
+    if ((reason as NodeJS.ErrnoException).code !== 'EEXIST') throw reason;
+  }
+  return options.workspace.providerProxy;
 }
 
 export async function verifySessionCapabilityIntegrity(
@@ -187,6 +220,10 @@ export async function purgeSessionWorkspace(
     resolveWithin(sessionsRoot, '.runtime-guests'),
     sessionId,
   );
+  const providerIpc = resolveWithin(
+    resolveWithin(sessionsRoot, '.runtime-provider-ipc'),
+    sessionId,
+  );
   const marker = JSON.parse(
     await readFile(path.join(root, '.workspace-policy.json'), 'utf8'),
   ) as { session_id?: unknown };
@@ -212,7 +249,17 @@ export async function purgeSessionWorkspace(
   ) {
     throw new Error('Refusing to purge a Bash guest directory without its matching marker.');
   }
+  const providerMarker = JSON.parse(
+    await readFile(path.join(providerIpc, '.ipc-policy.json'), 'utf8'),
+  ) as { session_id?: unknown; workspace_root_sha256?: unknown };
+  if (
+    providerMarker.session_id !== sessionId
+    || providerMarker.workspace_root_sha256 !== expectedWorkspaceHash
+  ) {
+    throw new Error('Refusing to purge a provider IPC directory without its matching marker.');
+  }
   await rm(root, { recursive: true, force: false });
   await rm(bashIpc, { recursive: true, force: false });
   await rm(bashGuestRoot, { recursive: true, force: false });
+  await rm(providerIpc, { recursive: true, force: false });
 }

@@ -160,6 +160,15 @@ describe.skipIf(process.platform !== 'win32')('provider credential boundary', ()
       });
       expect(observed[0]?.headers).not.toHaveProperty('x-api-key');
 
+      const beta = await invokeProxy({
+        port,
+        token: agentEnvironment.ANTHROPIC_API_KEY ?? '',
+        requestPath: '/v1/messages?beta=true',
+        body: '{"model":"synthetic"}',
+      });
+      expect(beta.status).toBe(200);
+      expect(observed.at(-1)?.path).toBe('/v1/messages?beta=true');
+
       const denied = await invokeProxy({
         port,
         token: agentEnvironment.ANTHROPIC_API_KEY ?? '',
@@ -168,7 +177,7 @@ describe.skipIf(process.platform !== 'win32')('provider credential boundary', ()
       });
       expect(denied.status).toBe(403);
       expect(denied.body).toContain('not permitted');
-      expect(observed).toHaveLength(1);
+      expect(observed).toHaveLength(2);
 
       const unauthenticated = await invokeProxy({
         port,
@@ -177,7 +186,7 @@ describe.skipIf(process.platform !== 'win32')('provider credential boundary', ()
         body: '{}',
       });
       expect(unauthenticated.status).toBe(401);
-      expect(observed).toHaveLength(1);
+      expect(observed).toHaveLength(2);
     } finally {
       await stopProcess(child);
       await broker.close();

@@ -13,6 +13,7 @@ import {
   createSessionWorkspace,
   purgeSessionWorkspace,
   stageSessionBashProxy,
+  stageSessionProviderProxy,
   verifySessionCapabilityIntegrity,
 } from '../../src/agent/workspace';
 
@@ -104,7 +105,16 @@ describe('Claude Agent SDK runtime boundary', () => {
         workspace,
         verifiedProxyPath: bashProxyPath,
       });
+      await stageSessionProviderProxy({
+        workspace,
+        verifiedProxyPath: providerProxyPath,
+      });
+      await stageSessionProviderProxy({
+        workspace,
+        verifiedProxyPath: providerProxyPath,
+      });
       expect(path.relative(workspace.root, workspace.bashIpc)).toMatch(/^\.\./u);
+      expect(path.relative(workspace.root, workspace.providerIpc)).toMatch(/^\.\./u);
       expect(path.relative(workspace.root, workspace.bashGuestRoot)).toMatch(/^\.\./u);
 
       expect(evaluateToolUse('Read', { file_path: 'input/synthetic-question.txt' }, workspace))
@@ -177,6 +187,13 @@ describe('Claude Agent SDK runtime boundary', () => {
           cacheDirectory: path.join(repositoryRoot, '.private', 'synthetic-bash-cache'),
         },
         mcpServers: createGovernanceKernel(governanceRepository),
+      }, {
+        provider: {
+          ANTHROPIC_BASE_URL: 'http://127.0.0.1:43210',
+          ANTHROPIC_API_KEY: 'a'.repeat(64),
+          NO_PROXY: '127.0.0.1,localhost',
+        },
+        bash: {},
       });
 
       expect(options.settingSources).toEqual(['project']);
@@ -198,9 +215,9 @@ describe('Claude Agent SDK runtime boundary', () => {
 
   it('does not inherit arbitrary host environment variables', () => {
     const environment = buildMinimalAgentEnvironment({
-      provider: {
-        baseUrl: 'https://provider.invalid/anthropic',
-        apiKey: 'synthetic-test-value',
+      providerEnvironment: {
+        ANTHROPIC_BASE_URL: 'http://127.0.0.1:43210',
+        ANTHROPIC_API_KEY: 'a'.repeat(64),
       },
       configDirectory: 'C:\\runtime\\config',
       sourceEnvironment: {
@@ -214,6 +231,8 @@ describe('Claude Agent SDK runtime boundary', () => {
     expect(environment.CLAUDE_CODE_DISABLE_AUTO_MEMORY).toBe('1');
     expect(environment.CLAUDE_AGENT_SDK_DISABLE_BUILTIN_AGENTS).toBe('1');
     expect(environment.CLAUDE_CODE_DISABLE_BUNDLED_SKILLS).toBe('1');
+    expect(environment.ANTHROPIC_API_KEY).toBe('a'.repeat(64));
+    expect(environment.ANTHROPIC_API_KEY).not.toBe('synthetic-test-value');
     expect(environment).not.toHaveProperty('MENTAL_LEGOS_UNRELATED_SECRET');
   });
 });

@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import path from 'node:path';
 
 import type { Options, SpawnOptions, SpawnedProcess } from '@anthropic-ai/claude-agent-sdk';
@@ -8,6 +8,12 @@ import type { SessionWorkspace } from './workspace';
 export interface WindowsSandboxConfiguration {
   launcherPath: string;
   workspace: SessionWorkspace;
+}
+
+export interface WindowsSandboxServiceConfiguration extends WindowsSandboxConfiguration {
+  targetPath: string;
+  writablePaths: string[];
+  environment: Record<string, string>;
 }
 
 function assertAbsolutePath(candidate: string, label: string): void {
@@ -60,6 +66,32 @@ export function createWindowsSandboxSpawner(
       windowsHide: true,
     },
   );
+}
+
+export function spawnWindowsSandboxService(
+  configuration: WindowsSandboxServiceConfiguration,
+): ChildProcess {
+  if (process.platform !== 'win32') {
+    throw new Error('The P0 Agent sandbox currently supports Windows only.');
+  }
+  assertAbsolutePath(configuration.targetPath, 'Sandbox service target');
+  configuration.writablePaths.forEach((candidate) => {
+    assertAbsolutePath(candidate, 'Sandbox service writable path');
+  });
+
+  return spawn(configuration.launcherPath, [
+    'run',
+    '--profile', configuration.workspace.sandboxProfile,
+    '--workspace', configuration.workspace.root,
+    '--target', configuration.targetPath,
+    ...configuration.writablePaths.flatMap((candidate) => ['--writable', candidate]),
+  ], {
+    cwd: configuration.workspace.root,
+    env: configuration.environment,
+    shell: false,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  });
 }
 
 export async function deleteWindowsSandboxProfile(options: {

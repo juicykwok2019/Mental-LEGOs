@@ -1,3 +1,4 @@
+import type { ChildProcess } from 'node:child_process';
 import path from 'node:path';
 
 import type { Options, SDKMessage, SDKSystemMessage } from '@anthropic-ai/claude-agent-sdk';
@@ -6,12 +7,14 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { WasmerBashBroker } from '../bash/broker';
 import { resolveVerifiedBashRuntime } from '../bash/runtime-manager';
 import { loadBashRuntimeManifest } from '../bash/runtime-manifest';
+import { ProviderBroker, type ProviderExecutor } from '../provider/broker';
 import { skillNames } from './contracts';
 import { governanceToolNames } from './governance';
 import { createCanUseTool, createPolicyHooks } from './policy';
 import {
   createWindowsSandboxSpawner,
   deleteWindowsSandboxProfile,
+  spawnWindowsSandboxService,
 } from './sandbox';
 import {
   verifyAgentBinary,
@@ -24,6 +27,7 @@ import {
 import type { SessionWorkspace } from './workspace';
 import {
   stageSessionBashProxy,
+  stageSessionProviderProxy,
   verifySessionCapabilityIntegrity,
 } from './workspace';
 
@@ -88,6 +92,10 @@ export interface AgentRunResult {
   messages: SDKMessage[];
 }
 
+export interface AgentRunDependencies {
+  providerExecutor?: ProviderExecutor;
+}
+
 const inheritedEnvironmentKeys = [
   'SYSTEMROOT',
   'WINDIR',
@@ -100,7 +108,7 @@ const inheritedEnvironmentKeys = [
 ] as const;
 
 export function buildMinimalAgentEnvironment(options: {
-  provider: ProviderProcessEnvironment;
+  providerEnvironment: Record<string, string>;
   configDirectory: string;
   sourceEnvironment?: NodeJS.ProcessEnv;
 }): Record<string, string> {
@@ -111,8 +119,16 @@ export function buildMinimalAgentEnvironment(options: {
     if (source[key]) environment[key] = source[key];
   }
 
-  environment.ANTHROPIC_BASE_URL = options.provider.baseUrl;
-  environment.ANTHROPIC_API_KEY = options.provider.apiKey;
+  const providerBaseUrl = options.providerEnvironment.ANTHROPIC_BASE_URL;
+  const providerApiKey = options.providerEnvironment.ANTHROPIC_API_KEY;
+  if (!providerBaseUrl || !/^http:\/\/127\.0\.0\.1:\d+$/u.test(providerBaseUrl)) {
+    throw new Error('The Agent must use the isolated loopback provider proxy.');
+  }
+  if (!providerApiKey || !/^[a-f0-9]{64}$/u.test(providerApiKey)) {
+    throw new Error('The Agent provider substitute token is invalid.');
+  }
+  environment.ANTHROPIC_BASE_URL = providerBaseUrl;
+  environment.ANTHROPIC_API_KEY = providerApiKey;
   environment.CLAUDE_CONFIG_DIR = options.configDirectory;
   environment.CLAUDE_CODE_DISABLE_AUTO_MEMORY = '1';
   environment.CLAUDE_AGENT_SDK_DISABLE_BUILTIN_AGENTS = '1';
@@ -125,11 +141,13 @@ export function buildMinimalAgentEnvironment(options: {
 
 export function buildAgentOptions(
   request: AgentRunRequest,
-  bashEnvironment?: Record<string, string>,
+  runtimeEnvironment: {
+    provider: Record<string, string>;
+    bash: Record<string, string>;
+  },
 ): Options {
-  if (!request.provider.baseUrl.startsWith('https://')
-    && !request.provider.baseUrl.startsWith('http://127.0.0.1:')) {
-    throw new Error('Provider Base URL must use HTTPS or the loopback broker.');
+  if (!request.provider.baseUrl.startsWith('https://')) {
+    throw new Error('Provider Base URL must use HTTPS.');
   }
   if (!request.provider.apiKey) throw new Error('A provider API key is required.');
   if (!Number.isInteger(request.limits.maxTurns) || request.limits.maxTurns < 1) {
@@ -164,12 +182,12 @@ export function buildAgentOptions(
     hooks: createPolicyHooks(request.workspace),
     env: {
       ...buildMinimalAgentEnvironment({
-        provider: request.provider,
+        providerEnvironment: runtimeEnvironment.provider,
         configDirectory: request.workspace.config,
       }),
       TEMP: request.workspace.temporary,
       TMP: request.workspace.temporary,
-      ...(bashEnvironment ?? {}),
+      ...runtimeEnvironment.bash,
     },
     permissionMode: 'default',
     maxTurns: request.limits.maxTurns,
@@ -225,7 +243,53 @@ function validateInitMessage(message: SDKSystemMessage): void {
   }
 }
 
-export async function runAgent(request: AgentRunRequest): Promise<AgentRunResult> {
+function buildProviderProxyEnvironment(options: {
+  brokerEnvironment: Record<string, string>;
+  temporaryDirectory: string;
+  sourceEnvironment?: NodeJS.ProcessEnv;
+}): Record<string, string> {
+  const source = options.sourceEnvironment ?? process.env;
+  const environment: Record<string, string> = { ...options.brokerEnvironment };
+  for (const key of inheritedEnvironmentKeys) {
+    if (source[key]) environment[key] = source[key];
+  }
+  environment.TEMP = options.temporaryDirectory;
+  environment.TMP = options.temporaryDirectory;
+  return environment;
+}
+
+async function waitForProviderProxy(
+  broker: ProviderBroker,
+  child: ChildProcess,
+  readStderr: () => string,
+): Promise<void> {
+  const exited = new Promise<never>((_resolve, reject) => {
+    child.once('error', reject);
+    child.once('exit', (code) => {
+      reject(new Error(
+        readStderr() || `Provider proxy sandbox exited before readiness with code ${code}.`,
+      ));
+    });
+  });
+  await Promise.race([broker.waitForProxy(), exited]);
+}
+
+async function stopSandboxService(child: ChildProcess | undefined): Promise<void> {
+  if (!child || child.exitCode !== null || child.signalCode !== null) return;
+  const exited = new Promise<void>((resolve) => child.once('exit', () => resolve()));
+  child.kill();
+  await Promise.race([
+    exited,
+    new Promise<never>((_resolve, reject) => {
+      setTimeout(() => reject(new Error('Provider proxy sandbox did not stop.')), 5_000).unref();
+    }),
+  ]);
+}
+
+export async function runAgent(
+  request: AgentRunRequest,
+  dependencies: AgentRunDependencies = {},
+): Promise<AgentRunResult> {
   await Promise.all([
     verifyAgentBinary(request.paths.binaryPath, request.paths.runtimeManifestPath),
     verifySessionCapabilityIntegrity(request.workspace),
@@ -256,6 +320,14 @@ export async function runAgent(request: AgentRunRequest): Promise<AgentRunResult
     request.workspace.bashProxy,
     request.paths.runtimeManifestPath,
   );
+  await stageSessionProviderProxy({
+    workspace: request.workspace,
+    verifiedProxyPath: request.paths.providerProxyPath,
+  });
+  await verifyProviderProxy(
+    request.workspace.providerProxy,
+    request.paths.runtimeManifestPath,
+  );
   const bashRuntime = await resolveVerifiedBashRuntime({
     manifest: bashManifest,
     runtimeDirectory: request.bashRuntime.runtimeDirectory,
@@ -271,17 +343,52 @@ export async function runAgent(request: AgentRunRequest): Promise<AgentRunResult
     guestRootDirectory: request.workspace.bashGuestRoot,
     runtime: bashRuntime,
   });
-  await bashBroker.start();
+  const providerBroker = new ProviderBroker({
+    ipcDirectory: request.workspace.providerIpc,
+    workspaceRoot: request.workspace.root,
+    providerBaseUrl: request.provider.baseUrl,
+    providerApiKey: request.provider.apiKey,
+    ...(dependencies.providerExecutor === undefined
+      ? {}
+      : { executor: dependencies.providerExecutor }),
+  });
 
   const messages: SDKMessage[] = [];
   let init: SDKSystemMessage | undefined;
   let sessionId: string | undefined;
+  let bashStarted = false;
+  let providerStarted = false;
+  let providerProxy: ChildProcess | undefined;
+  let providerProxyStderr = '';
 
   let executionError: unknown;
   try {
+    await bashBroker.start();
+    bashStarted = true;
+    await providerBroker.start();
+    providerStarted = true;
+    providerProxy = spawnWindowsSandboxService({
+      launcherPath: request.paths.sandboxLauncherPath,
+      workspace: request.workspace,
+      targetPath: request.workspace.providerProxy,
+      writablePaths: [request.workspace.providerIpc],
+      environment: buildProviderProxyEnvironment({
+        brokerEnvironment: providerBroker.proxyEnvironment(),
+        temporaryDirectory: request.workspace.temporary,
+      }),
+    });
+    providerProxy.stdout?.resume();
+    providerProxy.stderr?.setEncoding('utf8').on('data', (chunk: string) => {
+      providerProxyStderr = `${providerProxyStderr}${chunk}`.slice(-4096);
+    });
+    await waitForProviderProxy(providerBroker, providerProxy, () => providerProxyStderr.trim());
+
     const stream = query({
       prompt: request.prompt,
-      options: buildAgentOptions(request, bashBroker.agentEnvironment()),
+      options: buildAgentOptions(request, {
+        provider: providerBroker.agentEnvironment(),
+        bash: bashBroker.agentEnvironment(),
+      }),
     });
     try {
       for await (const message of stream) {
@@ -300,7 +407,11 @@ export async function runAgent(request: AgentRunRequest): Promise<AgentRunResult
   }
 
   const cleanup = await Promise.allSettled([
-    bashBroker.close(),
+    stopSandboxService(providerProxy),
+    ...(providerStarted ? [providerBroker.close()] : []),
+    ...(bashStarted ? [bashBroker.close()] : []),
+  ]);
+  const sandboxCleanup = await Promise.allSettled([
     deleteWindowsSandboxProfile({
       launcherPath: request.paths.sandboxLauncherPath,
       profileName: request.workspace.sandboxProfile,
@@ -311,13 +422,17 @@ export async function runAgent(request: AgentRunRequest): Promise<AgentRunResult
         request.workspace.temporary,
         request.workspace.config,
         request.workspace.bashIpc,
+        request.workspace.providerIpc,
+        path.dirname(request.workspace.providerProxy),
+        request.workspace.providerProxy,
         path.dirname(request.paths.binaryPath),
         request.paths.binaryPath,
       ],
     }),
   ]);
   await verifySessionCapabilityIntegrity(request.workspace);
-  const cleanupFailure = cleanup.find((result) => result.status === 'rejected');
+  const cleanupFailure = [...cleanup, ...sandboxCleanup]
+    .find((result) => result.status === 'rejected');
   if (cleanupFailure?.status === 'rejected') throw cleanupFailure.reason;
   if (executionError) throw executionError;
 
