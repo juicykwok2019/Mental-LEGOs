@@ -7,6 +7,10 @@ import { verifyCapabilityBundle } from './integrity';
 
 const sessionIdPattern = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/u;
 const windowsTasklistShim = '@echo off\r\nexit /b 0\r\n';
+const isolatedClaudeBootstrap = {
+  hasCompletedOnboarding: true,
+  penguinModeOrgEnabled: true,
+} as const;
 
 export interface SessionWorkspace {
   root: string;
@@ -75,6 +79,15 @@ export async function createSessionWorkspace(options: {
     mkdir(bashGuestRoot, { recursive: true }),
     mkdir(runtimeDirectory, { recursive: true }),
   ]);
+
+  // Claude Code stores these non-secret first-run acknowledgements outside
+  // settings.json. Seed only the isolated per-session config so headless Agent
+  // SDK runs can use an explicitly configured Anthropic-compatible provider.
+  await writeFile(
+    resolveWithin(config, '.claude.json'),
+    `${JSON.stringify(isolatedClaudeBootstrap, null, 2)}\n`,
+    { encoding: 'utf8', flag: 'wx' },
+  );
 
   await writeFile(
     resolveWithin(runtimeDirectory, 'tasklist.cmd'),

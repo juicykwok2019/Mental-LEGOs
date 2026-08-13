@@ -100,6 +100,14 @@ describe('Claude Agent SDK runtime boundary', () => {
       });
       await verifySessionCapabilityIntegrity(workspace);
       await verifySessionProcessShims(workspace);
+      const isolatedClaudeConfig = JSON.parse(
+        await readFile(path.join(workspace.config, '.claude.json'), 'utf8'),
+      ) as Record<string, unknown>;
+      expect(isolatedClaudeConfig).toEqual({
+        hasCompletedOnboarding: true,
+        penguinModeOrgEnabled: true,
+      });
+      expect(JSON.stringify(isolatedClaudeConfig)).not.toMatch(/api.?key|token|secret/iu);
       expect(await readFile(
         path.join(path.dirname(workspace.bashProxy), 'tasklist.cmd'),
         'utf8',
