@@ -7,7 +7,7 @@ description: Diagnose spoken answers across question convergence, judgment, stru
 
 Use after an attempt is closed and assistance is allowed, or during an authorized post-event review. Do not use to pre-compose the learner's first answer or to grade personality, intelligence, confidence, or employability.
 
-Analyze only what the learner actually said and the authorized question/context. Separate missing content from content that existed but was hard to retrieve or verbalize. Use [references/rubric.md](references/rubric.md); [scripts/score-structure.mjs](scripts/score-structure.mjs) is a transparent baseline that may be copied and adapted in `scratch/`.
+Analyze only what the learner actually said and the authorized question/context. Separate missing content from content that existed but was hard to retrieve or verbalize. Use [references/rubric.md](references/rubric.md); [scripts/score-structure.py](scripts/score-structure.py) is a transparent baseline that may be copied and adapted in `scratch/`, then run with the sandboxed `python` command.
 
 Evidence: transcript spans with stable references, timing features if available, question intent, and prior attempts only when comparison was authorized. Quote minimally and preserve provenance.
 

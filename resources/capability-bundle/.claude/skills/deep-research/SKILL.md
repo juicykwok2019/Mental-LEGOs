@@ -7,7 +7,7 @@ description: Plan and synthesize explicit multi-source research with source qual
 
 Use only when the user explicitly requests research and the host enables network/research capability for the current session. This is the sole product mode that may be expanded to research subagents later. Do not use web access in ordinary training, scenario preparation from local materials, or to upload private inputs.
 
-Follow [references/source-policy.md](references/source-policy.md). Copy [scripts/synthesize-evidence.mjs](scripts/synthesize-evidence.mjs) to `scratch/` when a new evidence format needs normalization.
+Follow [references/source-policy.md](references/source-policy.md). Copy [scripts/synthesize-evidence.py](scripts/synthesize-evidence.py) to `scratch/` when a new evidence format needs normalization, then run the adapted copy with the sandboxed `python` command.
 
 Define the decision question, freshness requirement, geographic/product scope, forbidden disclosures, and stopping rule before searching. Prefer primary authoritative sources; retain URLs, titles, publication/update dates, retrieval dates, and claim-level support. Mark inference explicitly.
 

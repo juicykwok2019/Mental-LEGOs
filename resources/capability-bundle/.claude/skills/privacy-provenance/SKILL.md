@@ -7,7 +7,7 @@ description: Classify sensitivity, verify provenance and scope, minimize disclos
 
 Use whenever content is imported, combined, cited, persisted, sent to a provider, exported, or deleted. Also use when source ownership or scope is uncertain. Do not use this Skill as a substitute for host enforcement or as permission to inspect unscoped files.
 
-Apply [references/scope-and-provenance.md](references/scope-and-provenance.md). Copy [scripts/scan-output.mjs](scripts/scan-output.mjs) into `scratch/` to add task-specific public-safe patterns; the host's privacy scanner remains authoritative for Git and formal outputs.
+Apply [references/scope-and-provenance.md](references/scope-and-provenance.md). Copy [scripts/scan-output.py](scripts/scan-output.py) into `scratch/` to add task-specific public-safe patterns, then run the adapted copy with the sandboxed `python` command; the host's privacy scanner remains authoritative for Git and formal outputs.
 
 Evidence: host-issued scope, source reference, consent state, intended audience, retention rule, and transformation history. Unknown provenance is a finding, not a cue to invent a source.
 

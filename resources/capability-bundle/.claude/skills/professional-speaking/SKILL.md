@@ -7,7 +7,7 @@ description: Train structured professional public speaking, duration variants, t
 
 Use for talks, presentations, briefings, pitches, demos, panels, and their audience Q&A. Do not reduce speaking quality to vocal charisma, write a full script as the primary learning asset, or analyze video in P0.
 
-Design a modular speaking arc with [references/speech-structure.md](references/speech-structure.md). Copy [scripts/segment-timing.mjs](scripts/segment-timing.mjs) to `scratch/` to adapt timing, transition, or transcript segmentation rules.
+Design a modular speaking arc with [references/speech-structure.md](references/speech-structure.md). Copy [scripts/segment-timing.py](scripts/segment-timing.py) to `scratch/` to adapt timing, transition, or transcript segmentation rules, then run the adapted copy with the sandboxed `python` command.
 
 Evidence: authorized outline/slides/transcript, target audience and action, time limit, audio timing features, and confirmed language modules. Treat delivery interpretations as hypotheses unless tied to audible evidence and listener outcome.
 

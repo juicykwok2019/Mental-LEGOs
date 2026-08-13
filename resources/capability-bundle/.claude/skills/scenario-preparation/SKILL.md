@@ -7,7 +7,7 @@ description: Prepare a real professional scenario from authorized materials by i
 
 Use for an upcoming interview, negotiation, meeting, decision review, expert exchange, or public talk with concrete materials and stakes. Do not use for generic daily practice or to fabricate facts missing from the learner's materials.
 
-Map materials by authority and purpose using [references/material-routing.md](references/material-routing.md). The parser in [scripts/extract-material.mjs](scripts/extract-material.mjs) is deliberately simple and adaptable; copy it into `scratch/` before adding a new input format.
+Map materials by authority and purpose using [references/material-routing.md](references/material-routing.md). The parser in [scripts/extract-material.py](scripts/extract-material.py) is deliberately simple and adaptable; copy it into `scratch/` before adding a new input format, then run the adapted copy with the sandboxed `python` command.
 
 Evidence: host-authorized input copies, scenario objective, counterpart/audience, constraints, and confirmed profile evidence. Mark contradictions, unknowns, and likely evaluation criteria instead of silently resolving them.
 

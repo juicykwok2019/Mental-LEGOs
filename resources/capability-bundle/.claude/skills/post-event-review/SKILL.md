@@ -7,7 +7,7 @@ description: Review an important professional interaction from authorized record
 
 Use after an interview, negotiation, meeting, discussion, or speaking event. Do not infer another person's private intent, score the learner from audio style alone, or rewrite history to fit a desired narrative.
 
-Align questions, responses, interventions, commitments, and outcomes with [references/review-protocol.md](references/review-protocol.md). Copy [scripts/align-turns.mjs](scripts/align-turns.mjs) to `scratch/` to adapt speaker labels or transcript formats.
+Align questions, responses, interventions, commitments, and outcomes with [references/review-protocol.md](references/review-protocol.md). Copy [scripts/align-turns.py](scripts/align-turns.py) to `scratch/` to adapt speaker labels or transcript formats, then run the adapted copy with the sandboxed `python` command.
 
 Evidence: authorized media/transcript ranges, learner notes, formal scenario objective, observable outcome, and prior preparation artifacts when in scope. Keep “said,” “inferred,” “remembered,” and “outcome” distinct.
 

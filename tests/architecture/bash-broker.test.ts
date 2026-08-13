@@ -268,7 +268,21 @@ describe('isolated Bash broker', () => {
       const workspaceRoot = path.join(root, 'workspace');
       const temporaryDirectory = path.join(workspaceRoot, 'tmp');
       const ipcDirectory = path.join(root, 'ipc');
-      await mkdir(workspaceRoot, { recursive: true });
+      const referenceDirectory = path.join(workspaceRoot, 'reference');
+      await mkdir(referenceDirectory, { recursive: true });
+      await copyFile(
+        path.join(
+          process.cwd(),
+          'resources',
+          'capability-bundle',
+          '.claude',
+          'skills',
+          'lego-extraction',
+          'scripts',
+          'validate-candidate.py',
+        ),
+        path.join(referenceDirectory, 'validate-candidate.py'),
+      );
       await writeFile(path.join(workspaceRoot, 'CLAUDE.md'), 'protected-capability');
       const runtime: BashRuntimePaths = {
         runnerPath: officialRunnerPath,
@@ -313,7 +327,7 @@ describe('isolated Bash broker', () => {
       try {
         const result = await execFileAsync(runtime.proxyPath, [
           '-lc',
-          "declare -a parts=(full bash); [[ \"${parts[1]}\" == bash ]] && [[ -z \"${ANTHROPIC_API_KEY+x}\" ]] && printf 'guest-only-change' > CLAUDE.md && printf 'writable-proof' > scratch/proof.txt && python -c 'from pathlib import Path; Path(\"scratch/python-proof.txt\").write_text(\"isolated-python-ok\")' && printf 'isolated-bash-ok'",
+          "declare -a parts=(full bash); [[ \"${parts[1]}\" == bash ]] && [[ -z \"${ANTHROPIC_API_KEY+x}\" ]] && printf 'guest-only-change' > CLAUDE.md && printf 'writable-proof' > scratch/proof.txt && cp reference/validate-candidate.py scratch/adapted.py && printf '\\n# adapted in sandbox\\n' >> scratch/adapted.py && python scratch/adapted.py '{\"semantic_core\":\"A bounded judgment\",\"logical_skeleton\":\"signal to implication\",\"language_shells\":[\"If we narrow the question\"],\"retrieval_cues\":[\"open question\"],\"scope\":\"synthetic test\",\"provenance\":\"synthetic test\"}' > output/result.json && printf 'isolated-bash-ok'",
         ], {
           encoding: 'utf8',
           env: {
@@ -340,10 +354,14 @@ describe('isolated Bash broker', () => {
           .resolves.toBe('protected-capability');
         await expect(readFile(path.join(workspaceRoot, 'scratch', 'proof.txt'), 'utf8'))
           .resolves.toBe('writable-proof');
+        await expect(readFile(path.join(workspaceRoot, 'output', 'result.json'), 'utf8'))
+          .resolves.toContain('"valid":true');
+        await expect(readFile(path.join(workspaceRoot, 'scratch', 'adapted.py'), 'utf8'))
+          .resolves.toContain('# adapted in sandbox');
         await expect(readFile(
-          path.join(workspaceRoot, 'scratch', 'python-proof.txt'),
+          path.join(workspaceRoot, 'reference', 'validate-candidate.py'),
           'utf8',
-        )).resolves.toBe('isolated-python-ok');
+        )).resolves.not.toContain('# adapted in sandbox');
       } finally {
         await broker.close();
       }

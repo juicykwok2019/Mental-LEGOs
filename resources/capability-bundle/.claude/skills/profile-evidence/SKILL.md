@@ -7,7 +7,7 @@ description: Propose evidence-linked professional-profile observations while sep
 
 Use when repeated answers, materials, or confirmed experiences may improve the learner's professional evidence map. Do not psychoanalyze, lock the learner into a trait, infer sensitive attributes, or silently convert one answer into a fact.
 
-Apply assertion states from [references/assertion-states.md](references/assertion-states.md). Copy [scripts/check-profile-candidate.mjs](scripts/check-profile-candidate.mjs) into `scratch/` to adapt validation for a new evidence shape.
+Apply assertion states from [references/assertion-states.md](references/assertion-states.md). Copy [scripts/check-profile-candidate.py](scripts/check-profile-candidate.py) into `scratch/` to adapt validation for a new evidence shape, then run the adapted copy with the sandboxed `python` command.
 
 Evidence must have stable references, source type, date, scope, and confidence. Prefer behavioral statements tied to context over identity labels. Record contradictory evidence rather than averaging it away.
 

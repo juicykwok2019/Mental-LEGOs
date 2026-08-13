@@ -20,14 +20,14 @@
       "bytes": 660
     },
     {
-      "path": ".claude/skills/deep-research/scripts/synthesize-evidence.mjs",
-      "sha256": "e81781427ba7548ab64bfa4e489cb67143cd890b7c99b63364db465ba149a3b5",
-      "bytes": 605
+      "path": ".claude/skills/deep-research/scripts/synthesize-evidence.py",
+      "sha256": "2a44c4196803ba5d806378cf21ed9a9b96eb50a67e1e24ad8388688c4a2a9a6e",
+      "bytes": 918
     },
     {
       "path": ".claude/skills/deep-research/SKILL.md",
-      "sha256": "7158438858afff3c569481ac29d1818330414989771fbc4308fdd0888aeb5d86",
-      "bytes": 1678
+      "sha256": "f9d56ad8fc98c5f47fb045d7c3a198f584630b29845781b7d1e31626ec466988",
+      "bytes": 1739
     },
     {
       "path": ".claude/skills/first-attempt-coach/references/hint-policy.md",
@@ -35,14 +35,14 @@
       "bytes": 1097
     },
     {
-      "path": ".claude/skills/first-attempt-coach/scripts/select-hint.mjs",
-      "sha256": "fc6bebdf092e6c2334696f2b76b3d35e24ccaf47323c978047a0c6f2ab5d9072",
-      "bytes": 787
+      "path": ".claude/skills/first-attempt-coach/scripts/select-hint.py",
+      "sha256": "65f9241bd2818646f62d0c05a6e241b73e4619134ba4c4e0460456b7b2cc3765",
+      "bytes": 716
     },
     {
       "path": ".claude/skills/first-attempt-coach/SKILL.md",
-      "sha256": "6a0a701d68938e384ff489c541809df591680e241f4869512ef844bff5ce3dc1",
-      "bytes": 1770
+      "sha256": "6533e9933e6ee04397023d2a7bf47ae8ea1f3c93ac8de448d41164c41f80f51a",
+      "bytes": 1831
     },
     {
       "path": ".claude/skills/lego-extraction/references/module-schema.md",
@@ -50,14 +50,14 @@
       "bytes": 901
     },
     {
-      "path": ".claude/skills/lego-extraction/scripts/validate-candidate.mjs",
-      "sha256": "9e51e7826cfefe9f350351e53e54ca73ead00d384f32c24471b45b5ddb22772f",
-      "bytes": 677
+      "path": ".claude/skills/lego-extraction/scripts/validate-candidate.py",
+      "sha256": "6f09bb0a70e399e4f415bf2b889c72e96b4c3d628d88528952e6d17f7d5902a3",
+      "bytes": 730
     },
     {
       "path": ".claude/skills/lego-extraction/SKILL.md",
-      "sha256": "4feb84cc155bc43be1768961df56cc89a38e1f82f07e8160063538e457d7a674",
-      "bytes": 1652
+      "sha256": "67821e8eac206f78894e2dac531488867bdf694999bb55e3232a558ea0604b9f",
+      "bytes": 1713
     },
     {
       "path": ".claude/skills/post-event-review/references/review-protocol.md",
@@ -65,14 +65,14 @@
       "bytes": 656
     },
     {
-      "path": ".claude/skills/post-event-review/scripts/align-turns.mjs",
-      "sha256": "6e21747619bac0ccdb170c4384d44eaee07ca43f7bd8c5597006607734a95330",
-      "bytes": 556
+      "path": ".claude/skills/post-event-review/scripts/align-turns.py",
+      "sha256": "0514da561407dd4b1eb5da60b3a7f95063c1d3daa114caac4eb878fe3dad5dd1",
+      "bytes": 788
     },
     {
       "path": ".claude/skills/post-event-review/SKILL.md",
-      "sha256": "87340598fb1177cb916400e2762768171099e8e3487cd252c5267c1c5b954e4f",
-      "bytes": 1492
+      "sha256": "3d5b974aae047cc0aa05b6f87c69949778b228e6251287e59954920e2b2490bc",
+      "bytes": 1553
     },
     {
       "path": ".claude/skills/privacy-provenance/references/scope-and-provenance.md",
@@ -80,14 +80,14 @@
       "bytes": 841
     },
     {
-      "path": ".claude/skills/privacy-provenance/scripts/scan-output.mjs",
-      "sha256": "e834fa012f83a17981d2bb7989dd921ca547997fbe4bb5ce8a8df4ea7760ed45",
-      "bytes": 606
+      "path": ".claude/skills/privacy-provenance/scripts/scan-output.py",
+      "sha256": "5752734b37dfaebb417855991029a8ae426dd9e37cf011affd861c373251417d",
+      "bytes": 617
     },
     {
       "path": ".claude/skills/privacy-provenance/SKILL.md",
-      "sha256": "4147b173ae9d3a671315157a3a7296d509173ab68367ff9343bd3e5be94a1e9d",
-      "bytes": 1556
+      "sha256": "f66cc35309f64160007bb2730af624472386c67b6f00a7dfa0abeb13d30ab513",
+      "bytes": 1617
     },
     {
       "path": ".claude/skills/professional-speaking/references/speech-structure.md",
@@ -95,14 +95,14 @@
       "bytes": 720
     },
     {
-      "path": ".claude/skills/professional-speaking/scripts/segment-timing.mjs",
-      "sha256": "5f465193ff68f40bdff6d64810f2a35ad37830f490a2404cd95dd6c980ef7500",
-      "bytes": 587
+      "path": ".claude/skills/professional-speaking/scripts/segment-timing.py",
+      "sha256": "1ed061d3373bf89177f4e809f9226bd6a4d81389a6b7c1d73ee715be75be1410",
+      "bytes": 743
     },
     {
       "path": ".claude/skills/professional-speaking/SKILL.md",
-      "sha256": "c9177fecf7a783afd995ea5aab7a016264f19498e8c8c4f64f957d19a6afeba3",
-      "bytes": 1549
+      "sha256": "a3798b1c4f469040b36eab4f2f6a8365b131058b02ede4dfbbc6fc80ed284919",
+      "bytes": 1610
     },
     {
       "path": ".claude/skills/profile-evidence/references/assertion-states.md",
@@ -110,14 +110,14 @@
       "bytes": 744
     },
     {
-      "path": ".claude/skills/profile-evidence/scripts/check-profile-candidate.mjs",
-      "sha256": "a6f3de97d4f266f39aba17a0b0294a2b0e922f847bd19afa877508a88d4512e5",
-      "bytes": 667
+      "path": ".claude/skills/profile-evidence/scripts/check-profile-candidate.py",
+      "sha256": "a5a6bc5bb8c89000516dd2e04fa881f08989bf4bbb1d61020343df68211380c3",
+      "bytes": 745
     },
     {
       "path": ".claude/skills/profile-evidence/SKILL.md",
-      "sha256": "ee3b41898ea29b71faf3d00f632a77aac155d9c5981dde443973e02aae0a6923",
-      "bytes": 1400
+      "sha256": "57d0377b3f05e433b282df86e33b5b172d14f8b0d45ecc3d416d0d178277804b",
+      "bytes": 1461
     },
     {
       "path": ".claude/skills/response-diagnosis/references/rubric.md",
@@ -125,14 +125,14 @@
       "bytes": 834
     },
     {
-      "path": ".claude/skills/response-diagnosis/scripts/score-structure.mjs",
-      "sha256": "ac462ef22ec225081284a7b18ebaf27c295044aa4c0da060ba5629d4ab9b3b4c",
-      "bytes": 721
+      "path": ".claude/skills/response-diagnosis/scripts/score-structure.py",
+      "sha256": "f39cccdfda494e91b2b4c1fb3351b8bb10affb981f993bee67d20ac30a98a3b3",
+      "bytes": 891
     },
     {
       "path": ".claude/skills/response-diagnosis/SKILL.md",
-      "sha256": "8b75ef32d5b9e797af9fce920e2dd7391532930e4b31357211210bfbe9e19747",
-      "bytes": 1546
+      "sha256": "a1b20d55e4c7b2c57065721738cac7b6e78a5c657313bb763f1965abb8f1fe28",
+      "bytes": 1590
     },
     {
       "path": ".claude/skills/scenario-preparation/references/material-routing.md",
@@ -140,14 +140,14 @@
       "bytes": 812
     },
     {
-      "path": ".claude/skills/scenario-preparation/scripts/extract-material.mjs",
-      "sha256": "0f1e47629dac64e764ded6c3c694ae4930ffa2b19d3f5b493bf0649939a9ddf6",
-      "bytes": 754
+      "path": ".claude/skills/scenario-preparation/scripts/extract-material.py",
+      "sha256": "20b6744da042c0fa857abc6ea61904fcbe5f91a606528b682ed0e69e73a12a8a",
+      "bytes": 799
     },
     {
       "path": ".claude/skills/scenario-preparation/SKILL.md",
-      "sha256": "5bbaf7df3f7b07d134343dcde005f2205d7a5a1963eb077ec69662d0028d0649",
-      "bytes": 1620
+      "sha256": "62869b25460b74876680569911a31ffff97d2aa79b3fe7ec63e95b405cd0a219",
+      "bytes": 1681
     },
     {
       "path": ".claude/skills/transfer-question-design/references/variation-taxonomy.md",
@@ -155,14 +155,14 @@
       "bytes": 662
     },
     {
-      "path": ".claude/skills/transfer-question-design/scripts/build-transfer-matrix.mjs",
-      "sha256": "1751e9e004a26d5e1bb1204bbfe6b88c9a88b7d70c226516e8d904a20d4f7fac",
-      "bytes": 625
+      "path": ".claude/skills/transfer-question-design/scripts/build-transfer-matrix.py",
+      "sha256": "7ada099d9ef27eb924bea817e0f089413223253aac6a029db060b1e04f0b29da",
+      "bytes": 752
     },
     {
       "path": ".claude/skills/transfer-question-design/SKILL.md",
-      "sha256": "06d926ec47943299d7eecc741b4d83f8fd73f314790cbe7334f66d6d4de349d0",
-      "bytes": 1450
+      "sha256": "4d33ffb35a601d4220b4b71d9a108d543300f1040db7595ee0dde6f67d1e7b99",
+      "bytes": 1511
     },
     {
       "path": "CLAUDE.md",
@@ -170,5 +170,5 @@
       "bytes": 1272
     }
   ],
-  "bundle_sha256": "48c8abddf2dc5e593bf3dd45d19f20cb449982bbbae67247e7b5ac4d23777370"
+  "bundle_sha256": "48235dedc91e94f27c54a51b2c7571adcc8531413fa6ba8b72cb01f4a5f4df80"
 }

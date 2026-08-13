@@ -11,7 +11,7 @@ The host attempt state is authoritative. Before `FIRST_ATTEMPT_CLOSED`, do not e
 
 Evidence: attempt state, question text, elapsed preparation time, and any learner-created words already spoken. Do not request hidden context through another tool.
 
-Choose among process prompts in [references/hint-policy.md](references/hint-policy.md). The optional [scripts/select-hint.mjs](scripts/select-hint.mjs) provides a deterministic baseline; copy it to `scratch/` before adapting it.
+Choose among process prompts in [references/hint-policy.md](references/hint-policy.md). The optional [scripts/select-hint.py](scripts/select-hint.py) provides a deterministic baseline; copy it to `scratch/` before adapting it, then run the adapted copy with the sandboxed `python` command.
 
 Recommended governance routes: `practice.record_attempt` and `practice.close_first_attempt`. Context tools may only be called within the disclosure level enforced by the host.
 
