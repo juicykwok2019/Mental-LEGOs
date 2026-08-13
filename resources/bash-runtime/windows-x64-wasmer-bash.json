@@ -54,7 +54,11 @@
         "sha256": "36ea48f185ca15fe8454b1defb6a11754659dbed6330549662b62874d509f95f"
       },
       "registry": "https://wasmer.io/wasmer/coreutils",
-      "license": "MIT"
+      "license": "MIT",
+      "unpackedManifest": {
+        "bytes": 12469,
+        "sha256": "3392dc1f776f7cdc80a31e0861ce320cb42eabe212bff97e9845a20fe75d10c2"
+      }
     }
   }
 }

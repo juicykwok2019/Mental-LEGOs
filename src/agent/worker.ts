@@ -28,6 +28,7 @@ parentPort.on('message', (event) => {
     capabilityBundlePath: parsed.data.capabilityBundlePath,
     sandboxLauncherPath: parsed.data.sandboxLauncherPath,
     credentialVaultPath: parsed.data.credentialVaultPath,
+    bashProxyPath: parsed.data.bashProxyPath,
   }).then((report) => {
     const response: AgentDiagnosticResult = {
       type: 'runtime:diagnostic-result',

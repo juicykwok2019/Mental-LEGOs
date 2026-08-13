@@ -30,6 +30,7 @@ const config: ForgeConfig = {
       'node_modules/@anthropic-ai/claude-agent-sdk-win32-x64/claude.exe',
       'resources/windows-sandbox/MentalLegos.SandboxLauncher.exe',
       'resources/windows-sandbox/MentalLegos.CredentialVault.exe',
+      'resources/windows-sandbox/MentalLegos.BashProxy.exe',
     ],
   },
   rebuildConfig: {},

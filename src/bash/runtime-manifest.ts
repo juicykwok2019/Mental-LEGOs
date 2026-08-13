@@ -44,6 +44,7 @@ export const bashRuntimeManifestSchema = z.object({
       artifact: downloadSchema,
       registry: z.url(),
       license: z.literal('MIT'),
+      unpackedManifest: verifiedFileSchema,
     }),
   }),
 });

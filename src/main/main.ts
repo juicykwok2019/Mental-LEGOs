@@ -86,6 +86,13 @@ function getAgentRuntimePaths() {
         'windows-sandbox',
         'MentalLegos.CredentialVault.exe',
       ),
+    bashProxyPath: app.isPackaged
+      ? path.join(resourcesRoot, 'MentalLegos.BashProxy.exe')
+      : path.join(
+        resourcesRoot,
+        'windows-sandbox',
+        'MentalLegos.BashProxy.exe',
+      ),
   };
 }
 

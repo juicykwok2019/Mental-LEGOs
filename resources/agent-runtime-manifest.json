@@ -1,5 +1,5 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "agent_sdk_version": "0.3.229",
   "claude_code_version": "2.1.229",
   "binary": {
@@ -16,5 +16,10 @@
     "file": "MentalLegos.CredentialVault.exe",
     "bytes": 7168,
     "sha256": "6b12b828fb936e404c2aa49e5ab8ba4bd33f064bd08ec315fdec58f85131ecfb"
+  },
+  "bash_proxy": {
+    "file": "MentalLegos.BashProxy.exe",
+    "bytes": 6656,
+    "sha256": "16c8467007aaafe114d60ed8170804a53e981b0500c94a9359ca17fd0500445b"
   }
 }

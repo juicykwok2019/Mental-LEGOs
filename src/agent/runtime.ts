@@ -7,6 +7,7 @@ import { createCanUseTool, createPolicyHooks } from './policy';
 import { createWindowsSandboxSpawner } from './sandbox';
 import {
   verifyAgentBinary,
+  verifyBashProxy,
   verifyCapabilityBundle,
   verifyCredentialVault,
   verifySandboxLauncher,
@@ -43,6 +44,7 @@ export interface AgentRuntimePaths {
   capabilityBundlePath: string;
   sandboxLauncherPath: string;
   credentialVaultPath: string;
+  bashProxyPath: string;
 }
 
 export interface AgentRuntimeLimits {
@@ -154,11 +156,12 @@ export function buildAgentOptions(request: AgentRunRequest): Options {
 }
 
 export async function diagnoseAgentRuntime(paths: AgentRuntimePaths) {
-  const [runtime, bundle, sandbox, credentialVault] = await Promise.all([
+  const [runtime, bundle, sandbox, credentialVault, bashProxy] = await Promise.all([
     verifyAgentBinary(paths.binaryPath, paths.runtimeManifestPath),
     verifyCapabilityBundle(paths.capabilityBundlePath),
     verifySandboxLauncher(paths.sandboxLauncherPath, paths.runtimeManifestPath),
     verifyCredentialVault(paths.credentialVaultPath, paths.runtimeManifestPath),
+    verifyBashProxy(paths.bashProxyPath, paths.runtimeManifestPath),
   ]);
 
   return {
@@ -168,6 +171,7 @@ export async function diagnoseAgentRuntime(paths: AgentRuntimePaths) {
     bundleSha256: bundle.bundleSha256,
     sandboxLauncherSha256: sandbox.sha256,
     credentialVaultSha256: credentialVault.sha256,
+    bashProxySha256: bashProxy.sha256,
     skills: bundle.skills,
     tools: [...nativeAgentTools, ...governanceToolNames],
     subagentsEnabled: false as const,
@@ -201,6 +205,10 @@ export async function runAgent(request: AgentRunRequest): Promise<AgentRunResult
     ),
     verifyCredentialVault(
       request.paths.credentialVaultPath,
+      request.paths.runtimeManifestPath,
+    ),
+    verifyBashProxy(
+      request.paths.bashProxyPath,
       request.paths.runtimeManifestPath,
     ),
   ]);

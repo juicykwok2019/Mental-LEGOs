@@ -26,6 +26,12 @@ import {
 
 const execFileAsync = promisify(execFile);
 const temporaryDirectories: string[] = [];
+const officialRunnerArchive = process.env.MENTAL_LEGOS_BASH_PROBE_ARCHIVE;
+const officialBashWebc = process.env.MENTAL_LEGOS_BASH_PROBE_BASH_WEBC;
+const officialCoreutilsWebc = process.env.MENTAL_LEGOS_BASH_PROBE_COREUTILS_WEBC;
+const officialProbe = officialRunnerArchive && officialBashWebc && officialCoreutilsWebc
+  ? it
+  : it.skip;
 
 function digest(value: Uint8Array): string {
   return createHash('sha256').update(value).digest('hex');
@@ -39,6 +45,7 @@ function manifestFor(input: {
   attributions: Uint8Array;
   bash: Uint8Array;
   coreutils: Uint8Array;
+  coreutilsManifest: Uint8Array;
 }): BashRuntimeManifest {
   return bashRuntimeManifestSchema.parse({
     schemaVersion: 1,
@@ -91,6 +98,10 @@ function manifestFor(input: {
         },
         registry: 'https://wasmer.io/wasmer/coreutils',
         license: 'MIT',
+        unpackedManifest: {
+          bytes: input.coreutilsManifest.length,
+          sha256: digest(input.coreutilsManifest),
+        },
       },
     },
   });
@@ -139,6 +150,46 @@ describe('sandboxed Bash runtime manager', () => {
     ])).toThrow(BashRuntimeManagerError);
   });
 
+  it('downloads every fixed asset with verification and progress attribution', async () => {
+    const root = await createTemporaryDirectory();
+    const fixture = new TextEncoder().encode('fixed-download-fixture');
+    const input = {
+      archive: fixture,
+      wasmer: fixture,
+      headless: fixture,
+      license: fixture,
+      attributions: fixture,
+      bash: fixture,
+      coreutils: fixture,
+      coreutilsManifest: fixture,
+    };
+    const manifest = manifestFor(input);
+    const assets = new Map<string, Uint8Array>([
+      [manifest.runner.archive.url, input.archive],
+      [manifest.packages.bash.artifact.url, input.bash],
+      [manifest.packages.coreutils.artifact.url, input.coreutils],
+    ]);
+    const progress = new Set<string>();
+    const manager = new BashRuntimeManager({
+      runtimesRoot: path.join(root, 'runtimes'),
+      fetchImplementation: async (request) => {
+        const bytes = assets.get(request.toString());
+        return bytes
+          ? new Response(Uint8Array.from(bytes).buffer, { status: 200 })
+          : new Response(null, { status: 404 });
+      },
+    });
+    const downloads = await manager.downloadAssets(manifest, (event) => {
+      progress.add(event.asset);
+    });
+    await expect(Promise.all([
+      readFile(downloads.runnerArchive),
+      readFile(downloads.bashWebc),
+      readFile(downloads.coreutilsWebc),
+    ])).resolves.toHaveLength(3);
+    expect(progress).toEqual(new Set(['runner', 'bash', 'coreutils']));
+  });
+
   it.skipIf(process.platform !== 'win32')(
     'downloads, installs, verifies, and explicitly removes fixed assets',
     async () => {
@@ -152,12 +203,23 @@ describe('sandboxed Bash runtime manager', () => {
       const attributions = new TextEncoder().encode('synthetic attributions');
       const bash = new TextEncoder().encode('synthetic bash WebC');
       const coreutils = new TextEncoder().encode('synthetic coreutils WebC');
+      const coreutilsManifest = new TextEncoder().encode(JSON.stringify({
+        package: { wapm: { license: 'MIT' } },
+        atoms: {},
+        commands: {},
+      }));
+      const coreutilsManifestPath = path.join(source, 'coreutils-manifest.json');
+      const bashPath = path.join(source, 'bash.webc');
+      const coreutilsPath = path.join(source, 'coreutils.webc');
       await mkdir(path.join(runnerRoot, 'bin'), { recursive: true });
       await Promise.all([
         writeFile(path.join(runnerRoot, 'bin', 'wasmer.exe'), wasmer),
         writeFile(path.join(runnerRoot, 'bin', 'wasmer-headless.exe'), headless),
         writeFile(path.join(runnerRoot, 'LICENSE'), license),
         writeFile(path.join(runnerRoot, 'ATTRIBUTIONS'), attributions),
+        writeFile(coreutilsManifestPath, coreutilsManifest),
+        writeFile(bashPath, bash),
+        writeFile(coreutilsPath, coreutils),
       ]);
       const tarPath = path.join(process.env.SYSTEMROOT ?? '', 'System32', 'tar.exe');
       await execFileAsync(tarPath, [
@@ -179,22 +241,18 @@ describe('sandboxed Bash runtime manager', () => {
         attributions,
         bash,
         coreutils,
+        coreutilsManifest,
       });
-      const assets = new Map<string, Uint8Array>([
-        [manifest.runner.archive.url, archive],
-        [manifest.packages.bash.artifact.url, bash],
-        [manifest.packages.coreutils.artifact.url, coreutils],
-      ]);
       const manager = new BashRuntimeManager({
         runtimesRoot: path.join(root, 'runtimes'),
-        fetchImplementation: async (input) => {
-          const bytes = assets.get(input.toString());
-          if (!bytes) return new Response(null, { status: 404 });
-          return new Response(Uint8Array.from(bytes).buffer, { status: 200 });
-        },
       });
 
-      const runtimeDirectory = await manager.install(manifest);
+      const runtimeDirectory = await manager.installFromFiles(manifest, {
+        runnerArchive: archivePath,
+        bashWebc: bashPath,
+        coreutilsWebc: coreutilsPath,
+        coreutilsManifest: coreutilsManifestPath,
+      });
       await expect(manager.inspect(manifest, true)).resolves.toMatchObject({
         state: 'installed',
         runtimeDirectory,
@@ -206,5 +264,35 @@ describe('sandboxed Bash runtime manager', () => {
       await manager.uninstall(manifest, manifest.id);
       await expect(manager.inspect(manifest)).resolves.toMatchObject({ state: 'missing' });
     },
+  );
+
+  officialProbe(
+    'installs and verifies the complete audited official runtime',
+    async () => {
+      if (!officialRunnerArchive || !officialBashWebc || !officialCoreutilsWebc) return;
+      const root = await createTemporaryDirectory();
+      const manifest = await loadBashRuntimeManifest(path.join(
+        process.cwd(),
+        'resources',
+        'bash-runtime',
+        'windows-x64-wasmer-bash.json',
+      ));
+      const manager = new BashRuntimeManager({
+        runtimesRoot: path.join(root, 'runtimes'),
+      });
+      const runtimeDirectory = await manager.installFromFiles(manifest, {
+        runnerArchive: officialRunnerArchive,
+        bashWebc: officialBashWebc,
+        coreutilsWebc: officialCoreutilsWebc,
+      });
+      await expect(manager.inspect(manifest, true)).resolves.toMatchObject({
+        state: 'installed',
+        runtimeDirectory,
+        verified: true,
+      });
+      await manager.uninstall(manifest, manifest.id);
+      await expect(manager.inspect(manifest)).resolves.toMatchObject({ state: 'missing' });
+    },
+    120_000,
   );
 });

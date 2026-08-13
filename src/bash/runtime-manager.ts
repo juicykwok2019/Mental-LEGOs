@@ -203,6 +203,10 @@ export class BashRuntimeManager {
       { relativePath: 'ATTRIBUTIONS', expected: manifest.runner.files.ATTRIBUTIONS },
       { relativePath: 'packages/bash.webc', expected: manifest.packages.bash.artifact },
       { relativePath: 'packages/coreutils.webc', expected: manifest.packages.coreutils.artifact },
+      {
+        relativePath: 'packages/coreutils-manifest.json',
+        expected: manifest.packages.coreutils.unpackedManifest,
+      },
     ];
   }
 
@@ -391,7 +395,12 @@ export class BashRuntimeManager {
 
   async installFromFiles(
     manifest: BashRuntimeManifest,
-    input: { runnerArchive: string; bashWebc: string; coreutilsWebc: string },
+    input: {
+      runnerArchive: string;
+      bashWebc: string;
+      coreutilsWebc: string;
+      coreutilsManifest?: string;
+    },
   ): Promise<string> {
     await this.#prepareRoot();
     if (!(await verifyFile(input.runnerArchive, manifest.runner.archive))) {
@@ -452,6 +461,50 @@ export class BashRuntimeManager {
         copyFile(input.bashWebc, path.join(stagingDirectory, 'packages', 'bash.webc')),
         copyFile(input.coreutilsWebc, path.join(stagingDirectory, 'packages', 'coreutils.webc')),
       ]);
+      const coreutilsManifestPath = path.join(
+        stagingDirectory,
+        'packages',
+        'coreutils-manifest.json',
+      );
+      if (input.coreutilsManifest) {
+        await copyFile(input.coreutilsManifest, coreutilsManifestPath);
+      } else {
+        const unpackDirectory = path.join(stagingDirectory, '.coreutils-unpack');
+        const wasmerDirectory = path.join(stagingDirectory, '.wasmer-unpack');
+        await mkdir(unpackDirectory, { recursive: false });
+        await mkdir(wasmerDirectory, { recursive: false });
+        await execFileAsync(path.join(stagingDirectory, 'bin', 'wasmer.exe'), [
+          'package',
+          'unpack',
+          '--quiet',
+          '--format',
+          'webc',
+          '--out-dir',
+          unpackDirectory,
+          path.join(stagingDirectory, 'packages', 'coreutils.webc'),
+        ], {
+          encoding: 'utf8',
+          env: {
+            SYSTEMROOT: process.env.SYSTEMROOT,
+            WINDIR: process.env.WINDIR,
+            WASMER_DIR: wasmerDirectory,
+          },
+          maxBuffer: 2 * 1024 * 1024,
+          windowsHide: true,
+        });
+        const unpacked = JSON.parse(
+          await readFile(path.join(unpackDirectory, 'manifest.json'), 'utf8'),
+        ) as unknown;
+        await writeFile(
+          coreutilsManifestPath,
+          JSON.stringify(unpacked),
+          { encoding: 'utf8', flag: 'wx' },
+        );
+        await Promise.all([
+          rm(unpackDirectory, { recursive: true, force: true }),
+          rm(wasmerDirectory, { recursive: true, force: true }),
+        ]);
+      }
       for (const { relativePath, expected } of this.#installedFiles(manifest)) {
         const filePath = assertDescendant(
           stagingDirectory,
@@ -490,6 +543,27 @@ export class BashRuntimeManager {
     manifest: BashRuntimeManifest,
     onProgress?: (progress: BashRuntimeProgress) => void,
   ): Promise<string> {
+    const { runnerArchive, bashWebc, coreutilsWebc } = await this.downloadAssets(
+      manifest,
+      onProgress,
+    );
+    const runtimeDirectory = await this.installFromFiles(manifest, {
+      runnerArchive,
+      bashWebc,
+      coreutilsWebc,
+    });
+    await Promise.all([
+      rm(this.downloadPath(manifest, 'runner'), { force: true }),
+      rm(this.downloadPath(manifest, 'bash'), { force: true }),
+      rm(this.downloadPath(manifest, 'coreutils'), { force: true }),
+    ]);
+    return runtimeDirectory;
+  }
+
+  async downloadAssets(
+    manifest: BashRuntimeManifest,
+    onProgress?: (progress: BashRuntimeProgress) => void,
+  ): Promise<{ runnerArchive: string; bashWebc: string; coreutilsWebc: string }> {
     const runnerArchive = await this.#downloadAsset(
       manifest,
       'runner',
@@ -508,17 +582,7 @@ export class BashRuntimeManager {
       manifest.packages.coreutils.artifact,
       onProgress,
     );
-    const runtimeDirectory = await this.installFromFiles(manifest, {
-      runnerArchive,
-      bashWebc,
-      coreutilsWebc,
-    });
-    await Promise.all([
-      rm(this.downloadPath(manifest, 'runner'), { force: true }),
-      rm(this.downloadPath(manifest, 'bash'), { force: true }),
-      rm(this.downloadPath(manifest, 'coreutils'), { force: true }),
-    ]);
-    return runtimeDirectory;
+    return { runnerArchive, bashWebc, coreutilsWebc };
   }
 
   async uninstall(
