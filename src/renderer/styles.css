@@ -80,6 +80,37 @@ h1 {
   font-size: 1.04rem;
 }
 
+.runtime-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 36px;
+  width: min(1120px, 100%);
+  margin: 0 auto 20px;
+  padding: 24px 28px;
+  border: 1px solid rgb(34 37 31 / 12%);
+  border-radius: 20px;
+  background: rgb(248 248 242 / 78%);
+}
+
+.runtime-card h2 { font-size: clamp(1.35rem, 2vw, 1.8rem); }
+
+.runtime-card p:not(.step-label) {
+  max-width: 680px;
+  margin: 10px 0 0;
+  color: #62665f;
+  font-size: 0.86rem;
+  line-height: 1.6;
+}
+
+.runtime-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 9px;
+  min-width: 280px;
+}
+
 .workspace {
   width: min(1120px, 100%);
   margin: 0 auto;
@@ -220,6 +251,17 @@ button:disabled { cursor: wait; opacity: 0.58; }
 
 .primary-button:hover:not(:disabled) { background: #243f29; }
 
+.secondary-button {
+  flex-basis: 100%;
+  min-height: 40px;
+  padding: 9px 14px;
+  border: 1px solid #96aa91;
+  background: #fff;
+  color: #34533a;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
 .quiet-button {
   padding: 9px 12px;
   background: transparent;
@@ -242,6 +284,8 @@ button:disabled { cursor: wait; opacity: 0.58; }
 @media (max-width: 760px) {
   .app-shell { padding: 28px 20px 40px; }
   .topbar { align-items: flex-start; flex-direction: column; gap: 24px; }
+  .runtime-card { align-items: flex-start; flex-direction: column; }
+  .runtime-actions { justify-content: flex-start; min-width: 0; }
   .provider-form { grid-template-columns: 1fr; }
   .wide-field { grid-column: auto; }
   .configured-card { grid-template-columns: 1fr; gap: 12px; }

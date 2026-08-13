@@ -11,6 +11,8 @@ export const RENDERER_READY_CHANNEL = 'app:renderer-ready' as const;
 export const PROVIDER_SETUP_GET_CHANNEL = 'provider-setup:get' as const;
 export const PROVIDER_SETUP_SAVE_CHANNEL = 'provider-setup:save' as const;
 export const PROVIDER_SETUP_CLEAR_CHANNEL = 'provider-setup:clear' as const;
+export const AGENT_READINESS_GET_CHANNEL = 'agent-readiness:get' as const;
+export const BASH_RUNTIME_INSTALL_CHANNEL = 'bash-runtime:install' as const;
 
 export const appInfoSchema = z.object({
   name: z.string().min(1),
@@ -55,10 +57,22 @@ export const providerSetupStateSchema = z.object({
 
 export type ProviderSetupState = z.infer<typeof providerSetupStateSchema>;
 
+export const agentReadinessStateSchema = z.object({
+  agentRuntime: z.enum(['checking', 'ready', 'error']),
+  bashRuntime: z.enum(['missing', 'invalid', 'ready']),
+  bashRuntimeName: z.string().min(1),
+  downloadBytes: z.number().int().positive(),
+  detail: z.string().max(240).nullable(),
+});
+
+export type AgentReadinessState = z.infer<typeof agentReadinessStateSchema>;
+
 export interface MentalLegosDesktopApi {
   getAppInfo(): Promise<AppInfo>;
   reportReady(): Promise<void>;
   getProviderSetup(): Promise<ProviderSetupState>;
   saveProviderSetup(input: ProviderSetupInput): Promise<ProviderSetupState>;
   clearProviderSetup(): Promise<ProviderSetupState>;
+  getAgentReadiness(): Promise<AgentReadinessState>;
+  installBashRuntime(): Promise<AgentReadinessState>;
 }

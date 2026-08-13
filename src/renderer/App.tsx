@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 
 import type {
+  AgentReadinessState,
   AppInfo,
   ProviderSetupInput,
   ProviderSetupState,
@@ -13,6 +14,7 @@ function messageFrom(reason: unknown): string {
 export function App() {
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null);
   const [setup, setSetup] = useState<ProviderSetupState | null>(null);
+  const [readiness, setReadiness] = useState<AgentReadinessState | null>(null);
   const [providerId, setProviderId] = useState<ProviderSetupInput['providerId']>('anthropic');
   const [displayName, setDisplayName] = useState('Anthropic');
   const [baseUrl, setBaseUrl] = useState('https://api.anthropic.com');
@@ -20,6 +22,7 @@ export function App() {
   const [storage, setStorage] = useState<ProviderSetupInput['storage']>('session');
   const [apiKey, setApiKey] = useState('');
   const [busy, setBusy] = useState(false);
+  const [runtimeBusy, setRuntimeBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,14 +30,26 @@ export function App() {
     Promise.all([
       window.mentalLegos.getAppInfo(),
       window.mentalLegos.getProviderSetup(),
-    ]).then(async ([info, providerSetup]) => {
+      window.mentalLegos.getAgentReadiness(),
+    ]).then(async ([info, providerSetup, agentReadiness]) => {
       setAppInfo(info);
       setSetup(providerSetup);
+      setReadiness(agentReadiness);
       await window.mentalLegos.reportReady();
     }).catch((reason: unknown) => {
       setError(messageFrom(reason));
     });
   }, []);
+
+  useEffect(() => {
+    if (readiness?.agentRuntime !== 'checking') return undefined;
+    const timer = window.setTimeout(() => {
+      window.mentalLegos.getAgentReadiness()
+        .then(setReadiness)
+        .catch((reason: unknown) => setError(messageFrom(reason)));
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [readiness?.agentRuntime]);
 
   const selectedPreset = useMemo(
     () => setup?.providers.find((provider) => provider.id === providerId),
@@ -96,6 +111,21 @@ export function App() {
     }
   }
 
+  async function installRuntime(): Promise<void> {
+    setRuntimeBusy(true);
+    setNotice('正在下载并校验隔离的 Bash / Python 运行时，请勿关闭应用…');
+    setError(null);
+    try {
+      setReadiness(await window.mentalLegos.installBashRuntime());
+      setNotice('Bash / Python 运行时已完成哈希校验，可以执行完整 Agent 认证。');
+    } catch (reason) {
+      setError(messageFrom(reason));
+      setNotice(null);
+    } finally {
+      setRuntimeBusy(false);
+    }
+  }
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -113,6 +143,39 @@ export function App() {
 
       <section className="intro">
         <p>先回答，再辅助。把真实表达提炼成可被大脑快速调用、灵活拼装的语言乐高。</p>
+      </section>
+
+      <section className="runtime-card" aria-labelledby="runtime-heading">
+        <div>
+          <p className="step-label">架构验证 00</p>
+          <h2 id="runtime-heading">本地 Agent 能力运行时</h2>
+          <p>
+            Claude Agent SDK、隔离沙箱与内置 Skill 随应用提供；Bash、Coreutils 和
+            Python 首次使用时下载到本机并逐文件校验。
+          </p>
+        </div>
+        <div className="runtime-actions">
+          <span className={`badge ${readiness?.agentRuntime === 'ready' ? 'badge-ready' : ''}`}>
+            Agent {readiness?.agentRuntime === 'ready'
+              ? '就绪'
+              : readiness?.agentRuntime === 'error' ? '异常' : '检查中'}
+          </span>
+          <span className={`badge ${readiness?.bashRuntime === 'ready' ? 'badge-ready' : ''}`}>
+            Bash / Python {readiness?.bashRuntime === 'ready' ? '就绪' : '未安装'}
+          </span>
+          {readiness && readiness.bashRuntime !== 'ready' && (
+            <button
+              className="secondary-button"
+              type="button"
+              disabled={runtimeBusy}
+              onClick={() => void installRuntime()}
+            >
+              {runtimeBusy
+                ? '正在准备…'
+                : `下载并校验（约 ${Math.ceil(readiness.downloadBytes / 1024 / 1024)} MB）`}
+            </button>
+          )}
+        </div>
       </section>
 
       <section className="workspace" aria-labelledby="provider-heading">

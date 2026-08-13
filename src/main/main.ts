@@ -13,17 +13,22 @@ import {
 
 import { AgentWorkerHost } from './agent-worker-host';
 import { AsrWorkerHost } from './asr-worker-host';
+import { BashRuntimeManager } from '../bash/runtime-manager';
+import { loadBashRuntimeManifest } from '../bash/runtime-manifest';
 import { CredentialVault } from './credential-vault';
 import { ProviderConfigurationService } from './provider-configuration';
 import { ProviderSettingsStore } from './provider-settings-store';
 
 import {
   APP_INFO_CHANNEL,
+  AGENT_READINESS_GET_CHANNEL,
+  BASH_RUNTIME_INSTALL_CHANNEL,
   PROVIDER_SETUP_CLEAR_CHANNEL,
   PROVIDER_SETUP_GET_CHANNEL,
   PROVIDER_SETUP_SAVE_CHANNEL,
   RENDERER_READY_CHANNEL,
   appInfoSchema,
+  agentReadinessStateSchema,
   providerSetupInputSchema,
   providerSetupStateSchema,
 } from '../shared/contracts';
@@ -47,6 +52,10 @@ let agentWorkerHost: AgentWorkerHost | null = null;
 let asrWorkerHost: AsrWorkerHost | null = null;
 let credentialVault: CredentialVault | null = null;
 let providerConfiguration: ProviderConfigurationService | null = null;
+let bashRuntimeManager: BashRuntimeManager | null = null;
+let agentRuntimeDiagnostic: 'checking' | 'ready' | 'error' = 'checking';
+let agentRuntimeDiagnosticDetail: string | null = null;
+let bashInstallPromise: Promise<unknown> | null = null;
 const isPackagedSmokeTest = process.argv.includes('--smoke-test');
 const isAgentE2eSmokeTest = process.argv.includes('--agent-e2e-smoke');
 const agentE2eBashRuntimeDirectory = process.argv
@@ -118,6 +127,35 @@ function getAgentRuntimePaths() {
         'MentalLegos.ProviderProxy.exe',
       ),
   };
+}
+
+function getBashRuntimeManifestPath(): string {
+  const resourcesRoot = app.isPackaged
+    ? process.resourcesPath
+    : path.join(app.getAppPath(), 'resources');
+  return path.join(
+    resourcesRoot,
+    'bash-runtime',
+    'windows-x64-wasmer-bash.json',
+  );
+}
+
+async function getAgentReadinessState() {
+  if (!bashRuntimeManager) throw new Error('Bash runtime manager is unavailable.');
+  const manifest = await loadBashRuntimeManifest(getBashRuntimeManifestPath());
+  const status = await bashRuntimeManager.inspect(manifest, false);
+  return agentReadinessStateSchema.parse({
+    agentRuntime: agentRuntimeDiagnostic,
+    bashRuntime: status.state === 'installed' ? 'ready' : status.state,
+    bashRuntimeName: manifest.displayName,
+    downloadBytes: manifest.runner.archive.bytes
+      + manifest.packages.bash.artifact.bytes
+      + manifest.packages.coreutils.artifact.bytes
+      + manifest.packages.python.artifact.bytes,
+    detail: status.state === 'invalid'
+      ? `Managed runtime verification failed: ${status.reason}`
+      : agentRuntimeDiagnosticDetail,
+  });
 }
 
 async function runPackagedAgentE2eSmoke(): Promise<void> {
@@ -332,6 +370,29 @@ function registerIpcHandlers(): void {
       configured: null,
     });
   });
+
+  ipcMain.handle(AGENT_READINESS_GET_CHANNEL, async (event) => {
+    const senderUrl = event.senderFrame?.url;
+    if (!senderUrl) throw new Error('IPC request rejected: missing sender frame.');
+    assertTrustedIpcSender(event.sender.id, senderUrl);
+    return getAgentReadinessState();
+  });
+
+  ipcMain.handle(BASH_RUNTIME_INSTALL_CHANNEL, async (event) => {
+    const senderUrl = event.senderFrame?.url;
+    if (!senderUrl) throw new Error('IPC request rejected: missing sender frame.');
+    assertTrustedIpcSender(event.sender.id, senderUrl);
+    if (!bashRuntimeManager) throw new Error('Bash runtime manager is unavailable.');
+    if (!bashInstallPromise) {
+      bashInstallPromise = (async () => {
+        const manifest = await loadBashRuntimeManifest(getBashRuntimeManifestPath());
+        const status = await bashRuntimeManager?.inspect(manifest, true);
+        if (status?.state !== 'installed') await bashRuntimeManager?.install(manifest);
+      })().finally(() => { bashInstallPromise = null; });
+    }
+    await bashInstallPromise;
+    return getAgentReadinessState();
+  });
 }
 
 async function createMainWindow(): Promise<void> {
@@ -382,6 +443,9 @@ app.whenReady().then(async () => {
     new ProviderSettingsStore(path.join(app.getPath('userData'), 'settings')),
   );
   await providerConfiguration.initialize();
+  bashRuntimeManager = new BashRuntimeManager({
+    runtimesRoot: path.join(app.getPath('userData'), 'runtimes'),
+  });
   registerIpcHandlers();
   await createMainWindow();
 
@@ -391,10 +455,16 @@ app.whenReady().then(async () => {
     isAgentE2eSmokeTest,
   );
   void agentWorkerHost.diagnose(runtimePaths).then(async () => {
+    agentRuntimeDiagnostic = 'ready';
+    agentRuntimeDiagnosticDetail = null;
     if (isAgentE2eSmokeTest) await runPackagedAgentE2eSmoke();
     agentSmokeReady = true;
     completePackagedSmokeTest();
   }).catch((reason: unknown) => {
+    agentRuntimeDiagnostic = 'error';
+    agentRuntimeDiagnosticDetail = reason instanceof Error
+      ? reason.message.slice(0, 240)
+      : 'Agent runtime diagnostic failed.';
     console.error('Agent runtime diagnostic failed.', reason);
     if (isPackagedSmokeTest) app.exit(1);
   });
