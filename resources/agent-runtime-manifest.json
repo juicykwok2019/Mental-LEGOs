@@ -9,7 +9,7 @@
   },
   "sandbox_launcher": {
     "file": "MentalLegos.SandboxLauncher.exe",
-    "bytes": 14336,
-    "sha256": "e4db0006174d252565320d086bda1f6b79d4d9119e53f43282ffe32fbdd103c8"
+    "bytes": 14848,
+    "sha256": "f6738eedbc3629081fcc7ad997f7339ad3ebbafbb9fde6d1977f97da8ec769cc"
   }
 }

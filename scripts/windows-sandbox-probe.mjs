@@ -1,5 +1,12 @@
 import { createServer } from 'node:net';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import process from 'node:process';
@@ -21,11 +28,13 @@ const input = path.join(workspace, 'input');
 const scratch = path.join(workspace, 'scratch');
 const skill = path.join(workspace, '.claude', 'skills', 'probe');
 const forbiddenRoot = path.join(temporaryRoot, 'outside-workspace');
+const otherSessionRoot = path.join(temporaryRoot, 'other-session');
 await Promise.all([
   mkdir(input, { recursive: true }),
   mkdir(scratch, { recursive: true }),
   mkdir(skill, { recursive: true }),
   mkdir(forbiddenRoot, { recursive: true }),
+  mkdir(otherSessionRoot, { recursive: true }),
 ]);
 
 const allowedRead = path.join(input, 'authorized.txt');
@@ -33,11 +42,18 @@ const allowedWrite = path.join(scratch, 'agent-output.txt');
 const readonlyWrite = path.join(skill, 'SKILL.md');
 const forbiddenRead = path.join(forbiddenRoot, 'private.txt');
 const forbiddenWrite = path.join(forbiddenRoot, 'escape.txt');
+const junction = path.join(workspace, 'junction-outside');
+const junctionRead = path.join(junction, 'private.txt');
+const otherSessionRead = path.join(otherSessionRoot, 'private.txt');
+const repositoryRead = path.join(root, '.git', 'config');
+const installWrite = path.join(root, 'resources', 'windows-sandbox', 'escape-probe.txt');
 await Promise.all([
   writeFile(allowedRead, 'authorized input', 'utf8'),
   writeFile(readonlyWrite, 'read-only skill', 'utf8'),
   writeFile(forbiddenRead, 'must remain private', 'utf8'),
+  writeFile(otherSessionRead, 'other session must remain private', 'utf8'),
 ]);
+await symlink(forbiddenRoot, junction, 'junction');
 
 const server = createServer(() => {});
 await new Promise((resolve, reject) => {
@@ -60,6 +76,7 @@ function run(executable, args) {
         TEMP: process.env.TEMP,
         TMP: process.env.TMP,
         USERPROFILE: process.env.USERPROFILE,
+        MENTAL_LEGOS_PROBE_SECRET: undefined,
       },
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
@@ -86,6 +103,10 @@ try {
     readonlyWrite,
     forbiddenRead,
     forbiddenWrite,
+    junctionRead,
+    otherSessionRead,
+    repositoryRead,
+    installWrite,
     String(address.port),
   ]);
 
@@ -96,7 +117,13 @@ try {
     ['readonly_write', 'false'],
     ['forbidden_read', 'false'],
     ['forbidden_write', 'false'],
+    ['junction_read', 'false'],
+    ['other_session_read', 'false'],
+    ['repository_read', 'false'],
+    ['install_write', 'false'],
     ['loopback_connect', 'false'],
+    ['contained_child', 'true'],
+    ['secret_visible', 'false'],
   ]);
   const actual = new Map(result.stdout.trim().split(/\r?\n/u).map((line) => line.split('=')));
   const failures = [...expected].filter(([key, value]) => actual.get(key) !== value);
@@ -115,5 +142,6 @@ try {
 } finally {
   server.close();
   await run(launcher, ['delete-profile', profile, path.dirname(probe), probe]);
+  await rm(installWrite, { force: true });
   await rm(temporaryRoot, { recursive: true, force: true });
 }

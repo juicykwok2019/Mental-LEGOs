@@ -19,6 +19,9 @@ internal static class SandboxLauncher
     private const uint ProcThreadAttributeHandleList = 0x00020002;
     private const uint ProcThreadAttributeSecurityCapabilities = 0x00020009;
     private const uint JobObjectExtendedLimitInformation = 9;
+    private const uint JobObjectLimitActiveProcess = 0x00000008;
+    private const uint JobObjectLimitProcessMemory = 0x00000100;
+    private const uint JobObjectLimitJobMemory = 0x00000200;
     private const uint JobObjectLimitKillOnJobClose = 0x00002000;
     private const uint Infinite = 0xFFFFFFFF;
     private const uint StdInputHandle = unchecked((uint)-10);
@@ -442,7 +445,13 @@ internal static class SandboxLauncher
         if (job == IntPtr.Zero) throw new Win32Exception(Marshal.GetLastWin32Error());
 
         ExtendedLimitInformation limits = new ExtendedLimitInformation();
-        limits.BasicLimitInformation.LimitFlags = JobObjectLimitKillOnJobClose;
+        limits.BasicLimitInformation.LimitFlags = JobObjectLimitKillOnJobClose
+            | JobObjectLimitActiveProcess
+            | JobObjectLimitProcessMemory
+            | JobObjectLimitJobMemory;
+        limits.BasicLimitInformation.ActiveProcessLimit = 32;
+        limits.ProcessMemoryLimit = new UIntPtr(1536UL * 1024UL * 1024UL);
+        limits.JobMemoryLimit = new UIntPtr(2048UL * 1024UL * 1024UL);
         int size = Marshal.SizeOf(typeof(ExtendedLimitInformation));
         IntPtr pointer = Marshal.AllocHGlobal(size);
         try
