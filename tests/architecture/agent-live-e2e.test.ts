@@ -149,6 +149,7 @@ describe('live Claude Agent SDK sandbox lifecycle', () => {
         provider: {
           baseUrl: 'https://provider.invalid',
           apiKey: 'synthetic-host-only-key',
+          protocol: 'anthropic-messages',
           model: 'claude-sonnet-4-6',
         },
         limits: { maxTurns: 2 },

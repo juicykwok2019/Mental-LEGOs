@@ -4,6 +4,7 @@ import {
   providerCertificationSchema,
   providerDefinitionSchema,
   providerIdSchema,
+  providerProtocolSchema,
 } from './providers';
 
 export const APP_INFO_CHANNEL = 'app:get-info' as const;
@@ -43,6 +44,7 @@ export const configuredProviderSummarySchema = z.object({
   providerId: providerIdSchema,
   displayName: z.string().min(1),
   baseUrl: z.string().url(),
+  protocol: providerProtocolSchema,
   model: z.string().min(1),
   certification: providerCertificationSchema,
   storage: credentialStorageSchema,

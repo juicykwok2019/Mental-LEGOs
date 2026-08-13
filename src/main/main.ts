@@ -194,6 +194,7 @@ async function runPackagedAgentE2eSmoke(): Promise<void> {
     provider: {
       baseUrl: 'https://provider.invalid',
       apiKey: 'synthetic-packaged-host-only-key',
+      protocol: 'anthropic-messages' as const,
       model: 'claude-sonnet-4-6',
     },
     limits: { maxTurns: 8 },

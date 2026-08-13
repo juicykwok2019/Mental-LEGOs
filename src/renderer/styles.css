@@ -170,6 +170,53 @@ h2 {
 .configured-card div { display: grid; gap: 4px; min-width: 0; }
 .configured-card span { overflow: hidden; color: #596355; font-size: 0.84rem; text-overflow: ellipsis; }
 
+.provider-lanes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: -8px 0 28px;
+}
+
+.provider-lanes article {
+  min-width: 0;
+  padding: 17px 18px;
+  border: 1px solid #d4d1c8;
+  border-radius: 14px;
+  background: #faf8f2;
+}
+
+.provider-lanes article:last-child {
+  border-color: #c9d6c5;
+  background: #f4f8f1;
+}
+
+.lane-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lane-heading span {
+  color: #596654;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.provider-lanes p {
+  margin: 10px 0;
+  color: #62665f;
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.provider-lanes code, .connection-detail code {
+  overflow-wrap: anywhere;
+  color: #596355;
+  font-size: 0.72rem;
+}
+
 .provider-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -225,6 +272,27 @@ legend { grid-column: 1 / -1; margin-bottom: 8px; }
 
 .radio-line input { width: auto; min-height: auto; }
 .wide-field { grid-column: 1 / -1; }
+
+.connection-detail {
+  display: grid;
+  grid-template-columns: 1fr 1.25fr;
+  gap: 13px 24px;
+  padding: 16px 18px;
+  border: 1px solid #d8d5cc;
+  border-radius: 12px;
+  background: #f7f5ef;
+}
+
+.connection-detail div { display: grid; gap: 4px; min-width: 0; }
+.connection-detail span { color: #74776f; font-size: 0.72rem; font-weight: 700; }
+.connection-detail strong { color: #30362f; font-size: 0.86rem; }
+.connection-detail p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #695f50;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
 
 .form-actions {
   display: flex;
@@ -364,6 +432,8 @@ button:disabled { cursor: wait; opacity: 0.58; }
   .provider-form { grid-template-columns: 1fr; }
   .wide-field { grid-column: auto; }
   .configured-card { grid-template-columns: 1fr; gap: 12px; }
+  .provider-lanes, .connection-detail { grid-template-columns: 1fr; }
+  .connection-detail p { grid-column: auto; }
   .section-heading { align-items: flex-start; }
   .certification-panel { grid-template-columns: 1fr; }
 }

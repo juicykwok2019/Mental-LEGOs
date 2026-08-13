@@ -1,7 +1,20 @@
 import { z } from 'zod';
 
-export const providerIdSchema = z.enum(['anthropic', 'deepseek', 'zhipu', 'custom']);
+export const providerIdSchema = z.enum([
+  'anthropic',
+  'kimi-code',
+  'kimi-open-platform',
+  'deepseek',
+  'zhipu',
+  'custom',
+]);
 export type ProviderId = z.infer<typeof providerIdSchema>;
+
+export const providerProtocolSchema = z.enum([
+  'anthropic-messages',
+  'openai-chat-completions',
+]);
+export type ProviderProtocol = z.infer<typeof providerProtocolSchema>;
 
 export const providerCertificationSchema = z.enum([
   'baseline-pending-user-key',
@@ -13,10 +26,14 @@ export const providerDefinitionSchema = z.object({
   id: providerIdSchema.exclude(['custom']),
   displayName: z.string().min(1),
   baseUrl: z.string().url(),
+  protocol: providerProtocolSchema,
   recommendedModels: z.array(z.string().min(1)).min(1),
   certification: providerCertificationSchema.exclude(['custom-unverified']),
   officialSource: z.string().url(),
+  keySourceLabel: z.string().min(1),
+  keySourceUrl: z.string().url(),
   reviewedOn: z.string().date(),
+  billingNotice: z.string().min(1),
   usageNotice: z.string().min(1),
 });
 
@@ -27,30 +44,76 @@ export const providerRegistry = Object.freeze([
     id: 'anthropic',
     displayName: 'Anthropic',
     baseUrl: 'https://api.anthropic.com',
+    protocol: 'anthropic-messages',
     recommendedModels: ['claude-sonnet-5', 'claude-opus-5', 'claude-haiku-4-5-20251001'],
     certification: 'baseline-pending-user-key',
     officialSource: 'https://platform.claude.com/docs/en/about-claude/models/overview',
-    reviewedOn: '2026-08-13',
+    keySourceLabel: 'Anthropic Console API Key',
+    keySourceUrl: 'https://console.anthropic.com/settings/keys',
+    reviewedOn: '2026-08-14',
+    billingNotice: '使用 Anthropic API 账户的余额与计费规则。',
     usageNotice: 'Use a Claude API key and the API terms attached to that key.',
+  },
+  {
+    id: 'kimi-code',
+    displayName: 'Kimi Code（Coding Key / 订阅额度）',
+    baseUrl: 'https://api.kimi.com/coding',
+    protocol: 'anthropic-messages',
+    recommendedModels: ['kimi-for-coding'],
+    certification: 'official-compatible-pending-app-certification',
+    officialSource: 'https://www.kimi.com/code/docs/third-party-tools/claude-code.html',
+    keySourceLabel: 'Kimi Code 控制台 Coding Key',
+    keySourceUrl: 'https://www.kimi.com/code/console',
+    reviewedOn: '2026-08-14',
+    billingNotice: '消耗 Kimi Code 套餐额度；不能使用 Kimi 开放平台 API Key。',
+    usageNotice: 'Anthropic-format direct connection for a Kimi Code Coding Key. Kimi Open Platform keys are a separate product and are not interchangeable.',
+  },
+  {
+    id: 'kimi-open-platform',
+    displayName: 'Kimi 开放平台（API Key / 按量计费）',
+    baseUrl: 'https://api.moonshot.cn/v1',
+    protocol: 'openai-chat-completions',
+    recommendedModels: [
+      'kimi-k3',
+      'kimi-k2.7-code',
+      'kimi-k2.7-code-highspeed',
+      'kimi-k2.6',
+      'kimi-k2.5',
+    ],
+    certification: 'official-compatible-pending-app-certification',
+    officialSource: 'https://platform.kimi.com/docs/api/chat',
+    keySourceLabel: 'Kimi 开放平台 API Key',
+    keySourceUrl: 'https://platform.kimi.com/console/api-keys',
+    reviewedOn: '2026-08-14',
+    billingNotice: '使用 Kimi 开放平台余额并按量计费；不能使用 Kimi Code 套餐 Coding Key。',
+    usageNotice: 'OpenAI Chat Completions endpoint adapted locally to the Claude Agent SDK Anthropic Messages boundary. Kimi Code subscription keys are not interchangeable.',
   },
   {
     id: 'deepseek',
     displayName: 'DeepSeek',
     baseUrl: 'https://api.deepseek.com/anthropic',
+    protocol: 'anthropic-messages',
     recommendedModels: ['deepseek-v4-pro', 'deepseek-v4-flash'],
     certification: 'official-compatible-pending-app-certification',
     officialSource: 'https://api-docs.deepseek.com/guides/anthropic_api',
-    reviewedOn: '2026-08-13',
+    keySourceLabel: 'DeepSeek 开放平台 API Key',
+    keySourceUrl: 'https://platform.deepseek.com/api_keys',
+    reviewedOn: '2026-08-14',
+    billingNotice: '使用 DeepSeek 开放平台账户的余额与计费规则。',
     usageNotice: 'Official Anthropic-format API; full Mental LEGOs Agent capability testing still requires a user-supplied standard API key.',
   },
   {
     id: 'zhipu',
     displayName: 'Zhipu AI',
     baseUrl: 'https://open.bigmodel.cn/api/anthropic',
+    protocol: 'anthropic-messages',
     recommendedModels: ['glm-5.2'],
     certification: 'official-compatible-pending-app-certification',
     officialSource: 'https://docs.bigmodel.cn/cn/guide/develop/claude/introduction',
-    reviewedOn: '2026-08-13',
+    keySourceLabel: '智谱开放平台 API Key',
+    keySourceUrl: 'https://bigmodel.cn/usercenter/proj-mgmt/apikeys',
+    reviewedOn: '2026-08-14',
+    billingNotice: '使用智谱开放平台账户的余额与计费规则。',
     usageNotice: 'Use standard API rights valid for custom applications; do not assume a restricted Coding Plan subscription is eligible.',
   },
 ] satisfies ProviderDefinition[]);
@@ -60,6 +123,7 @@ export const providerProfileSchema = z.object({
   providerId: providerIdSchema,
   displayName: z.string().trim().min(1).max(80),
   baseUrl: z.string().min(1),
+  protocol: providerProtocolSchema.default('anthropic-messages'),
   model: z.string().trim().min(1).max(120),
   credentialReference: z.string().regex(/^(?:session|windows):model:[a-f0-9-]{36}$/u),
   certification: providerCertificationSchema,
@@ -104,10 +168,12 @@ export function createProviderProfile(input: {
   const certification = preset && normalizedBaseUrl === preset.baseUrl
     ? preset.certification
     : 'custom-unverified';
+  const protocol = preset?.protocol ?? 'anthropic-messages';
 
   return providerProfileSchema.parse({
     ...input,
     baseUrl: normalizedBaseUrl,
+    protocol,
     certification,
   });
 }

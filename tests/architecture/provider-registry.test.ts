@@ -8,17 +8,28 @@ import {
   providerRegistry,
 } from '../../src/shared/providers';
 
-describe('Anthropic-format provider registry', () => {
-  it('contains only reviewed HTTPS Anthropic-format endpoints', () => {
+describe('provider protocol registry', () => {
+  it('keeps reviewed Anthropic and OpenAI provider products explicit', () => {
     expect(providerRegistry.map((provider) => provider.id)).toEqual([
-      'anthropic', 'deepseek', 'zhipu',
+      'anthropic', 'kimi-code', 'kimi-open-platform', 'deepseek', 'zhipu',
     ]);
     for (const provider of providerRegistry) {
       expect(provider.baseUrl).toMatch(/^https:\/\//u);
       expect(provider.baseUrl).not.toMatch(/chat\/completions|\/v1\/responses/u);
       expect(provider.officialSource).toMatch(/^https:\/\//u);
-      expect(provider.reviewedOn).toBe('2026-08-13');
+      expect(provider.keySourceUrl).toMatch(/^https:\/\//u);
+      expect(provider.reviewedOn).toBe('2026-08-14');
     }
+    expect(providerRegistry.find((provider) => provider.id === 'kimi-code')).toMatchObject({
+      protocol: 'anthropic-messages',
+      baseUrl: 'https://api.kimi.com/coding',
+      recommendedModels: ['kimi-for-coding'],
+    });
+    expect(providerRegistry.find((provider) => provider.id === 'kimi-open-platform'))
+      .toMatchObject({
+        protocol: 'openai-chat-completions',
+        baseUrl: 'https://api.moonshot.cn/v1',
+      });
   });
 
   it('preserves official certification only for the exact reviewed endpoint', () => {
@@ -39,6 +50,19 @@ describe('Anthropic-format provider registry', () => {
       baseUrl: 'https://gateway.example.test/anthropic',
     });
     expect(overridden.certification).toBe('custom-unverified');
+  });
+
+  it('binds a selected provider product to its protocol even with a custom gateway URL', () => {
+    const openPlatform = createProviderProfile({
+      id: randomUUID(),
+      providerId: 'kimi-open-platform',
+      displayName: 'Kimi Open Platform',
+      baseUrl: 'https://gateway.example.test/v1',
+      model: 'kimi-k3',
+      credentialReference: `session:model:${randomUUID()}`,
+    });
+    expect(openPlatform.protocol).toBe('openai-chat-completions');
+    expect(openPlatform.certification).toBe('custom-unverified');
   });
 
   it('rejects unsafe provider URL forms', () => {

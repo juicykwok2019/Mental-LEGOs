@@ -14,16 +14,23 @@ import { request as httpsRequest } from 'node:https';
 import { isIPv4, isIPv6 } from 'node:net';
 import path from 'node:path';
 
+import type { ProviderProtocol } from '../shared/providers';
+import { executeOpenAiChatAdapter } from './openai-chat-adapter';
+
 const requestNamePattern = /^(?<id>[0-9]+-[a-f0-9]{32})\.request$/u;
 const maximumRequestBytes = 34 * 1024 * 1024;
 const maximumRequestBodyBytes = 32 * 1024 * 1024;
 const maximumResponseBytes = 32 * 1024 * 1024;
 const maximumHeaders = 32;
-const permittedPaths = new Set([
+const permittedAgentPaths = new Set([
   '/v1/messages',
   '/v1/messages?beta=true',
   '/v1/messages/count_tokens',
   '/v1/messages/count_tokens?beta=true',
+]);
+const permittedOpenAiPaths = new Set([
+  '/chat/completions',
+  '/tokenizers/estimate-token-count',
 ]);
 const forwardedRequestHeaders = new Set([
   'accept',
@@ -48,6 +55,7 @@ export interface ProviderBrokerRequest {
   body: Buffer;
   providerBaseUrl: string;
   providerApiKey: string;
+  authScheme: 'anthropic-api-key' | 'bearer';
 }
 
 export interface ProviderBrokerResponse {
@@ -212,7 +220,11 @@ function isPublicAddress(address: string): boolean {
   );
 }
 
-function buildProviderTarget(baseUrl: string, requestPath: string): URL {
+function buildProviderTarget(
+  baseUrl: string,
+  requestPath: string,
+  permittedPaths: ReadonlySet<string>,
+): URL {
   const base = new URL(baseUrl);
   if (base.protocol !== 'https:' || base.username || base.password || base.search || base.hash) {
     throw new Error('Provider Base URL is unsafe.');
@@ -237,7 +249,10 @@ async function executeProviderRequest(
   invocation: ProviderBrokerRequest,
   signal: AbortSignal,
 ): Promise<ProviderBrokerResponse> {
-  const target = buildProviderTarget(invocation.providerBaseUrl, invocation.path);
+  const permittedPaths = invocation.authScheme === 'bearer'
+    ? permittedOpenAiPaths
+    : permittedAgentPaths;
+  const target = buildProviderTarget(invocation.providerBaseUrl, invocation.path, permittedPaths);
   const addresses = await lookup(target.hostname, { all: true, verbatim: true });
   const selected = addresses.find((entry) => isPublicAddress(entry.address));
   if (!selected || addresses.some((entry) => !isPublicAddress(entry.address))) {
@@ -255,7 +270,9 @@ async function executeProviderRequest(
         ...invocation.headers,
         host: target.host,
         'content-length': invocation.body.length,
-        'x-api-key': invocation.providerApiKey,
+        ...(invocation.authScheme === 'bearer'
+          ? { authorization: `Bearer ${invocation.providerApiKey}` }
+          : { 'x-api-key': invocation.providerApiKey }),
       },
       lookup: (_hostname, _options, callback) => {
         callback(null, selected.address, selected.family);
@@ -386,6 +403,7 @@ export class ProviderBroker {
   readonly #workspaceRoot: string;
   readonly #providerBaseUrl: string;
   readonly #providerApiKey: string;
+  readonly #providerProtocol: ProviderProtocol;
   readonly #ipcToken = randomBytes(32).toString('hex');
   readonly #requestToken = randomBytes(32).toString('hex');
   readonly #executor: ProviderExecutor;
@@ -405,12 +423,14 @@ export class ProviderBroker {
     workspaceRoot: string;
     providerBaseUrl: string;
     providerApiKey: string;
+    providerProtocol?: ProviderProtocol;
     executor?: ProviderExecutor;
   }) {
     this.#ipcDirectory = path.resolve(options.ipcDirectory);
     this.#workspaceRoot = path.resolve(options.workspaceRoot);
     this.#providerBaseUrl = options.providerBaseUrl;
     this.#providerApiKey = options.providerApiKey;
+    this.#providerProtocol = options.providerProtocol ?? 'anthropic-messages';
     if (!this.#providerApiKey) throw new Error('Provider API key cannot be empty.');
     assertOutsideRoot(this.#workspaceRoot, this.#ipcDirectory, 'Provider IPC directory');
     assertWithinRoot(
@@ -418,7 +438,15 @@ export class ProviderBroker {
       this.#ipcDirectory,
       'Provider IPC directory',
     );
-    buildProviderTarget(this.#providerBaseUrl, '/v1/messages');
+    buildProviderTarget(
+      this.#providerBaseUrl,
+      this.#providerProtocol === 'openai-chat-completions'
+        ? '/chat/completions'
+        : '/v1/messages',
+      this.#providerProtocol === 'openai-chat-completions'
+        ? permittedOpenAiPaths
+        : permittedAgentPaths,
+    );
     this.#executor = options.executor ?? executeProviderRequest;
   }
 
@@ -541,13 +569,19 @@ export class ProviderBroker {
       this.#lastFailure = undefined;
       let response: ProviderBrokerResponse;
       try {
-        buildProviderTarget(this.#providerBaseUrl, parsed.path);
+        if (!permittedAgentPaths.has(parsed.path)) {
+          throw new Error('Provider request path is not permitted.');
+        }
         this.#upstreamRequestCount += 1;
-        response = await this.#executor({
+        const invocation: ProviderBrokerRequest = {
           ...parsed,
           providerBaseUrl: this.#providerBaseUrl,
           providerApiKey: this.#providerApiKey,
-        }, controller.signal);
+          authScheme: 'anthropic-api-key',
+        };
+        response = this.#providerProtocol === 'openai-chat-completions'
+          ? await executeOpenAiChatAdapter(invocation, this.#executor, controller.signal)
+          : await this.#executor(invocation, controller.signal);
         this.#lastUpstreamStatus = response.status;
       } catch (reason) {
         this.#lastFailure = reason instanceof Error

@@ -15,6 +15,7 @@ import {
   type ProviderCertificationDraft,
   type ProviderCertificationResult,
 } from '../shared/contracts';
+import type { ProviderProtocol } from '../shared/providers';
 import type { AgentWorkerHost } from './agent-worker-host';
 import type { ProviderConfigurationService } from './provider-configuration';
 
@@ -35,14 +36,22 @@ const expectedCandidate = {
   scope: 'session',
 } as const;
 
-const initialChecks: ProviderCertificationCheck[] = [
-  { id: 'streaming', label: 'Anthropic Messages 流式响应', status: 'passed' },
-  { id: 'skill', label: 'Skill 发现与调用', status: 'passed' },
-  { id: 'native-files', label: '原生 Read / Write / Edit', status: 'passed' },
-  { id: 'bash-python', label: '隔离 Bash 与 Python 执行', status: 'passed' },
-  { id: 'mcp-candidate', label: 'MCP 事件与候选写入', status: 'passed' },
-  { id: 'confirmation-boundary', label: '确认前仅生成预览', status: 'passed' },
-];
+function initialChecks(protocol: ProviderProtocol): ProviderCertificationCheck[] {
+  return [
+    {
+      id: 'streaming',
+      label: protocol === 'anthropic-messages'
+        ? 'Anthropic Messages 直连流式响应'
+        : 'OpenAI Chat Completions 本地转换流式响应',
+      status: 'passed',
+    },
+    { id: 'skill', label: 'Skill 发现与调用', status: 'passed' },
+    { id: 'native-files', label: '原生 Read / Write / Edit', status: 'passed' },
+    { id: 'bash-python', label: '隔离 Bash 与 Python 执行', status: 'passed' },
+    { id: 'mcp-candidate', label: 'MCP 事件与候选写入', status: 'passed' },
+    { id: 'confirmation-boundary', label: '确认前仅生成预览', status: 'passed' },
+  ];
+}
 
 interface PendingCertification {
   id: string;
@@ -54,6 +63,7 @@ interface PendingCertification {
   previewId: string;
   providerProfileId: string;
   providerName: string;
+  providerProtocol: ProviderProtocol;
   model: string;
   runtimeDirectory: string;
 }
@@ -165,7 +175,12 @@ export class ProviderCertificationService {
         prompt: certificationPrompt(workspaceSessionId),
         workspace: { sessionsRoot, sessionId: workspaceSessionId, create: true },
         paths: this.#paths,
-        provider: { baseUrl: profile.baseUrl, apiKey, model: profile.model },
+        provider: {
+          baseUrl: profile.baseUrl,
+          apiKey,
+          protocol: profile.protocol,
+          model: profile.model,
+        },
         limits: { maxTurns: 16, maxBudgetUsd: 1 },
         bashRuntime: {
           manifestPath: this.#manifestPath,
@@ -191,6 +206,7 @@ export class ProviderCertificationService {
         previewId,
         providerProfileId: profile.id,
         providerName: profile.displayName,
+        providerProtocol: profile.protocol,
         model: profile.model,
         runtimeDirectory: runtime.runtimeDirectory,
       };
@@ -201,7 +217,7 @@ export class ProviderCertificationService {
         providerName: profile.displayName,
         model: profile.model,
         candidate: expectedCandidate,
-        checks: initialChecks,
+        checks: initialChecks(profile.protocol),
       });
     } catch (reason) {
       await rm(root, { recursive: true, force: true });
@@ -229,7 +245,12 @@ export class ProviderCertificationService {
           create: false,
         },
         paths: this.#paths,
-        provider: { baseUrl: profile.baseUrl, apiKey, model: profile.model },
+        provider: {
+          baseUrl: profile.baseUrl,
+          apiKey,
+          protocol: profile.protocol,
+          model: profile.model,
+        },
         limits: { maxTurns: 4, maxBudgetUsd: 1 },
         bashRuntime: {
           manifestPath: this.#manifestPath,
@@ -259,7 +280,7 @@ export class ProviderCertificationService {
         model: pending.model,
         completedAt: new Date().toISOString(),
         checks: [
-          ...initialChecks,
+          ...initialChecks(pending.providerProtocol),
           { id: 'session-resume', label: '同一 Agent 会话恢复', status: 'passed' },
           { id: 'confirmed-write', label: '一次性 token 确认写入', status: 'passed' },
         ],

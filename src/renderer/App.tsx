@@ -13,6 +13,12 @@ function messageFrom(reason: unknown): string {
   return reason instanceof Error ? reason.message : '发生了未知错误。';
 }
 
+function protocolLabel(protocol: 'anthropic-messages' | 'openai-chat-completions'): string {
+  return protocol === 'anthropic-messages'
+    ? 'Anthropic Messages 直连'
+    : 'OpenAI Chat Completions · 本地安全转换';
+}
+
 export function App() {
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null);
   const [setup, setSetup] = useState<ProviderSetupState | null>(null);
@@ -59,6 +65,14 @@ export function App() {
   const selectedPreset = useMemo(
     () => setup?.providers.find((provider) => provider.id === providerId),
     [providerId, setup],
+  );
+  const directProviders = useMemo(
+    () => setup?.providers.filter((provider) => provider.protocol === 'anthropic-messages') ?? [],
+    [setup],
+  );
+  const adaptedProviders = useMemo(
+    () => setup?.providers.filter((provider) => provider.protocol === 'openai-chat-completions') ?? [],
+    [setup],
   );
 
   function selectProvider(value: ProviderSetupInput['providerId']): void {
@@ -250,15 +264,35 @@ export function App() {
         </div>
 
         <p className="section-copy">
-          只支持 Anthropic Messages 兼容端点。密钥经受限 IPC 一次性送入主进程；
-          界面、Agent 工作区、日志和 Git 都不会保存明文。
+          核心始终是同一个 Claude Agent SDK Agent。Anthropic 协议服务由安全 Broker
+          直连；OpenAI Chat Completions 服务在本地主机边界完成双向转换。密钥只进入受信任主进程，
+          不进入界面、Agent 工作区、日志或 Git。
         </p>
+
+        <div className="provider-lanes" aria-label="Kimi 两种独立接入方式">
+          <article>
+            <div className="lane-heading">
+              <strong>Kimi Code</strong>
+              <span>Anthropic Messages 直连</span>
+            </div>
+            <p>使用 Kimi Code 控制台生成的 Coding Key，消耗 Kimi Code 订阅套餐额度。</p>
+            <code>https://www.kimi.com/code/console</code>
+          </article>
+          <article>
+            <div className="lane-heading">
+              <strong>Kimi 开放平台</strong>
+              <span>OpenAI Chat Completions · 本地转换</span>
+            </div>
+            <p>使用开放平台 API Key 和平台余额，按 API 用量计费；不能填写 Kimi Code Coding Key。</p>
+            <code>https://platform.kimi.com/console/api-keys</code>
+          </article>
+        </div>
 
         {setup?.configured && (
           <aside className="configured-card" aria-label="当前模型配置">
             <div>
               <strong>{setup.configured.displayName}</strong>
-              <span>{setup.configured.model}</span>
+              <span>{setup.configured.model} · {protocolLabel(setup.configured.protocol)}</span>
             </div>
             <div>
               <span>{setup.configured.baseUrl}</span>
@@ -277,17 +311,40 @@ export function App() {
 
         <form className="provider-form" onSubmit={(event) => void save(event)}>
           <label>
-            <span>服务商</span>
+            <span>服务接入方式</span>
             <select
               value={providerId}
               onChange={(event) => selectProvider(event.target.value as ProviderSetupInput['providerId'])}
             >
-              {setup?.providers.map((provider) => (
-                <option key={provider.id} value={provider.id}>{provider.displayName}</option>
-              ))}
+              <optgroup label="Anthropic Messages 直连">
+                {directProviders.map((provider) => (
+                  <option key={provider.id} value={provider.id}>{provider.displayName}</option>
+                ))}
+              </optgroup>
+              <optgroup label="OpenAI Chat Completions（本地转换）">
+                {adaptedProviders.map((provider) => (
+                  <option key={provider.id} value={provider.id}>{provider.displayName}</option>
+                ))}
+              </optgroup>
               <option value="custom">自定义 Anthropic 兼容服务</option>
             </select>
           </label>
+
+          <aside className="connection-detail wide-field" aria-live="polite">
+            <div>
+              <span>当前协议</span>
+              <strong>{protocolLabel(selectedPreset?.protocol ?? 'anthropic-messages')}</strong>
+            </div>
+            <div>
+              <span>正确的 Key 来源</span>
+              <strong>{selectedPreset?.keySourceLabel ?? '自定义 Anthropic 兼容服务的 API Key'}</strong>
+              {selectedPreset && <code>{selectedPreset.keySourceUrl}</code>}
+            </div>
+            <p>
+              {selectedPreset?.billingNotice
+                ?? '自定义服务仅按 Anthropic Messages 协议直连，并会标记为未认证。'}
+            </p>
+          </aside>
 
           <label>
             <span>配置名称</span>
@@ -353,7 +410,7 @@ export function App() {
           </fieldset>
 
           <label className="wide-field">
-            <span>API Key</span>
+            <span>{selectedPreset?.keySourceLabel ?? 'API Key'}</span>
             <input
               type="password"
               value={apiKey}
@@ -363,7 +420,12 @@ export function App() {
               spellCheck={false}
               onChange={(event) => setApiKey(event.target.value)}
             />
-            <small>请只在此处输入真实密钥，不要发到聊天、终端或提交到仓库。</small>
+            <small>
+              {selectedPreset
+                ? `只接受来自 ${selectedPreset.keySourceUrl} 的对应产品密钥。`
+                : '请填写该自定义 Anthropic 兼容服务的密钥。'}{' '}
+              不要把真实密钥发到聊天、终端或提交到仓库。
+            </small>
           </label>
 
           <div className="form-actions wide-field">
@@ -372,7 +434,7 @@ export function App() {
             </button>
             <span className="source-note">
               {selectedPreset
-                ? '端点来自服务商官方文档，完整能力仍需实测。'
+                ? `${protocolLabel(selectedPreset.protocol)}；端点来自官方文档，完整能力仍需实测。`
                 : '自定义端点会被标记为未认证。'}
             </span>
           </div>

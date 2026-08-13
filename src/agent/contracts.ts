@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { providerProtocolSchema } from '../shared/providers';
+
 export const skillNames = [
   'deep-research',
   'first-attempt-coach',
@@ -91,6 +93,7 @@ export const agentRunRequestSchema = z.object({
   provider: z.object({
     baseUrl: z.string().url().startsWith('https://'),
     apiKey: z.string().min(1).max(16 * 1024),
+    protocol: providerProtocolSchema.default('anthropic-messages'),
     model: z.string().min(1).max(256).optional(),
   }),
   limits: z.object({

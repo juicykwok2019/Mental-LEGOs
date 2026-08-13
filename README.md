@@ -19,12 +19,13 @@ Mental LEGOs 是一个本地优先的训练系统，帮助用户把个人知识�
 - 隔离的原生 Read、Write、Edit、Bash、Python、Skill、MCP、Hooks 与会话恢复；
 - 10 个可执行的产品 Skills 与最小 MCP 治理内核；
 - 会话级或 Windows 凭据管理器保存的 BYOK Provider 配置，Renderer 不可回读密钥；
+- 明确分离的 Kimi Code Anthropic 直连与 Kimi 开放平台 OpenAI Chat Completions 本地适配通道；
 - 两阶段真实 Provider 能力认证：先生成合成候选预览，用户确认后才签发一次性 token、恢复会话并写入，最后清除全部测试数据；
 - 可下载、逐文件校验的离线 Bash / Coreutils / Python 运行时；
 - 基于 SenseVoice / sherpa-onnx 的本地 ASR 运行时和模型管理基础设施；
 - Windows 打包、安装、合成全链路、架构边界和隐私扫描测试。
 
-进入 Phase 1 前仍需使用用户自己的真实 Provider Key 完成 Anthropic 基线及至少一个国产 Anthropic 格式端点的认证，并完成干净 Windows 环境验收。简历、JD、录音、转写和语言模块等真实数据功能尚未开放。
+进入 Phase 1 前仍需使用用户自己的真实 Provider Key 完成目标端点的完整 Agent 能力认证，并完成干净 Windows 环境验收。简历、JD、录音、转写和语言模块等真实数据功能尚未开放。
 
 首个产品目标是使用 Electron 构建一款单用户 Windows 桌面应用。Web 和移动端可能在后续阶段扩展，但不属于第一版范围。
 
@@ -80,7 +81,7 @@ Mental LEGOs 是一个本地优先的训练系统，帮助用户把个人知识�
 - Windows 优先的 Electron 桌面应用。
 - 单用户、本地优先；P0 不需要多租户 SaaS 后端。
 - 使用本地 SQLite 和文件系统保存结构化数据、材料、录音和派生产物。
-- 用户自备模型密钥（BYOK），通过可配置的 Anthropic 兼容 Base URL 接入模型。
+- 用户自备模型密钥（BYOK）；P0 同时支持 Anthropic Messages 直连和经本地主机适配的 OpenAI Chat Completions。
 - 默认使用本地语音识别，也可以由用户主动选择云端语音服务。
 - P0 分析公开演讲音频；视频分析延后。
 - 由用户控制数据导出、保留和删除。
@@ -100,6 +101,27 @@ Mental LEGOs 是一个本地优先的训练系统，帮助用户把个人知识�
 - 不使用 LangGraph、LangChain、Dify 或手写状态图作为核心推理架构。
 
 桌面架构会分离 Electron Renderer、Preload Bridge、Main Process、Agent Runtime Worker、本地策略与数据 Broker 以及语音 Worker。Renderer 不能直接访问 Node.js、数据库、凭证、Shell 或不受限制的文件系统。
+
+#### 两种 Kimi 接入是两个独立产品
+
+| 界面选项 | Key 来源 | 网络协议 | 费用归属 |
+| --- | --- | --- | --- |
+| **Kimi Code（Coding Key / 订阅额度）** | [Kimi Code 控制台](https://www.kimi.com/code/console) | `https://api.kimi.com/coding`，Anthropic Messages 直连 | Kimi Code 订阅套餐额度 |
+| **Kimi 开放平台（API Key / 按量计费）** | [Kimi 开放平台 API Keys](https://platform.kimi.com/console/api-keys) | `https://api.moonshot.cn/v1`，OpenAI Chat Completions；由本地主机 Broker 双向转换 | 开放平台余额与按量计费 |
+
+两种 Key **不通用**。界面会同时显示产品名、正确的 Key 来源、Base URL、协议和计费归属，避免把开放平台 Key 填到 Kimi Code 端点，或反向混用。依据包括 [Kimi Code 的 Claude Code 接入说明](https://www.kimi.com/code/docs/third-party-tools/claude-code.html)、[开放平台 Chat Completions 文档](https://platform.kimi.com/docs/api/chat)和[开放平台 Token 估算文档](https://platform.kimi.com/docs/api/estimate)。
+
+```mermaid
+flowchart LR
+  UI["Electron Renderer<br/>只提交配置，不能回读 Key"] --> MAIN["Main Process<br/>凭据引用与供应商配置"]
+  MAIN --> VAULT["会话内存 / Windows 凭据管理器"]
+  MAIN --> AGENT["单一 Claude Agent SDK Runtime<br/>Skills + 原生工具 + MCP"]
+  AGENT --> BROKER["本地主机安全 Provider Broker"]
+  BROKER -->|"Anthropic Messages 直连"| CODE["Kimi Code"]
+  BROKER -->|"Anthropic ↔ OpenAI 双向转换"| OPEN["Kimi 开放平台"]
+```
+
+协议转换只存在于受信任的 Provider 边界：Claude Agent SDK 仍然是唯一核心 Agent，并继续完整使用 Skill、Read、Write、Edit、Bash、Python、MCP、Hooks 和会话恢复。转换器负责 Messages / Chat Completions 请求、工具调用、工具结果、流式事件、Token 估算、停止原因和 Kimi 保留式思考的映射；它不是第二个 Agent，也不是写死的业务工作流。两条通道都必须通过相同的完整 Provider 能力认证，不能把 OpenAI 通道降级成普通聊天调用。
 
 ### 隐私与安全方向
 
@@ -137,12 +159,13 @@ The repository now implements and automatically verifies:
 - isolated native Read, Write, Edit, Bash, Python, Skill, MCP, hook, and session-resume capabilities;
 - ten executable product Skills and a minimal MCP governance kernel;
 - BYOK provider setup backed by session memory or Windows Credential Manager, without renderer key readback;
+- explicitly separate Kimi Code Anthropic-direct and Kimi Open Platform OpenAI Chat Completions adapter routes;
 - two-stage real-provider certification: create a synthetic preview first, issue a one-time token and resume only after user confirmation, then purge all certification data;
 - a downloadable and per-file-verified offline Bash / Coreutils / Python runtime;
 - local SenseVoice / sherpa-onnx ASR runtime and model-management foundations; and
 - Windows packaging, installation, synthetic end-to-end, architecture-boundary, and privacy-scan tests.
 
-Before Phase 1 begins, the app still requires certification with a user-supplied key against the Anthropic baseline and at least one Chinese Anthropic-format endpoint, plus clean-Windows acceptance. Real resume, job-description, recording, transcript, and language-module workflows are not available yet.
+Before Phase 1 begins, the app still requires full Agent capability certification against target endpoints with user-supplied keys, plus clean-Windows acceptance. Real resume, job-description, recording, transcript, and language-module workflows are not available yet.
 
 The initial product target is a single-user Windows desktop application built with Electron. Web and mobile clients are possible later extensions, not part of the first release.
 
@@ -198,7 +221,7 @@ The first release is intended for professional spoken communication. It does not
 - Windows-first Electron desktop application.
 - Single-user and local-first; no multi-tenant SaaS backend is required for P0.
 - Local SQLite and filesystem storage for structured data, materials, recordings, and derived artifacts.
-- Bring your own key (BYOK) for model providers through a configurable Anthropic-compatible Base URL.
+- Bring your own key (BYOK); P0 supports both direct Anthropic Messages providers and OpenAI Chat Completions through a local host adapter.
 - Local speech recognition by default, with optional user-selected cloud speech services.
 - Audio-based public-speaking analysis in P0; video analysis is deferred.
 - User-controlled export, retention, and deletion.
@@ -218,6 +241,27 @@ The architecture follows these constraints:
 - LangGraph, LangChain, Dify, and hand-written state graphs are not used as the core reasoning architecture.
 
 The desktop architecture separates the Electron renderer, preload bridge, main process, agent runtime worker, local policy/data broker, and speech worker. The renderer has no direct Node.js, database, credential, Shell, or unrestricted filesystem access.
+
+#### The two Kimi routes are separate products
+
+| UI option | Key source | Network protocol | Billing source |
+| --- | --- | --- | --- |
+| **Kimi Code (Coding Key / subscription quota)** | [Kimi Code console](https://www.kimi.com/code/console) | Direct Anthropic Messages at `https://api.kimi.com/coding` | Kimi Code subscription quota |
+| **Kimi Open Platform (API Key / usage billing)** | [Kimi Open Platform API Keys](https://platform.kimi.com/console/api-keys) | OpenAI Chat Completions at `https://api.moonshot.cn/v1`, translated by the local host broker | Open Platform balance and usage billing |
+
+The keys are **not interchangeable**. The UI shows the product, correct key source, Base URL, protocol, and billing source together to prevent product mismatch. Primary references are the [Kimi Code Claude Code guide](https://www.kimi.com/code/docs/third-party-tools/claude-code.html), [Open Platform Chat Completions reference](https://platform.kimi.com/docs/api/chat), and [Open Platform token-estimation reference](https://platform.kimi.com/docs/api/estimate).
+
+```mermaid
+flowchart LR
+  UI["Electron Renderer<br/>submits config; cannot read a key back"] --> MAIN["Main Process<br/>credential reference + provider config"]
+  MAIN --> VAULT["session memory / Windows Credential Manager"]
+  MAIN --> AGENT["one Claude Agent SDK Runtime<br/>Skills + native tools + MCP"]
+  AGENT --> BROKER["trusted local Provider Broker"]
+  BROKER -->|"direct Anthropic Messages"| CODE["Kimi Code"]
+  BROKER -->|"Anthropic ↔ OpenAI translation"| OPEN["Kimi Open Platform"]
+```
+
+Translation exists only at the trusted provider boundary. Claude Agent SDK remains the only core Agent and retains Skill, Read, Write, Edit, Bash, Python, MCP, hooks, and session recovery. The adapter maps Messages and Chat Completions requests, tool calls and results, streaming events, token estimation, stop reasons, and Kimi preserved thinking. It is neither a second Agent nor a hard-coded product workflow. Both routes must pass the same full provider capability certification; the OpenAI route is not allowed to degrade into ordinary chat-only API use.
 
 ### Privacy and security direction
 

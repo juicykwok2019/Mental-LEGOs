@@ -230,6 +230,7 @@ describe('Claude Agent SDK runtime boundary', () => {
         provider: {
           baseUrl: 'https://provider.invalid/anthropic',
           apiKey: 'synthetic-test-value',
+          protocol: 'anthropic-messages',
           model: 'synthetic-model',
         },
         limits: { maxTurns: 4, maxBudgetUsd: 0.1 },

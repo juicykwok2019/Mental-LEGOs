@@ -12,6 +12,7 @@ import {
   type ProviderBrokerDiagnostics,
   type ProviderExecutor,
 } from '../provider/broker';
+import type { ProviderProtocol } from '../shared/providers';
 import { skillNames } from './contracts';
 import { governanceToolNames } from './governance';
 import { createCanUseTool, createPolicyHooks } from './policy';
@@ -56,6 +57,7 @@ const disabledTools = [
 export interface ProviderProcessEnvironment {
   baseUrl: string;
   apiKey: string;
+  protocol: ProviderProtocol;
   model?: string;
 }
 
@@ -403,6 +405,7 @@ export async function runAgent(
     workspaceRoot: request.workspace.root,
     providerBaseUrl: request.provider.baseUrl,
     providerApiKey: request.provider.apiKey,
+    providerProtocol: request.provider.protocol,
     ...(dependencies.providerExecutor === undefined
       ? {}
       : { executor: dependencies.providerExecutor }),

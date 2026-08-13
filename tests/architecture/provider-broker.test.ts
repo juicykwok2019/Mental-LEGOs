@@ -212,6 +212,99 @@ describe.skipIf(process.platform !== 'win32')('provider credential boundary', ()
     }
   }, 20_000);
 
+  it('routes the same no-key Agent proxy through the OpenAI host adapter', async () => {
+    const root = await createTemporaryDirectory();
+    const workspaceRoot = path.join(root, 'workspace');
+    const ipcDirectory = path.join(root, 'provider-ipc-openai');
+    await mkdir(workspaceRoot, { recursive: true });
+    const actualCredential = 'synthetic-openai-host-only-credential';
+    const observed: ProviderBrokerRequest[] = [];
+    const broker = new ProviderBroker({
+      ipcDirectory,
+      workspaceRoot,
+      providerBaseUrl: 'https://api.moonshot.cn/v1',
+      providerApiKey: actualCredential,
+      providerProtocol: 'openai-chat-completions',
+      executor: async (invocation) => {
+        observed.push(invocation);
+        if (invocation.path === '/tokenizers/estimate-token-count') {
+          return {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+            body: responseBody('{"data":{"total_tokens":12}}'),
+          };
+        }
+        return {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+          body: responseBody(JSON.stringify({
+            id: 'cmpl_synthetic',
+            model: 'kimi-k3',
+            choices: [{
+              index: 0,
+              message: { role: 'assistant', content: 'adapter-ok' },
+              finish_reason: 'stop',
+            }],
+            usage: { prompt_tokens: 10, completion_tokens: 2, total_tokens: 12 },
+          })),
+        };
+      },
+    });
+    await broker.start();
+    const child = spawn(proxyPath, [], {
+      env: {
+        ...broker.proxyEnvironment(),
+        ...buildWindowsProbeEnvironment(root),
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+
+    try {
+      const port = await broker.waitForProxy();
+      const token = broker.agentEnvironment().ANTHROPIC_API_KEY ?? '';
+      const completion = await invokeProxy({
+        port,
+        token,
+        requestPath: '/v1/messages',
+        body: JSON.stringify({
+          model: 'kimi-k3',
+          messages: [{ role: 'user', content: 'Synthetic adapter probe.' }],
+          stream: false,
+        }),
+      });
+      expect(completion.status).toBe(200);
+      expect(JSON.parse(completion.body)).toMatchObject({
+        type: 'message',
+        model: 'kimi-k3',
+        content: [{ type: 'text', text: 'adapter-ok' }],
+      });
+
+      const count = await invokeProxy({
+        port,
+        token,
+        requestPath: '/v1/messages/count_tokens',
+        body: JSON.stringify({
+          model: 'kimi-k3',
+          messages: [{ role: 'user', content: 'Synthetic adapter probe.' }],
+        }),
+      });
+      expect(count).toEqual({ status: 200, body: '{"input_tokens":12}' });
+      expect(observed.map((invocation) => invocation.path)).toEqual([
+        '/chat/completions',
+        '/tokenizers/estimate-token-count',
+      ]);
+      expect(observed.every((invocation) => (
+        invocation.authScheme === 'bearer'
+        && invocation.providerApiKey === actualCredential
+        && !invocation.body.includes(Buffer.from(actualCredential, 'utf8'))
+      ))).toBe(true);
+    } finally {
+      await stopProcess(child);
+      await broker.close();
+    }
+  }, 20_000);
+
   officialAppContainerProbe(
     'allows only same-profile AppContainer traffic to reach the no-key proxy',
     async () => {

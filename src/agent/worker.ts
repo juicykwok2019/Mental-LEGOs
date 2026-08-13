@@ -44,6 +44,7 @@ async function handleMessage(value: unknown): Promise<void> {
         provider: {
           baseUrl: runRequest.data.provider.baseUrl,
           apiKey: runRequest.data.provider.apiKey,
+          protocol: runRequest.data.provider.protocol,
           ...(runRequest.data.provider.model === undefined
             ? {}
             : { model: runRequest.data.provider.model }),

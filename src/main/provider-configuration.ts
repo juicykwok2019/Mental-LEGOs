@@ -19,6 +19,7 @@ function summary(settings: StoredProviderSettings): ConfiguredProviderSummary {
     providerId: settings.profile.providerId,
     displayName: settings.profile.displayName,
     baseUrl: settings.profile.baseUrl,
+    protocol: settings.profile.protocol,
     model: settings.profile.model,
     certification: settings.profile.certification,
     storage: settings.storage,
