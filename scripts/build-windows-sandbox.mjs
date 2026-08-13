@@ -34,6 +34,8 @@ for (const target of [
   ['MentalLegos.SandboxLauncher.cs', 'MentalLegos.SandboxLauncher.exe'],
   ['MentalLegos.SandboxProbe.cs', 'MentalLegos.SandboxProbe.exe'],
   ['MentalLegos.CredentialVault.cs', 'MentalLegos.CredentialVault.exe'],
+  ['MentalLegos.ProviderProxy.cs', 'MentalLegos.ProviderProxy.exe'],
+  ['MentalLegos.ProviderClientProbe.cs', 'MentalLegos.ProviderClientProbe.exe'],
 ]) {
   const result = spawnSync(compiler, [
     '/nologo',

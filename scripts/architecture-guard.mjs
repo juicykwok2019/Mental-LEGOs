@@ -54,11 +54,18 @@ const forbiddenSourcePatterns = [
   { pattern: /from\s+['"]@anthropic-ai\/sdk['"]/gu, reason: 'Anthropic client SDK import' },
 ];
 
+const sanctionedTransportBoundaries = new Set([
+  'src/provider/broker.ts',
+]);
+
 for (const file of await listSourceFiles(path.join(repositoryRoot, 'src'))) {
   const content = await readFile(file, 'utf8');
+  const relativePath = path.relative(repositoryRoot, file).replaceAll('\\', '/');
   for (const { pattern, reason } of forbiddenSourcePatterns) {
+    if (reason === 'direct Anthropic Messages API'
+      && sanctionedTransportBoundaries.has(relativePath)) continue;
     if (pattern.test(content)) {
-      violations.push(`${path.relative(repositoryRoot, file)}: ${reason}`);
+      violations.push(`${relativePath}: ${reason}`);
     }
     pattern.lastIndex = 0;
   }

@@ -1,5 +1,5 @@
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "agent_sdk_version": "0.3.229",
   "claude_code_version": "2.1.229",
   "binary": {
@@ -21,5 +21,10 @@
     "file": "MentalLegos.BashProxy.exe",
     "bytes": 54784,
     "sha256": "c8f6a3d9a313aa926a977b1a453ac451bf1f2ad6ff9082de5f9f21b2bf9e4197"
+  },
+  "provider_proxy": {
+    "file": "MentalLegos.ProviderProxy.exe",
+    "bytes": 15360,
+    "sha256": "f7938bb276450f818c30c0e964a29abcea0f6df625bbd1acd0f4c96e1ca3abe5"
   }
 }

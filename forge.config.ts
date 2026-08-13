@@ -32,6 +32,7 @@ const config: ForgeConfig = {
       'resources/windows-sandbox/MentalLegos.SandboxLauncher.exe',
       'resources/windows-sandbox/MentalLegos.CredentialVault.exe',
       'resources/windows-sandbox/MentalLegos.BashProxy.exe',
+      'resources/windows-sandbox/MentalLegos.ProviderProxy.exe',
     ],
   },
   rebuildConfig: {},

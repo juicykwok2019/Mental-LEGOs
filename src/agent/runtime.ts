@@ -18,6 +18,7 @@ import {
   verifyBashProxy,
   verifyCapabilityBundle,
   verifyCredentialVault,
+  verifyProviderProxy,
   verifySandboxLauncher,
 } from './integrity';
 import type { SessionWorkspace } from './workspace';
@@ -56,6 +57,7 @@ export interface AgentRuntimePaths {
   sandboxLauncherPath: string;
   credentialVaultPath: string;
   bashProxyPath: string;
+  providerProxyPath: string;
 }
 
 export interface AgentRuntimeLimits {
@@ -182,12 +184,13 @@ export function buildAgentOptions(
 }
 
 export async function diagnoseAgentRuntime(paths: AgentRuntimePaths) {
-  const [runtime, bundle, sandbox, credentialVault, bashProxy] = await Promise.all([
+  const [runtime, bundle, sandbox, credentialVault, bashProxy, providerProxy] = await Promise.all([
     verifyAgentBinary(paths.binaryPath, paths.runtimeManifestPath),
     verifyCapabilityBundle(paths.capabilityBundlePath),
     verifySandboxLauncher(paths.sandboxLauncherPath, paths.runtimeManifestPath),
     verifyCredentialVault(paths.credentialVaultPath, paths.runtimeManifestPath),
     verifyBashProxy(paths.bashProxyPath, paths.runtimeManifestPath),
+    verifyProviderProxy(paths.providerProxyPath, paths.runtimeManifestPath),
   ]);
 
   return {
@@ -198,6 +201,7 @@ export async function diagnoseAgentRuntime(paths: AgentRuntimePaths) {
     sandboxLauncherSha256: sandbox.sha256,
     credentialVaultSha256: credentialVault.sha256,
     bashProxySha256: bashProxy.sha256,
+    providerProxySha256: providerProxy.sha256,
     skills: bundle.skills,
     tools: [...nativeAgentTools, ...governanceToolNames],
     subagentsEnabled: false as const,
@@ -235,6 +239,10 @@ export async function runAgent(request: AgentRunRequest): Promise<AgentRunResult
     ),
     verifyBashProxy(
       request.paths.bashProxyPath,
+      request.paths.runtimeManifestPath,
+    ),
+    verifyProviderProxy(
+      request.paths.providerProxyPath,
       request.paths.runtimeManifestPath,
     ),
   ]);

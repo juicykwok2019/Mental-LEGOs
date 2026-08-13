@@ -93,6 +93,13 @@ function getAgentRuntimePaths() {
         'windows-sandbox',
         'MentalLegos.BashProxy.exe',
       ),
+    providerProxyPath: app.isPackaged
+      ? path.join(resourcesRoot, 'MentalLegos.ProviderProxy.exe')
+      : path.join(
+        resourcesRoot,
+        'windows-sandbox',
+        'MentalLegos.ProviderProxy.exe',
+      ),
   };
 }
 

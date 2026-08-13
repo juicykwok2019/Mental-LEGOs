@@ -37,6 +37,12 @@ const bashProxyPath = path.join(
   'windows-sandbox',
   'MentalLegos.BashProxy.exe',
 );
+const providerProxyPath = path.join(
+  repositoryRoot,
+  'resources',
+  'windows-sandbox',
+  'MentalLegos.ProviderProxy.exe',
+);
 const binaryPath = path.join(
   repositoryRoot,
   'node_modules',
@@ -60,6 +66,7 @@ describe('Claude Agent SDK runtime boundary', () => {
       sandboxLauncherPath,
       credentialVaultPath,
       bashProxyPath,
+      providerProxyPath,
     });
 
     expect(report).toMatchObject({
@@ -156,6 +163,7 @@ describe('Claude Agent SDK runtime boundary', () => {
           sandboxLauncherPath,
           credentialVaultPath,
           bashProxyPath,
+          providerProxyPath,
         },
         provider: {
           baseUrl: 'https://provider.invalid/anthropic',

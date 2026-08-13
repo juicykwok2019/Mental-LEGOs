@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { skillNames } from './contracts';
 
 const runtimeManifestSchema = z.object({
-  schema_version: z.literal(4),
+  schema_version: z.literal(5),
   agent_sdk_version: z.string().min(1),
   claude_code_version: z.string().min(1),
   binary: z.object({
@@ -27,6 +27,11 @@ const runtimeManifestSchema = z.object({
   }),
   bash_proxy: z.object({
     file: z.literal('MentalLegos.BashProxy.exe'),
+    bytes: z.number().int().positive(),
+    sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+  }),
+  provider_proxy: z.object({
+    file: z.literal('MentalLegos.ProviderProxy.exe'),
     bytes: z.number().int().positive(),
     sha256: z.string().regex(/^[a-f0-9]{64}$/u),
   }),
@@ -116,6 +121,22 @@ export async function verifyBashProxy(
   if (actual.bytes !== manifest.bash_proxy.bytes
     || actual.sha256 !== manifest.bash_proxy.sha256) {
     throw new Error('Sandboxed Bash proxy integrity verification failed.');
+  }
+  return { sha256: actual.sha256 };
+}
+
+export async function verifyProviderProxy(
+  executablePath: string,
+  manifestPath: string,
+): Promise<{ sha256: string }> {
+  const manifest = runtimeManifestSchema.parse(
+    JSON.parse(await readFile(manifestPath, 'utf8')),
+  );
+  const actual = await sha256File(executablePath);
+
+  if (actual.bytes !== manifest.provider_proxy.bytes
+    || actual.sha256 !== manifest.provider_proxy.sha256) {
+    throw new Error('Provider proxy integrity verification failed.');
   }
   return { sha256: actual.sha256 };
 }
