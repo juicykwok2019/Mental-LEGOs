@@ -435,8 +435,10 @@ fn execute() ProxyError!u8 {
     }
     _ = CloseHandle(request_file);
     request_file = InvalidHandle;
-    if (MoveFileExW(temporary_path.ptr(), request_path.ptr(), MoveFileWriteThrough) == 0) {
-        return error.IoFailure;
+    const move_started = GetTickCount64();
+    while (MoveFileExW(temporary_path.ptr(), request_path.ptr(), MoveFileWriteThrough) == 0) {
+        if (GetTickCount64() - move_started > 2_000) return error.IoFailure;
+        Sleep(20);
     }
 
     const started = GetTickCount64();
@@ -445,16 +447,22 @@ fn execute() ProxyError!u8 {
         Sleep(20);
     }
 
-    var response_file = CreateFileW(
-        response_path.ptr(),
-        GenericRead,
-        FileShareRead,
-        null,
-        OpenExisting,
-        FileAttributeNormal,
-        null,
-    );
-    if (response_file == InvalidHandle) return error.IoFailure;
+    var response_file: Handle = InvalidHandle;
+    const open_started = GetTickCount64();
+    while (response_file == InvalidHandle) {
+        response_file = CreateFileW(
+            response_path.ptr(),
+            GenericRead,
+            FileShareRead,
+            null,
+            OpenExisting,
+            FileAttributeNormal,
+            null,
+        );
+        if (response_file != InvalidHandle) break;
+        if (GetTickCount64() - open_started > 2_000) return error.IoFailure;
+        Sleep(20);
+    }
     defer {
         if (response_file != InvalidHandle) _ = CloseHandle(response_file);
     }
@@ -493,6 +501,8 @@ pub fn main() u8 {
         switch (err) {
             error.BrokerUnavailable => writeStderr("Mental LEGOs Bash broker is unavailable.\n"),
             error.Timeout => writeStderr("Mental LEGOs Bash broker timed out.\n"),
+            error.IoFailure => writeStderr("Mental LEGOs Bash broker I/O failed.\n"),
+            error.InvalidResponse => writeStderr("Mental LEGOs Bash broker response was invalid.\n"),
             else => writeStderr("Mental LEGOs Bash broker request failed.\n"),
         }
         return if (err == error.Timeout) 124 else 125;

@@ -29,6 +29,7 @@ import {
   stageSessionBashProxy,
   stageSessionProviderProxy,
   verifySessionCapabilityIntegrity,
+  verifySessionProcessShims,
 } from './workspace';
 
 export const nativeAgentTools = [
@@ -130,6 +131,7 @@ export function buildMinimalAgentEnvironment(options: {
   environment.ANTHROPIC_BASE_URL = providerBaseUrl;
   environment.ANTHROPIC_API_KEY = providerApiKey;
   environment.CLAUDE_CONFIG_DIR = options.configDirectory;
+  environment.CLAUDE_CODE_AUTO_CONNECT_IDE = 'false';
   environment.CLAUDE_CODE_DISABLE_AUTO_MEMORY = '1';
   environment.CLAUDE_AGENT_SDK_DISABLE_BUILTIN_AGENTS = '1';
   environment.CLAUDE_CODE_DISABLE_BUNDLED_SKILLS = '1';
@@ -153,6 +155,15 @@ export function buildAgentOptions(
   if (!Number.isInteger(request.limits.maxTurns) || request.limits.maxTurns < 1) {
     throw new Error('maxTurns must be a positive integer.');
   }
+
+  const environment = buildMinimalAgentEnvironment({
+    providerEnvironment: runtimeEnvironment.provider,
+    configDirectory: request.workspace.config,
+  });
+  environment.PATH = [
+    path.dirname(request.workspace.bashProxy),
+    environment.PATH,
+  ].filter(Boolean).join(path.delimiter);
 
   return {
     cwd: request.workspace.root,
@@ -181,10 +192,7 @@ export function buildAgentOptions(
     canUseTool: createCanUseTool(request.workspace),
     hooks: createPolicyHooks(request.workspace),
     env: {
-      ...buildMinimalAgentEnvironment({
-        providerEnvironment: runtimeEnvironment.provider,
-        configDirectory: request.workspace.config,
-      }),
+      ...environment,
       TEMP: request.workspace.temporary,
       TMP: request.workspace.temporary,
       ...runtimeEnvironment.bash,
@@ -309,6 +317,7 @@ export async function runAgent(
       request.paths.providerProxyPath,
       request.paths.runtimeManifestPath,
     ),
+    verifySessionProcessShims(request.workspace),
   ]);
 
   const bashManifest = await loadBashRuntimeManifest(request.bashRuntime.manifestPath);

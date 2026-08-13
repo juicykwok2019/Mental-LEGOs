@@ -108,6 +108,10 @@ export function translateBashArgument(argument: string, workspaceRoot: string): 
     translated = replaceAllCaseInsensitive(translated, msysRoot, '/workspace');
   }
   translated = translated.replace(
+    /[^\s'";|&<>]*[\\/]claude-[a-f0-9]+-cwd/giu,
+    '/dev/null',
+  );
+  translated = translated.replace(
     /\/workspace(?:\\[a-zA-Z0-9._-]+)+/gu,
     (matched) => matched.replaceAll('\\', '/'),
   );

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, rm } from 'node:fs/promises';
+import { mkdir, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -16,6 +16,7 @@ import {
   stageSessionBashProxy,
   stageSessionProviderProxy,
   verifySessionCapabilityIntegrity,
+  verifySessionProcessShims,
 } from '../../src/agent/workspace';
 
 const repositoryRoot = path.resolve('.');
@@ -98,6 +99,11 @@ describe('Claude Agent SDK runtime boundary', () => {
         content: 'Synthetic, public-safe question.',
       });
       await verifySessionCapabilityIntegrity(workspace);
+      await verifySessionProcessShims(workspace);
+      expect(await readFile(
+        path.join(path.dirname(workspace.bashProxy), 'tasklist.cmd'),
+        'utf8',
+      )).toBe('@echo off\r\nexit /b 0\r\n');
       await stageSessionBashProxy({
         workspace,
         verifiedProxyPath: bashProxyPath,
@@ -138,6 +144,14 @@ describe('Claude Agent SDK runtime boundary', () => {
         .toMatchObject({ behavior: 'deny' });
       expect(evaluateToolUse('mcp__commit__commit_confirmed', {}, workspace))
         .toMatchObject({ behavior: 'ask' });
+      expect(evaluateToolUse('mcp__commit__commit_confirmed', {
+        confirmation_token: 'synthetic-host-token-with-at-least-32-characters',
+        preview_id: 'synthetic-preview',
+      }, workspace)).toEqual({ behavior: 'allow' });
+      expect(evaluateToolUse('mcp__lifecycle__execute_delete', {
+        delete_token: 'synthetic-host-token-with-at-least-32-characters',
+        preview_id: 'synthetic-preview',
+      }, workspace)).toEqual({ behavior: 'allow' });
       const launcherArguments = buildSandboxLauncherArguments({
         launcherPath: sandboxLauncherPath,
         workspace,
@@ -213,6 +227,8 @@ describe('Claude Agent SDK runtime boundary', () => {
       ]));
       expect(options.allowedTools).toEqual([]);
       expect(options.spawnClaudeCodeProcess).toBeTypeOf('function');
+      expect((options.env?.PATH ?? '').split(path.delimiter)[0])
+        .toBe(path.dirname(workspace.bashProxy));
     } finally {
       governanceRepository.close();
       await purgeSessionWorkspace(sessionsRoot, sessionId);
@@ -235,6 +251,7 @@ describe('Claude Agent SDK runtime boundary', () => {
     });
 
     expect(environment.SYSTEMROOT).toBe('C:\\Windows');
+    expect(environment.CLAUDE_CODE_AUTO_CONNECT_IDE).toBe('false');
     expect(environment.CLAUDE_CODE_DISABLE_AUTO_MEMORY).toBe('1');
     expect(environment.CLAUDE_AGENT_SDK_DISABLE_BUILTIN_AGENTS).toBe('1');
     expect(environment.CLAUDE_CODE_DISABLE_BUNDLED_SKILLS).toBe('1');

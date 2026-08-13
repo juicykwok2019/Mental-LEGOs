@@ -1,7 +1,9 @@
 import {
   agentDiagnosticRequestSchema,
+  agentIssueCommitTokenRequestSchema,
   agentRunRequestSchema,
   type AgentDiagnosticResult,
+  type AgentIssueCommitTokenResult,
   type AgentWorkerRunResult,
 } from './contracts';
 import { createGovernanceKernel, GovernanceRepository } from './governance';
@@ -68,13 +70,53 @@ async function handleMessage(value: unknown): Promise<void> {
           messages: result.messages,
         },
       };
+      repository.close();
+      repository = undefined;
       parentPort.postMessage(response);
-    } catch {
+    } catch (reason) {
+      repository?.close();
+      repository = undefined;
       const response: AgentWorkerRunResult = {
         type: 'runtime:run-result',
         requestId: runRequest.data.requestId,
         ok: false,
-        error: 'Agent execution failed.',
+        error: syntheticProviderE2e && reason instanceof Error
+          ? `Synthetic Agent E2E failed: ${reason.message}`
+          : 'Agent execution failed.',
+      };
+      parentPort.postMessage(response);
+    } finally {
+      repository?.close();
+    }
+    return;
+  }
+
+  const tokenRequest = agentIssueCommitTokenRequestSchema.safeParse(value);
+  if (tokenRequest.success) {
+    let repository: GovernanceRepository | undefined;
+    try {
+      repository = new GovernanceRepository(tokenRequest.data.governanceDatabasePath);
+      const confirmationToken = repository.issueConfirmationToken({
+        action: 'commit',
+        previewId: tokenRequest.data.previewId,
+      });
+      const response: AgentIssueCommitTokenResult = {
+        type: 'governance:issue-commit-token-result',
+        requestId: tokenRequest.data.requestId,
+        ok: true,
+        confirmationToken,
+      };
+      repository.close();
+      repository = undefined;
+      parentPort.postMessage(response);
+    } catch {
+      repository?.close();
+      repository = undefined;
+      const response: AgentIssueCommitTokenResult = {
+        type: 'governance:issue-commit-token-result',
+        requestId: tokenRequest.data.requestId,
+        ok: false,
+        error: 'Commit authorization failed.',
       };
       parentPort.postMessage(response);
     } finally {

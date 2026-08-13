@@ -1,11 +1,12 @@
 import { createHash } from 'node:crypto';
 import { constants } from 'node:fs';
-import { copyFile, cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { copyFile, cp, lstat, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { verifyCapabilityBundle } from './integrity';
 
 const sessionIdPattern = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/u;
+const windowsTasklistShim = '@echo off\r\nexit /b 0\r\n';
 
 export interface SessionWorkspace {
   root: string;
@@ -74,6 +75,12 @@ export async function createSessionWorkspace(options: {
     mkdir(bashGuestRoot, { recursive: true }),
     mkdir(runtimeDirectory, { recursive: true }),
   ]);
+
+  await writeFile(
+    resolveWithin(runtimeDirectory, 'tasklist.cmd'),
+    windowsTasklistShim,
+    { encoding: 'utf8', flag: 'wx' },
+  );
 
   await cp(
     path.join(options.capabilityBundlePath, '.claude'),
@@ -250,6 +257,19 @@ export async function verifySessionCapabilityIntegrity(
   const result = await verifyCapabilityBundle(workspace.root);
   if (result.bundleSha256 !== workspace.initialBundleSha256) {
     throw new Error('Session capability bundle was modified during execution.');
+  }
+}
+
+export async function verifySessionProcessShims(
+  workspace: SessionWorkspace,
+): Promise<void> {
+  const shimPath = resolveWithin(path.dirname(workspace.bashProxy), 'tasklist.cmd');
+  const metadata = await lstat(shimPath);
+  if (!metadata.isFile() || metadata.isSymbolicLink()) {
+    throw new Error('Session tasklist shim must be a regular file.');
+  }
+  if (await readFile(shimPath, 'utf8') !== windowsTasklistShim) {
+    throw new Error('Session tasklist shim was modified during execution.');
   }
 }
 

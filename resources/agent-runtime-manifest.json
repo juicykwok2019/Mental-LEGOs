@@ -20,7 +20,7 @@
   "bash_proxy": {
     "file": "MentalLegos.BashProxy.exe",
     "bytes": 54784,
-    "sha256": "c8f6a3d9a313aa926a977b1a453ac451bf1f2ad6ff9082de5f9f21b2bf9e4197"
+    "sha256": "b126fc9f493ac45fa364feda86c7596849254e0b4896c5e33440f49307592c9e"
   },
   "provider_proxy": {
     "file": "MentalLegos.ProviderProxy.exe",

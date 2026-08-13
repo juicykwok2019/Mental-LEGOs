@@ -17,6 +17,22 @@ const readTools = new Set(['Read', 'Glob', 'Grep']);
 const writeTools = new Set(['Write', 'Edit', 'NotebookEdit']);
 const highRiskMcpPattern = /^mcp__(?:commit|lifecycle|media)__(?:commit_|create_module_version|promote_scope|execute_|start_cloud_)/u;
 
+function hasHostAuthorization(toolName: string, input: Record<string, unknown>): boolean {
+  if (toolName === 'mcp__commit__commit_confirmed') {
+    return typeof input.confirmation_token === 'string'
+      && input.confirmation_token.length >= 32
+      && typeof input.preview_id === 'string'
+      && input.preview_id.length > 0;
+  }
+  if (toolName === 'mcp__lifecycle__execute_delete') {
+    return typeof input.delete_token === 'string'
+      && input.delete_token.length >= 32
+      && typeof input.preview_id === 'string'
+      && input.preview_id.length > 0;
+  }
+  return false;
+}
+
 function extractPath(toolName: string, input: Record<string, unknown>): string | null {
   const keys = toolName === 'Glob' || toolName === 'Grep'
     ? ['path']
@@ -74,6 +90,9 @@ export function evaluateToolUse(
     return { behavior: 'deny', reason: 'Network research is disabled in ordinary sessions.' };
   }
   if (highRiskMcpPattern.test(toolName)) {
+    if (hasHostAuthorization(toolName, input)) {
+      return { behavior: 'allow' };
+    }
     return { behavior: 'ask', reason: 'This operation requires a host-issued confirmation token.' };
   }
 

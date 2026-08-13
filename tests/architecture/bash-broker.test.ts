@@ -126,6 +126,17 @@ describe('isolated Bash broker', () => {
     expect(translated).not.toContain('synthetic-user');
   });
 
+  it('neutralizes Claude Code AppContainer cwd tracker paths', () => {
+    expect(translateBashArgument(
+      'source C:\\Profiles\\tester\\AppData\\Local\\Packages\\agent\\AC\\Temp\\claude-75a5-cwd && pwd',
+      'C:\\sessions\\current',
+    )).toBe('source /dev/null && pwd');
+    expect(translateBashArgument(
+      'source /c/Profiles/tester/AppData/Local/Packages/agent/AC/Temp/claude-75a5-cwd && pwd',
+      'C:\\sessions\\current',
+    )).toBe('source /dev/null && pwd');
+  });
+
   it('never forwards arbitrary host variables or enables WASIX networking', () => {
     const runtime: BashRuntimePaths = {
       runnerPath: 'D:\\runtime\\wasmer.exe',
@@ -439,7 +450,7 @@ describe('isolated Bash broker', () => {
           '--writable', ipcDirectory,
           '--',
           '-lc',
-          "declare -a parts=(app container); [[ \"${parts[1]}\" == container ]] && [[ -z \"${ANTHROPIC_API_KEY+x}\" ]] && printf 'dual-sandbox-ok'",
+          "declare -a parts=(app container); [[ \"${parts[1]}\" == container ]] && [[ -z \"${ANTHROPIC_API_KEY+x}\" ]] && python -c 'from pathlib import Path; Path(\"scratch/appcontainer-python.txt\").write_text(\"sandboxed-python-ok\")' && printf 'dual-sandbox-ok'",
         ], {
           encoding: 'utf8',
           env: {
@@ -458,6 +469,10 @@ describe('isolated Bash broker', () => {
           timeout: 60_000,
         });
         expect(result.stdout).toBe('dual-sandbox-ok');
+        await expect(readFile(
+          path.join(workspaceRoot, 'scratch', 'appcontainer-python.txt'),
+          'utf8',
+        )).resolves.toBe('sandboxed-python-ok');
       } finally {
         await broker.close();
         await execFileAsync(officialSandboxLauncher, [

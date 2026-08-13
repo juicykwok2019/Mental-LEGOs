@@ -27,6 +27,25 @@ export const agentDiagnosticRequestSchema = z.object({
 
 export type AgentDiagnosticRequest = z.infer<typeof agentDiagnosticRequestSchema>;
 
+export const agentIssueCommitTokenRequestSchema = z.object({
+  type: z.literal('governance:issue-commit-token'),
+  requestId: z.string().uuid(),
+  governanceDatabasePath: z.string().min(1),
+  previewId: z.string().uuid(),
+});
+
+export type AgentIssueCommitTokenRequest = z.infer<typeof agentIssueCommitTokenRequestSchema>;
+
+export const agentIssueCommitTokenResultSchema = z.object({
+  type: z.literal('governance:issue-commit-token-result'),
+  requestId: z.string().uuid(),
+  ok: z.boolean(),
+  confirmationToken: z.string().min(32).optional(),
+  error: z.string().optional(),
+});
+
+export type AgentIssueCommitTokenResult = z.infer<typeof agentIssueCommitTokenResultSchema>;
+
 export const agentDiagnosticResultSchema = z.object({
   type: z.literal('runtime:diagnostic-result'),
   requestId: z.string().min(1),

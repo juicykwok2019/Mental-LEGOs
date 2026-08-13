@@ -3,6 +3,7 @@ import { utilityProcess } from 'electron';
 
 import {
   agentDiagnosticResultSchema,
+  agentIssueCommitTokenResultSchema,
   agentRunResultSchema,
   type AgentDiagnosticResult,
   type AgentWorkerRunRequest,
@@ -18,6 +19,12 @@ interface PendingRequest {
 
 interface PendingRunRequest {
   resolve: (result: NonNullable<AgentWorkerRunResult['result']>) => void;
+  reject: (reason: Error) => void;
+  timeout: ReturnType<typeof setTimeout>;
+}
+
+interface PendingTokenRequest {
+  resolve: (token: string) => void;
   reject: (reason: Error) => void;
   timeout: ReturnType<typeof setTimeout>;
 }
@@ -43,6 +50,7 @@ export class AgentWorkerHost {
   readonly #worker: UtilityProcess;
   readonly #pending = new Map<string, PendingRequest>();
   readonly #pendingRuns = new Map<string, PendingRunRequest>();
+  readonly #pendingTokens = new Map<string, PendingTokenRequest>();
 
   constructor(
     workerPath: string,
@@ -84,6 +92,20 @@ export class AgentWorkerHost {
         return;
       }
 
+      const tokenResult = agentIssueCommitTokenResultSchema.safeParse(value);
+      if (tokenResult.success) {
+        const pending = this.#pendingTokens.get(tokenResult.data.requestId);
+        if (!pending) return;
+        clearTimeout(pending.timeout);
+        this.#pendingTokens.delete(tokenResult.data.requestId);
+        if (!tokenResult.data.ok || !tokenResult.data.confirmationToken) {
+          pending.reject(new Error(tokenResult.data.error ?? 'Commit authorization failed.'));
+        } else {
+          pending.resolve(tokenResult.data.confirmationToken);
+        }
+        return;
+      }
+
       const runResult = agentRunResultSchema.safeParse(value);
       if (!runResult.success) return;
       const pending = this.#pendingRuns.get(runResult.data.requestId);
@@ -109,6 +131,11 @@ export class AgentWorkerHost {
         pending.reject(error);
       }
       this.#pendingRuns.clear();
+      for (const pending of this.#pendingTokens.values()) {
+        clearTimeout(pending.timeout);
+        pending.reject(error);
+      }
+      this.#pendingTokens.clear();
     });
   }
 
@@ -142,6 +169,23 @@ export class AgentWorkerHost {
         type: 'runtime:diagnose',
         requestId,
         ...paths,
+      });
+    });
+  }
+
+  issueCommitToken(governanceDatabasePath: string, previewId: string): Promise<string> {
+    const requestId = crypto.randomUUID();
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.#pendingTokens.delete(requestId);
+        reject(new Error('Commit authorization timed out.'));
+      }, 15_000);
+      this.#pendingTokens.set(requestId, { resolve, reject, timeout });
+      this.#worker.postMessage({
+        type: 'governance:issue-commit-token',
+        requestId,
+        governanceDatabasePath,
+        previewId,
       });
     });
   }

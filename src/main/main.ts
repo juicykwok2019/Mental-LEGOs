@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, rm } from 'node:fs/promises';
+import { mkdir, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -126,7 +126,7 @@ async function runPackagedAgentE2eSmoke(): Promise<void> {
   await mkdir(sessionsRoot, { recursive: false });
   const runtimePaths = getAgentRuntimePaths();
   const request = {
-    prompt: 'Return the packaged synthetic first-run response without using tools.',
+    prompt: 'Run the packaged synthetic multi-tool validation.',
     workspace: {
       sessionsRoot,
       sessionId: workspaceSessionId,
@@ -138,7 +138,7 @@ async function runPackagedAgentE2eSmoke(): Promise<void> {
       apiKey: 'synthetic-packaged-host-only-key',
       model: 'claude-sonnet-4-6',
     },
-    limits: { maxTurns: 2 },
+    limits: { maxTurns: 8 },
     bashRuntime: {
       manifestPath: path.join(
         app.isPackaged ? process.resourcesPath : path.join(app.getAppPath(), 'resources'),
@@ -155,9 +155,41 @@ async function runPackagedAgentE2eSmoke(): Promise<void> {
     if (!JSON.stringify(first.messages).includes('packaged-agent-first-run-ok')) {
       throw new Error('Packaged Agent first-run response was not observed.');
     }
+    const workspaceRoot = path.join(sessionsRoot, workspaceSessionId);
+    const [adaptedScript, originalScript, skillResultSource] = await Promise.all([
+      readFile(path.join(workspaceRoot, 'scratch', 'packaged-adapted.py'), 'utf8'),
+      readFile(path.join(
+        workspaceRoot,
+        '.claude',
+        'skills',
+        'lego-extraction',
+        'scripts',
+        'validate-candidate.py',
+      ), 'utf8'),
+      readFile(path.join(workspaceRoot, 'output', 'packaged-skill-result.json'), 'utf8'),
+    ]);
+    const skillResult = JSON.parse(skillResultSource) as { valid?: unknown };
+    if (
+      !adaptedScript.includes('# packaged E2E adaptation')
+      || originalScript.includes('# packaged E2E adaptation')
+      || skillResult.valid !== true
+    ) {
+      throw new Error('Packaged Agent did not preserve the Skill copy-edit-execute boundary.');
+    }
+    const previewId = /preview_id=([a-f0-9-]{36})/u
+      .exec(JSON.stringify(first.messages))?.[1];
+    if (!previewId) throw new Error('Packaged Agent did not return its commit preview.');
+    const confirmationToken = await agentWorkerHost.issueCommitToken(
+      request.governanceDatabasePath,
+      previewId,
+    );
     const resumed = await agentWorkerHost.run({
       ...request,
-      prompt: 'Return the packaged synthetic resume response.',
+      prompt: [
+        'The host confirmed the exact packaged E2E preview.',
+        `PACKAGED_E2E_COMMIT preview_id=${previewId}`,
+        `confirmation_token=${confirmationToken}`,
+      ].join(' '),
       workspace: { ...request.workspace, create: false },
       resume: first.agentSessionId,
     });
@@ -340,7 +372,7 @@ app.whenReady().then(async () => {
     setTimeout(() => {
       console.error('Packaged smoke test timed out before renderer readiness.');
       app.exit(1);
-    }, isAgentE2eSmokeTest ? 120_000 : isAsrTranscriptionSmokeTest ? 30_000 : 8_000).unref();
+    }, isAgentE2eSmokeTest ? 300_000 : isAsrTranscriptionSmokeTest ? 30_000 : 8_000).unref();
   }
 
   app.on('activate', () => {
