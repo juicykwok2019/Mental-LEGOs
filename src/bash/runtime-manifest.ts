@@ -46,6 +46,14 @@ export const bashRuntimeManifestSchema = z.object({
       license: z.literal('MIT'),
       unpackedManifest: verifiedFileSchema,
     }),
+    python: z.object({
+      name: z.literal('python/python'),
+      version: z.literal('3.13.5'),
+      artifact: downloadSchema,
+      registry: z.url(),
+      license: z.literal('PSF-2.0'),
+      unpackedManifest: verifiedFileSchema,
+    }),
   }),
 });
 

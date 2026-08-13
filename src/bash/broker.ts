@@ -24,8 +24,12 @@ export interface BashRuntimePaths {
   runnerPath: string;
   bashWebcPath: string;
   coreutilsWebcPath: string;
+  pythonWebcPath: string;
+  pythonPackage: string;
   coreutilsManifestPath: string;
   coreutilsVersion: string;
+  pythonManifestPath: string;
+  pythonVersion: string;
   cacheDirectory: string;
   proxyPath: string;
 }
@@ -159,6 +163,7 @@ export function buildWasmerBashInvocation(options: {
     args: [
       'run',
       '--quiet',
+      '--v8',
       '--registry', options.registryUrl,
       '--env', 'PATH=/bin:/usr/bin',
       '--env', 'HOME=/workspace',
@@ -171,6 +176,8 @@ export function buildWasmerBashInvocation(options: {
       '--volume', `${options.writableDirectories.temporary}:/workspace/tmp`,
       '--cwd', '/workspace',
       '--include-webc', options.runtime.coreutilsWebcPath,
+      '--include-webc', options.runtime.pythonWebcPath,
+      '--use', options.runtime.pythonPackage,
       options.runtime.bashWebcPath,
       '--',
       ...options.bashArguments.map((argument) => (
@@ -289,41 +296,33 @@ async function readRequestBody(request: IncomingMessage): Promise<string> {
   return Buffer.concat(chunks).toString('utf8');
 }
 
+type LocalRegistryPackage = {
+  name: `${string}/${string}`;
+  version: string;
+  artifactPath: string;
+  manifestPath: string;
+};
+
+type ReadyLocalRegistryPackage = LocalRegistryPackage & {
+  artifactUrl: string;
+  manifest: string;
+  sha256: string;
+  bytes: number;
+};
+
 class LocalWasmerRegistry {
-  readonly #coreutilsPath: string;
-  readonly #coreutilsManifestPath: string;
-  readonly #coreutilsVersion: string;
+  readonly #packages: LocalRegistryPackage[];
   #server: Server | undefined;
   #registryUrl: string | undefined;
-  #artifactUrl: string | undefined;
-  #manifest = '';
-  #sha256 = '';
-  #bytes = 0;
+  #readyPackages = new Map<string, ReadyLocalRegistryPackage>();
 
   constructor(options: {
-    coreutilsPath: string;
-    coreutilsManifestPath: string;
-    coreutilsVersion: string;
+    packages: LocalRegistryPackage[];
   }) {
-    this.#coreutilsPath = options.coreutilsPath;
-    this.#coreutilsManifestPath = options.coreutilsManifestPath;
-    this.#coreutilsVersion = options.coreutilsVersion;
+    this.#packages = options.packages;
   }
 
   async start(): Promise<string> {
-    const [manifestSource, coreutilsMetadata] = await Promise.all([
-      readFile(this.#coreutilsManifestPath, 'utf8'),
-      lstat(this.#coreutilsPath),
-    ]);
-    if (!coreutilsMetadata.isFile() || coreutilsMetadata.isSymbolicLink()) {
-      throw new Error('Local registry coreutils artifact is unsafe.');
-    }
-    this.#manifest = JSON.stringify(JSON.parse(manifestSource) as unknown);
-    this.#bytes = coreutilsMetadata.size;
-    const hash = createHash('sha256');
-    for await (const chunk of createReadStream(this.#coreutilsPath)) hash.update(chunk);
-    this.#sha256 = hash.digest('hex');
-
     this.#server = createServer((request, response) => {
       void this.#handle(request, response).catch(() => {
         if (!response.headersSent) response.writeHead(400);
@@ -339,7 +338,31 @@ class LocalWasmerRegistry {
       throw new Error('Local Wasmer registry did not bind to loopback.');
     }
     this.#registryUrl = `http://127.0.0.1:${address.port}/graphql`;
-    this.#artifactUrl = `http://127.0.0.1:${address.port}/coreutils.webc`;
+    try {
+      for (const packageEntry of this.#packages) {
+        const [namespace, packageName] = packageEntry.name.split('/');
+        if (!namespace || !packageName) throw new Error('Local registry package name is invalid.');
+        const [manifestSource, artifactMetadata] = await Promise.all([
+          readFile(packageEntry.manifestPath, 'utf8'),
+          lstat(packageEntry.artifactPath),
+        ]);
+        if (!artifactMetadata.isFile() || artifactMetadata.isSymbolicLink()) {
+          throw new Error(`Local registry ${packageEntry.name} artifact is unsafe.`);
+        }
+        const hash = createHash('sha256');
+        for await (const chunk of createReadStream(packageEntry.artifactPath)) hash.update(chunk);
+        this.#readyPackages.set(packageEntry.name, {
+          ...packageEntry,
+          artifactUrl: `http://127.0.0.1:${address.port}/${namespace}-${packageName}.webc`,
+          manifest: JSON.stringify(JSON.parse(manifestSource) as unknown),
+          sha256: hash.digest('hex'),
+          bytes: artifactMetadata.size,
+        });
+      }
+    } catch (reason) {
+      await this.close();
+      throw reason;
+    }
     return this.#registryUrl;
   }
 
@@ -351,13 +374,16 @@ class LocalWasmerRegistry {
   }
 
   async #handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
-    if (request.method === 'GET' && request.url === '/coreutils.webc') {
+    const artifact = [...this.#readyPackages.values()].find((entry) => (
+      request.url === new URL(entry.artifactUrl).pathname
+    ));
+    if (request.method === 'GET' && artifact) {
       response.writeHead(200, {
         'cache-control': 'no-store',
-        'content-length': this.#bytes,
+        'content-length': artifact.bytes,
         'content-type': 'application/octet-stream',
       });
-      createReadStream(this.#coreutilsPath).pipe(response);
+      createReadStream(artifact.artifactPath).pipe(response);
       return;
     }
     if (request.method !== 'POST' || request.url !== '/graphql') {
@@ -365,21 +391,24 @@ class LocalWasmerRegistry {
       return;
     }
     const parsed = JSON.parse(await readRequestBody(request)) as { query?: unknown };
-    if (
-      typeof parsed.query !== 'string'
-      || !/getPackage\(name:\s*"wasmer\/coreutils"\)/u.test(parsed.query)
-      || !this.#artifactUrl
-    ) {
+    const requestedName = typeof parsed.query === 'string'
+      ? /getPackage\(name:\s*"([a-z0-9-]+\/[a-z0-9-]+)"\)/u.exec(parsed.query)?.[1]
+      : undefined;
+    const packageEntry = requestedName
+      ? this.#readyPackages.get(requestedName)
+      : undefined;
+    if (!packageEntry) {
       response.writeHead(400).end();
       return;
     }
+    const [namespace, packageName] = packageEntry.name.split('/') as [string, string];
     const body = JSON.stringify({
       data: {
         getPackage: {
-          packageName: 'coreutils',
-          namespace: 'wasmer',
+          packageName,
+          namespace,
           versions: [{
-            version: this.#coreutilsVersion,
+            version: packageEntry.version,
             isArchived: false,
             v2: {
               piritaDownloadUrl: null,
@@ -387,9 +416,9 @@ class LocalWasmerRegistry {
               webcManifest: null,
             },
             v3: {
-              piritaDownloadUrl: this.#artifactUrl,
-              piritaSha256Hash: this.#sha256,
-              webcManifest: this.#manifest,
+              piritaDownloadUrl: packageEntry.artifactUrl,
+              piritaSha256Hash: packageEntry.sha256,
+              webcManifest: packageEntry.manifest,
             },
           }],
         },
@@ -469,9 +498,17 @@ export class WasmerBashBroker {
     );
     this.#executor = options.executor ?? executeWasmerBash;
     this.#registry = new LocalWasmerRegistry({
-      coreutilsPath: options.runtime.coreutilsWebcPath,
-      coreutilsManifestPath: options.runtime.coreutilsManifestPath,
-      coreutilsVersion: options.runtime.coreutilsVersion,
+      packages: [{
+        name: 'wasmer/coreutils',
+        version: options.runtime.coreutilsVersion,
+        artifactPath: options.runtime.coreutilsWebcPath,
+        manifestPath: options.runtime.coreutilsManifestPath,
+      }, {
+        name: 'python/python',
+        version: options.runtime.pythonVersion,
+        artifactPath: options.runtime.pythonWebcPath,
+        manifestPath: options.runtime.pythonManifestPath,
+      }],
     });
   }
 
@@ -491,7 +528,9 @@ export class WasmerBashBroker {
       assertRegularFile(this.#runtime.runnerPath, 'Wasmer runner'),
       assertRegularFile(this.#runtime.bashWebcPath, 'Bash WebC'),
       assertRegularFile(this.#runtime.coreutilsWebcPath, 'Coreutils WebC'),
+      assertRegularFile(this.#runtime.pythonWebcPath, 'Python WebC'),
       assertRegularFile(this.#runtime.coreutilsManifestPath, 'Coreutils manifest'),
+      assertRegularFile(this.#runtime.pythonManifestPath, 'Python manifest'),
       assertRegularFile(this.#runtime.proxyPath, 'Bash proxy'),
     ]);
     await Promise.all([

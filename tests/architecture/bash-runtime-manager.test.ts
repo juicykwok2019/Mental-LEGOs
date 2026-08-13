@@ -29,7 +29,11 @@ const temporaryDirectories: string[] = [];
 const officialRunnerArchive = process.env.MENTAL_LEGOS_BASH_PROBE_ARCHIVE;
 const officialBashWebc = process.env.MENTAL_LEGOS_BASH_PROBE_BASH_WEBC;
 const officialCoreutilsWebc = process.env.MENTAL_LEGOS_BASH_PROBE_COREUTILS_WEBC;
-const officialProbe = officialRunnerArchive && officialBashWebc && officialCoreutilsWebc
+const officialPythonWebc = process.env.MENTAL_LEGOS_BASH_PROBE_PYTHON_WEBC;
+const officialProbe = officialRunnerArchive
+  && officialBashWebc
+  && officialCoreutilsWebc
+  && officialPythonWebc
   ? it
   : it.skip;
 
@@ -45,7 +49,9 @@ function manifestFor(input: {
   attributions: Uint8Array;
   bash: Uint8Array;
   coreutils: Uint8Array;
+  python: Uint8Array;
   coreutilsManifest: Uint8Array;
+  pythonManifest: Uint8Array;
 }): BashRuntimeManifest {
   return bashRuntimeManifestSchema.parse({
     schemaVersion: 1,
@@ -103,6 +109,21 @@ function manifestFor(input: {
           sha256: digest(input.coreutilsManifest),
         },
       },
+      python: {
+        name: 'python/python',
+        version: '3.13.5',
+        artifact: {
+          url: 'https://cdn.wasmer.io/webcimages/python.webc',
+          bytes: input.python.length,
+          sha256: digest(input.python),
+        },
+        registry: 'https://wasmer.io/python/python',
+        license: 'PSF-2.0',
+        unpackedManifest: {
+          bytes: input.pythonManifest.length,
+          sha256: digest(input.pythonManifest),
+        },
+      },
     },
   });
 }
@@ -134,6 +155,7 @@ describe('sandboxed Bash runtime manager', () => {
     expect(manifest.runner.version).toBe('7.2.1');
     expect(manifest.packages.bash.version).toBe('1.0.25');
     expect(manifest.packages.coreutils.version).toBe('1.0.25');
+    expect(manifest.packages.python.version).toBe('3.13.5');
   });
 
   it('rejects archive traversal and incomplete archives', () => {
@@ -161,13 +183,16 @@ describe('sandboxed Bash runtime manager', () => {
       attributions: fixture,
       bash: fixture,
       coreutils: fixture,
+      python: fixture,
       coreutilsManifest: fixture,
+      pythonManifest: fixture,
     };
     const manifest = manifestFor(input);
     const assets = new Map<string, Uint8Array>([
       [manifest.runner.archive.url, input.archive],
       [manifest.packages.bash.artifact.url, input.bash],
       [manifest.packages.coreutils.artifact.url, input.coreutils],
+      [manifest.packages.python.artifact.url, input.python],
     ]);
     const progress = new Set<string>();
     const manager = new BashRuntimeManager({
@@ -186,8 +211,9 @@ describe('sandboxed Bash runtime manager', () => {
       readFile(downloads.runnerArchive),
       readFile(downloads.bashWebc),
       readFile(downloads.coreutilsWebc),
-    ])).resolves.toHaveLength(3);
-    expect(progress).toEqual(new Set(['runner', 'bash', 'coreutils']));
+      readFile(downloads.pythonWebc),
+    ])).resolves.toHaveLength(4);
+    expect(progress).toEqual(new Set(['runner', 'bash', 'coreutils', 'python']));
   });
 
   it.skipIf(process.platform !== 'win32')(
@@ -203,14 +229,22 @@ describe('sandboxed Bash runtime manager', () => {
       const attributions = new TextEncoder().encode('synthetic attributions');
       const bash = new TextEncoder().encode('synthetic bash WebC');
       const coreutils = new TextEncoder().encode('synthetic coreutils WebC');
+      const python = new TextEncoder().encode('synthetic Python WebC');
       const coreutilsManifest = new TextEncoder().encode(JSON.stringify({
         package: { wapm: { license: 'MIT' } },
         atoms: {},
         commands: {},
       }));
+      const pythonManifest = new TextEncoder().encode(JSON.stringify({
+        package: { wapm: { license: 'PSF-2.0' } },
+        atoms: {},
+        commands: {},
+      }));
       const coreutilsManifestPath = path.join(source, 'coreutils-manifest.json');
+      const pythonManifestPath = path.join(source, 'python-manifest.json');
       const bashPath = path.join(source, 'bash.webc');
       const coreutilsPath = path.join(source, 'coreutils.webc');
+      const pythonPath = path.join(source, 'python.webc');
       await mkdir(path.join(runnerRoot, 'bin'), { recursive: true });
       await Promise.all([
         writeFile(path.join(runnerRoot, 'bin', 'wasmer.exe'), wasmer),
@@ -218,8 +252,10 @@ describe('sandboxed Bash runtime manager', () => {
         writeFile(path.join(runnerRoot, 'LICENSE'), license),
         writeFile(path.join(runnerRoot, 'ATTRIBUTIONS'), attributions),
         writeFile(coreutilsManifestPath, coreutilsManifest),
+        writeFile(pythonManifestPath, pythonManifest),
         writeFile(bashPath, bash),
         writeFile(coreutilsPath, coreutils),
+        writeFile(pythonPath, python),
       ]);
       const tarPath = path.join(process.env.SYSTEMROOT ?? '', 'System32', 'tar.exe');
       await execFileAsync(tarPath, [
@@ -241,7 +277,9 @@ describe('sandboxed Bash runtime manager', () => {
         attributions,
         bash,
         coreutils,
+        python,
         coreutilsManifest,
+        pythonManifest,
       });
       const manager = new BashRuntimeManager({
         runtimesRoot: path.join(root, 'runtimes'),
@@ -251,7 +289,9 @@ describe('sandboxed Bash runtime manager', () => {
         runnerArchive: archivePath,
         bashWebc: bashPath,
         coreutilsWebc: coreutilsPath,
+        pythonWebc: pythonPath,
         coreutilsManifest: coreutilsManifestPath,
+        pythonManifest: pythonManifestPath,
       });
       await expect(manager.inspect(manifest, true)).resolves.toMatchObject({
         state: 'installed',
@@ -269,7 +309,12 @@ describe('sandboxed Bash runtime manager', () => {
   officialProbe(
     'installs and verifies the complete audited official runtime',
     async () => {
-      if (!officialRunnerArchive || !officialBashWebc || !officialCoreutilsWebc) return;
+      if (
+        !officialRunnerArchive
+        || !officialBashWebc
+        || !officialCoreutilsWebc
+        || !officialPythonWebc
+      ) return;
       const root = await createTemporaryDirectory();
       const manifest = await loadBashRuntimeManifest(path.join(
         process.cwd(),
@@ -284,6 +329,7 @@ describe('sandboxed Bash runtime manager', () => {
         runnerArchive: officialRunnerArchive,
         bashWebc: officialBashWebc,
         coreutilsWebc: officialCoreutilsWebc,
+        pythonWebc: officialPythonWebc,
       });
       await expect(manager.inspect(manifest, true)).resolves.toMatchObject({
         state: 'installed',

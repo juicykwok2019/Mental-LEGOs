@@ -36,5 +36,16 @@ reports its own copyright and GPLv3-or-later notice through `bash --version`.
 - Package page: https://wasmer.io/wasmer/coreutils
 - Registry-reported license: MIT
 
+## Python WebC
+
+- Registry package: `python/python@3.13.5`
+- Package page: https://wasmer.io/python/python
+- License: Python Software Foundation License 2.0
+- Python project and source: https://www.python.org/
+
+The package retains the upstream `LICENSE.txt` under its Python standard
+library. It is installed only to execute editable Skill reference code inside
+the same network-disabled WASIX sandbox.
+
 These components are third-party software and are not Mental LEGOs models or
 application code.

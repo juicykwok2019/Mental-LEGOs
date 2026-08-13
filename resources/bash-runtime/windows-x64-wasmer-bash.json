@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "id": "wasmer-bash-windows-x64-7-2-1",
-  "displayName": "Wasmer 7.2.1 + GNU Bash WASIX",
+  "id": "wasmer-bash-python-windows-x64-7-2-1",
+  "displayName": "Wasmer 7.2.1 + GNU Bash WASIX + Python 3.13.5",
   "platform": "win32",
   "architecture": "x64",
   "runner": {
@@ -58,6 +58,21 @@
       "unpackedManifest": {
         "bytes": 12469,
         "sha256": "3392dc1f776f7cdc80a31e0861ce320cb42eabe212bff97e9845a20fe75d10c2"
+      }
+    },
+    "python": {
+      "name": "python/python",
+      "version": "3.13.5",
+      "artifact": {
+        "url": "https://cdn.wasmer.io/webcimages/c03ebe0946e66edf598fd7a1f192101f60e4e9c0095aecd04e049989692bdcab.webc",
+        "bytes": 44680028,
+        "sha256": "c03ebe0946e66edf598fd7a1f192101f60e4e9c0095aecd04e049989692bdcab"
+      },
+      "registry": "https://wasmer.io/python/python",
+      "license": "PSF-2.0",
+      "unpackedManifest": {
+        "bytes": 610,
+        "sha256": "d0e6b46331878d9ba66850545ef23a8b53b4ffc67aacdc0c2e2208f2f905216a"
       }
     }
   }

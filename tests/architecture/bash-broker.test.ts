@@ -28,15 +28,18 @@ const temporaryDirectories: string[] = [];
 const officialRunnerPath = process.env.MENTAL_LEGOS_BASH_PROBE_RUNNER;
 const officialBashWebcPath = process.env.MENTAL_LEGOS_BASH_PROBE_BASH_WEBC;
 const officialCoreutilsWebcPath = process.env.MENTAL_LEGOS_BASH_PROBE_COREUTILS_WEBC;
+const officialPythonWebcPath = process.env.MENTAL_LEGOS_BASH_PROBE_PYTHON_WEBC;
 const officialSandboxLauncher = process.env.MENTAL_LEGOS_BASH_PROBE_SANDBOX_LAUNCHER;
 const officialProbe = officialRunnerPath
   && officialBashWebcPath
   && officialCoreutilsWebcPath
+  && officialPythonWebcPath
   ? it
   : it.skip;
 const officialAppContainerProbe = officialRunnerPath
   && officialBashWebcPath
   && officialCoreutilsWebcPath
+  && officialPythonWebcPath
   && officialSandboxLauncher
   ? it
   : it.skip;
@@ -52,6 +55,12 @@ async function createRuntimeFixture(root: string): Promise<BashRuntimePaths> {
   const runnerPath = path.join(runtimeRoot, 'bin', 'wasmer.exe');
   const bashWebcPath = path.join(runtimeRoot, 'packages', 'bash.webc');
   const coreutilsWebcPath = path.join(runtimeRoot, 'packages', 'coreutils.webc');
+  const pythonWebcPath = path.join(runtimeRoot, 'packages', 'python.webc');
+  const pythonManifestPath = path.join(
+    runtimeRoot,
+    'packages',
+    'python-manifest.json',
+  );
   const coreutilsManifestPath = path.join(
     runtimeRoot,
     'packages',
@@ -65,12 +74,18 @@ async function createRuntimeFixture(root: string): Promise<BashRuntimePaths> {
     writeFile(runnerPath, 'synthetic runner'),
     writeFile(bashWebcPath, 'synthetic bash'),
     writeFile(coreutilsWebcPath, 'synthetic coreutils'),
+    writeFile(pythonWebcPath, 'synthetic Python'),
+    writeFile(pythonManifestPath, JSON.stringify({ atoms: {}, commands: {} })),
     writeFile(coreutilsManifestPath, JSON.stringify({ atoms: {}, commands: {} })),
   ]);
   return {
     runnerPath,
     bashWebcPath,
     coreutilsWebcPath,
+    pythonWebcPath,
+    pythonPackage: 'python/python@3.13.5',
+    pythonManifestPath,
+    pythonVersion: '3.13.5',
     coreutilsManifestPath,
     coreutilsVersion: '1.0.25',
     cacheDirectory: path.join(root, 'cache'),
@@ -116,6 +131,10 @@ describe('isolated Bash broker', () => {
       runnerPath: 'D:\\runtime\\wasmer.exe',
       bashWebcPath: 'D:\\runtime\\bash.webc',
       coreutilsWebcPath: 'D:\\runtime\\coreutils.webc',
+      pythonWebcPath: 'D:\\runtime\\python.webc',
+      pythonPackage: 'python/python@3.13.5',
+      pythonManifestPath: 'D:\\runtime\\python-manifest.json',
+      pythonVersion: '3.13.5',
       coreutilsManifestPath: 'D:\\runtime\\coreutils-manifest.json',
       coreutilsVersion: '1.0.25',
       cacheDirectory: 'D:\\cache',
@@ -149,11 +168,16 @@ describe('isolated Bash broker', () => {
     expect(environment).not.toHaveProperty('MENTAL_LEGOS_SYNTHETIC_SECRET');
     expect(invocation.args).not.toContain('--net');
     expect(invocation.args).not.toContain('--forward-host-env');
+    expect(invocation.args).toContain('--v8');
     expect(invocation.args).toEqual(expect.arrayContaining([
       '--volume',
       'D:\\guest:/workspace',
       '--include-webc',
       runtime.coreutilsWebcPath,
+      '--include-webc',
+      runtime.pythonWebcPath,
+      '--use',
+      runtime.pythonPackage,
     ]));
   });
 
@@ -234,7 +258,12 @@ describe('isolated Bash broker', () => {
   officialProbe(
     'executes full Bash arrays without exposing the provider credential',
     async () => {
-      if (!officialRunnerPath || !officialBashWebcPath || !officialCoreutilsWebcPath) return;
+      if (
+        !officialRunnerPath
+        || !officialBashWebcPath
+        || !officialCoreutilsWebcPath
+        || !officialPythonWebcPath
+      ) return;
       const root = await createTemporaryDirectory();
       const workspaceRoot = path.join(root, 'workspace');
       const temporaryDirectory = path.join(workspaceRoot, 'tmp');
@@ -245,6 +274,16 @@ describe('isolated Bash broker', () => {
         runnerPath: officialRunnerPath,
         bashWebcPath: officialBashWebcPath,
         coreutilsWebcPath: officialCoreutilsWebcPath,
+        pythonWebcPath: officialPythonWebcPath,
+        pythonPackage: 'python/python@3.13.5',
+        pythonManifestPath: path.join(
+          process.cwd(),
+          '.private',
+          'dependency-audit',
+          'python-python-3.13.5-unpacked',
+          'manifest.json',
+        ),
+        pythonVersion: '3.13.5',
         coreutilsManifestPath: path.join(
           process.cwd(),
           '.private',
@@ -274,7 +313,7 @@ describe('isolated Bash broker', () => {
       try {
         const result = await execFileAsync(runtime.proxyPath, [
           '-lc',
-          "declare -a parts=(full bash); [[ \"${parts[1]}\" == bash ]] && [[ -z \"${ANTHROPIC_API_KEY+x}\" ]] && printf 'guest-only-change' > CLAUDE.md && printf 'writable-proof' > scratch/proof.txt && printf 'isolated-bash-ok'",
+          "declare -a parts=(full bash); [[ \"${parts[1]}\" == bash ]] && [[ -z \"${ANTHROPIC_API_KEY+x}\" ]] && printf 'guest-only-change' > CLAUDE.md && printf 'writable-proof' > scratch/proof.txt && python -c 'from pathlib import Path; Path(\"scratch/python-proof.txt\").write_text(\"isolated-python-ok\")' && printf 'isolated-bash-ok'",
         ], {
           encoding: 'utf8',
           env: {
@@ -301,6 +340,10 @@ describe('isolated Bash broker', () => {
           .resolves.toBe('protected-capability');
         await expect(readFile(path.join(workspaceRoot, 'scratch', 'proof.txt'), 'utf8'))
           .resolves.toBe('writable-proof');
+        await expect(readFile(
+          path.join(workspaceRoot, 'scratch', 'python-proof.txt'),
+          'utf8',
+        )).resolves.toBe('isolated-python-ok');
       } finally {
         await broker.close();
       }
@@ -315,6 +358,7 @@ describe('isolated Bash broker', () => {
         !officialRunnerPath
         || !officialBashWebcPath
         || !officialCoreutilsWebcPath
+        || !officialPythonWebcPath
         || !officialSandboxLauncher
       ) return;
       const root = await createTemporaryDirectory();
@@ -336,6 +380,16 @@ describe('isolated Bash broker', () => {
         runnerPath: officialRunnerPath,
         bashWebcPath: officialBashWebcPath,
         coreutilsWebcPath: officialCoreutilsWebcPath,
+        pythonWebcPath: officialPythonWebcPath,
+        pythonPackage: 'python/python@3.13.5',
+        pythonManifestPath: path.join(
+          process.cwd(),
+          '.private',
+          'dependency-audit',
+          'python-python-3.13.5-unpacked',
+          'manifest.json',
+        ),
+        pythonVersion: '3.13.5',
         coreutilsManifestPath: path.join(
           process.cwd(),
           '.private',

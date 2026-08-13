@@ -38,7 +38,7 @@ export type BashRuntimeInstallationStatus =
   | { state: 'installed'; runtimeDirectory: string; verified: boolean };
 
 export type BashRuntimeProgress = {
-  asset: 'runner' | 'bash' | 'coreutils';
+  asset: 'runner' | 'bash' | 'coreutils' | 'python';
   receivedBytes: number;
   totalBytes: number;
 };
@@ -204,9 +204,14 @@ export class BashRuntimeManager {
       { relativePath: 'ATTRIBUTIONS', expected: manifest.runner.files.ATTRIBUTIONS },
       { relativePath: 'packages/bash.webc', expected: manifest.packages.bash.artifact },
       { relativePath: 'packages/coreutils.webc', expected: manifest.packages.coreutils.artifact },
+      { relativePath: 'packages/python.webc', expected: manifest.packages.python.artifact },
       {
         relativePath: 'packages/coreutils-manifest.json',
         expected: manifest.packages.coreutils.unpackedManifest,
+      },
+      {
+        relativePath: 'packages/python-manifest.json',
+        expected: manifest.packages.python.unpackedManifest,
       },
     ];
   }
@@ -394,13 +399,66 @@ export class BashRuntimeManager {
     return path.join(this.#systemRoot, 'System32', 'tar.exe');
   }
 
+  async #writePackageManifest(options: {
+    stagingDirectory: string;
+    artifactPath: string;
+    outputPath: string;
+    suppliedManifest?: string;
+  }): Promise<void> {
+    if (options.suppliedManifest) {
+      await copyFile(options.suppliedManifest, options.outputPath);
+      return;
+    }
+    const suffix = randomUUID();
+    const unpackDirectory = path.join(options.stagingDirectory, `.webc-unpack-${suffix}`);
+    const wasmerDirectory = path.join(options.stagingDirectory, `.wasmer-unpack-${suffix}`);
+    await mkdir(unpackDirectory, { recursive: false });
+    await mkdir(wasmerDirectory, { recursive: false });
+    try {
+      await execFileAsync(path.join(options.stagingDirectory, 'bin', 'wasmer.exe'), [
+        'package',
+        'unpack',
+        '--quiet',
+        '--format',
+        'webc',
+        '--out-dir',
+        unpackDirectory,
+        options.artifactPath,
+      ], {
+        encoding: 'utf8',
+        env: {
+          SYSTEMROOT: process.env.SYSTEMROOT,
+          WINDIR: process.env.WINDIR,
+          WASMER_DIR: wasmerDirectory,
+        },
+        maxBuffer: 2 * 1024 * 1024,
+        windowsHide: true,
+      });
+      const unpacked = JSON.parse(
+        await readFile(path.join(unpackDirectory, 'manifest.json'), 'utf8'),
+      ) as unknown;
+      await writeFile(
+        options.outputPath,
+        JSON.stringify(unpacked),
+        { encoding: 'utf8', flag: 'wx' },
+      );
+    } finally {
+      await Promise.all([
+        rm(unpackDirectory, { recursive: true, force: true }),
+        rm(wasmerDirectory, { recursive: true, force: true }),
+      ]);
+    }
+  }
+
   async installFromFiles(
     manifest: BashRuntimeManifest,
     input: {
       runnerArchive: string;
       bashWebc: string;
       coreutilsWebc: string;
+      pythonWebc: string;
       coreutilsManifest?: string;
+      pythonManifest?: string;
     },
   ): Promise<string> {
     await this.#prepareRoot();
@@ -412,6 +470,9 @@ export class BashRuntimeManager {
     }
     if (!(await verifyFile(input.coreutilsWebc, manifest.packages.coreutils.artifact))) {
       throw new BashRuntimeManagerError('RUNTIME_INVALID', 'Coreutils WebC failed verification.');
+    }
+    if (!(await verifyFile(input.pythonWebc, manifest.packages.python.artifact))) {
+      throw new BashRuntimeManagerError('RUNTIME_INVALID', 'Python WebC failed verification.');
     }
 
     const existing = await this.inspect(manifest, true);
@@ -461,51 +522,29 @@ export class BashRuntimeManager {
       await Promise.all([
         copyFile(input.bashWebc, path.join(stagingDirectory, 'packages', 'bash.webc')),
         copyFile(input.coreutilsWebc, path.join(stagingDirectory, 'packages', 'coreutils.webc')),
+        copyFile(input.pythonWebc, path.join(stagingDirectory, 'packages', 'python.webc')),
       ]);
       const coreutilsManifestPath = path.join(
         stagingDirectory,
         'packages',
         'coreutils-manifest.json',
       );
-      if (input.coreutilsManifest) {
-        await copyFile(input.coreutilsManifest, coreutilsManifestPath);
-      } else {
-        const unpackDirectory = path.join(stagingDirectory, '.coreutils-unpack');
-        const wasmerDirectory = path.join(stagingDirectory, '.wasmer-unpack');
-        await mkdir(unpackDirectory, { recursive: false });
-        await mkdir(wasmerDirectory, { recursive: false });
-        await execFileAsync(path.join(stagingDirectory, 'bin', 'wasmer.exe'), [
-          'package',
-          'unpack',
-          '--quiet',
-          '--format',
-          'webc',
-          '--out-dir',
-          unpackDirectory,
-          path.join(stagingDirectory, 'packages', 'coreutils.webc'),
-        ], {
-          encoding: 'utf8',
-          env: {
-            SYSTEMROOT: process.env.SYSTEMROOT,
-            WINDIR: process.env.WINDIR,
-            WASMER_DIR: wasmerDirectory,
-          },
-          maxBuffer: 2 * 1024 * 1024,
-          windowsHide: true,
-        });
-        const unpacked = JSON.parse(
-          await readFile(path.join(unpackDirectory, 'manifest.json'), 'utf8'),
-        ) as unknown;
-        await writeFile(
-          coreutilsManifestPath,
-          JSON.stringify(unpacked),
-          { encoding: 'utf8', flag: 'wx' },
-        );
-        await Promise.all([
-          rm(unpackDirectory, { recursive: true, force: true }),
-          rm(wasmerDirectory, { recursive: true, force: true }),
-        ]);
-      }
+      await this.#writePackageManifest({
+        stagingDirectory,
+        artifactPath: path.join(stagingDirectory, 'packages', 'coreutils.webc'),
+        outputPath: coreutilsManifestPath,
+        ...(input.coreutilsManifest === undefined
+          ? {}
+          : { suppliedManifest: input.coreutilsManifest }),
+      });
+      await this.#writePackageManifest({
+        stagingDirectory,
+        artifactPath: path.join(stagingDirectory, 'packages', 'python.webc'),
+        outputPath: path.join(stagingDirectory, 'packages', 'python-manifest.json'),
+        ...(input.pythonManifest === undefined
+          ? {}
+          : { suppliedManifest: input.pythonManifest }),
+      });
       for (const { relativePath, expected } of this.#installedFiles(manifest)) {
         const filePath = assertDescendant(
           stagingDirectory,
@@ -526,6 +565,7 @@ export class BashRuntimeManager {
           runnerSha256: manifest.runner.archive.sha256,
           bashSha256: manifest.packages.bash.artifact.sha256,
           coreutilsSha256: manifest.packages.coreutils.artifact.sha256,
+          pythonSha256: manifest.packages.python.artifact.sha256,
           installedAt: new Date().toISOString(),
         }, null, 2)}\n`,
         { encoding: 'utf8', flag: 'wx' },
@@ -544,7 +584,7 @@ export class BashRuntimeManager {
     manifest: BashRuntimeManifest,
     onProgress?: (progress: BashRuntimeProgress) => void,
   ): Promise<string> {
-    const { runnerArchive, bashWebc, coreutilsWebc } = await this.downloadAssets(
+    const { runnerArchive, bashWebc, coreutilsWebc, pythonWebc } = await this.downloadAssets(
       manifest,
       onProgress,
     );
@@ -552,11 +592,13 @@ export class BashRuntimeManager {
       runnerArchive,
       bashWebc,
       coreutilsWebc,
+      pythonWebc,
     });
     await Promise.all([
       rm(this.downloadPath(manifest, 'runner'), { force: true }),
       rm(this.downloadPath(manifest, 'bash'), { force: true }),
       rm(this.downloadPath(manifest, 'coreutils'), { force: true }),
+      rm(this.downloadPath(manifest, 'python'), { force: true }),
     ]);
     return runtimeDirectory;
   }
@@ -564,7 +606,12 @@ export class BashRuntimeManager {
   async downloadAssets(
     manifest: BashRuntimeManifest,
     onProgress?: (progress: BashRuntimeProgress) => void,
-  ): Promise<{ runnerArchive: string; bashWebc: string; coreutilsWebc: string }> {
+  ): Promise<{
+    runnerArchive: string;
+    bashWebc: string;
+    coreutilsWebc: string;
+    pythonWebc: string;
+  }> {
     const runnerArchive = await this.#downloadAsset(
       manifest,
       'runner',
@@ -583,7 +630,13 @@ export class BashRuntimeManager {
       manifest.packages.coreutils.artifact,
       onProgress,
     );
-    return { runnerArchive, bashWebc, coreutilsWebc };
+    const pythonWebc = await this.#downloadAsset(
+      manifest,
+      'python',
+      manifest.packages.python.artifact,
+      onProgress,
+    );
+    return { runnerArchive, bashWebc, coreutilsWebc, pythonWebc };
   }
 
   async uninstall(
@@ -655,12 +708,20 @@ export async function resolveVerifiedBashRuntime(options: {
     runnerPath: path.join(runtimeDirectory, 'bin', 'wasmer.exe'),
     bashWebcPath: path.join(runtimeDirectory, 'packages', 'bash.webc'),
     coreutilsWebcPath: path.join(runtimeDirectory, 'packages', 'coreutils.webc'),
+    pythonWebcPath: path.join(runtimeDirectory, 'packages', 'python.webc'),
+    pythonPackage: `${options.manifest.packages.python.name}@${options.manifest.packages.python.version}`,
     coreutilsManifestPath: path.join(
       runtimeDirectory,
       'packages',
       'coreutils-manifest.json',
     ),
     coreutilsVersion: options.manifest.packages.coreutils.version,
+    pythonManifestPath: path.join(
+      runtimeDirectory,
+      'packages',
+      'python-manifest.json',
+    ),
+    pythonVersion: options.manifest.packages.python.version,
     cacheDirectory: path.resolve(options.cacheDirectory),
     proxyPath: path.resolve(options.proxyPath),
   };
