@@ -2,7 +2,7 @@ import { cp, mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 
-import { query } from '@anthropic-ai/claude-agent-sdk';
+import { createSdkMcpServer, query, tool } from '@anthropic-ai/claude-agent-sdk';
 
 const repositoryRoot = process.cwd();
 const probeRoot = path.join(repositoryRoot, '.private', 'sdk-offline-probe');
@@ -19,6 +19,22 @@ const expectedSkills = [
   'scenario-preparation',
   'transfer-question-design',
 ];
+const governanceServerNames = [
+  'context', 'artifact', 'commit', 'practice', 'media', 'lifecycle',
+];
+const mcpServers = Object.fromEntries(governanceServerNames.map((name) => [
+  name,
+  createSdkMcpServer({
+    name,
+    version: '1.0.0-probe',
+    tools: [tool(
+      'phase_zero_probe',
+      'Prove that the pinned SDK can initialize an in-process governance server.',
+      {},
+      async () => ({ content: [{ type: 'text', text: 'ok' }] }),
+    )],
+  }),
+]));
 
 await rm(probeRoot, { recursive: true, force: true });
 await mkdir(path.join(probeRoot, '.agent-config'), { recursive: true });
@@ -57,10 +73,14 @@ const stream = query({
     settingSources: ['project'],
     strictMcpConfig: true,
     systemPrompt: { type: 'preset', preset: 'claude_code' },
-    tools: ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash', 'Skill'],
+    tools: [
+      'Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash', 'Skill',
+      ...governanceServerNames.map((name) => `mcp__${name}__phase_zero_probe`),
+    ],
     disallowedTools: ['Agent', 'Task', 'WebSearch', 'WebFetch'],
     allowedTools: [],
     skills: expectedSkills,
+    mcpServers,
     permissionMode: 'dontAsk',
     env: environment,
     maxTurns: 1,
@@ -85,6 +105,13 @@ try {
     if (message.tools.includes('Agent') || message.tools.includes('Task')) {
       throw new Error('SDK exposed a subagent tool in ordinary mode.');
     }
+    const connectedServers = message.mcp_servers
+      .filter((server) => server.status === 'connected')
+      .map((server) => server.name)
+      .sort();
+    if (JSON.stringify(connectedServers) !== JSON.stringify(governanceServerNames.slice().sort())) {
+      throw new Error(`SDK MCP initialization mismatch: ${JSON.stringify(message.mcp_servers)}`);
+    }
     process.stdout.write(`${JSON.stringify({
       claude_code_version: message.claude_code_version,
       product_skills: expectedSkills,
@@ -92,6 +119,7 @@ try {
       tools: message.tools,
       permission_mode: message.permissionMode,
       config_isolated: message.cwd === probeRoot,
+      connected_mcp_servers: connectedServers,
     }, null, 2)}\n`);
     break;
   }

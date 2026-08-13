@@ -2,6 +2,7 @@ import type { Options, SDKMessage, SDKSystemMessage } from '@anthropic-ai/claude
 import { query } from '@anthropic-ai/claude-agent-sdk';
 
 import { skillNames } from './contracts';
+import { governanceToolNames } from './governance';
 import { createCanUseTool, createPolicyHooks } from './policy';
 import { verifyAgentBinary, verifyCapabilityBundle } from './integrity';
 import type { SessionWorkspace } from './workspace';
@@ -48,7 +49,7 @@ export interface AgentRunRequest {
   provider: ProviderProcessEnvironment;
   limits: AgentRuntimeLimits;
   resume?: string;
-  mcpServers?: Options['mcpServers'];
+  mcpServers: NonNullable<Options['mcpServers']>;
 }
 
 export interface AgentRunResult {
@@ -117,10 +118,11 @@ export function buildAgentOptions(request: AgentRunRequest): Options {
         'Use native tools and Skills flexibly; do not simulate a fixed workflow.',
       ].join(' '),
     },
-    tools: [...nativeAgentTools],
+    tools: [...nativeAgentTools, ...governanceToolNames],
     disallowedTools: [...disabledTools],
     allowedTools: [],
     skills: [...skillNames],
+    mcpServers: request.mcpServers,
     canUseTool: createCanUseTool(request.workspace),
     hooks: createPolicyHooks(request.workspace),
     env: buildMinimalAgentEnvironment({
@@ -135,9 +137,6 @@ export function buildAgentOptions(request: AgentRunRequest): Options {
     ...(request.provider.model === undefined
       ? {}
       : { model: request.provider.model }),
-    ...(request.mcpServers === undefined
-      ? {}
-      : { mcpServers: request.mcpServers }),
     ...(request.resume === undefined ? {} : { resume: request.resume }),
   };
 }
@@ -154,7 +153,7 @@ export async function diagnoseAgentRuntime(paths: AgentRuntimePaths) {
     binarySha256: runtime.sha256,
     bundleSha256: bundle.bundleSha256,
     skills: bundle.skills,
-    tools: [...nativeAgentTools],
+    tools: [...nativeAgentTools, ...governanceToolNames],
     subagentsEnabled: false as const,
   };
 }

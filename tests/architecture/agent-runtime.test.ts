@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import { diagnoseAgentRuntime, buildAgentOptions, buildMinimalAgentEnvironment } from '../../src/agent/runtime';
 import { evaluateToolUse } from '../../src/agent/policy';
+import { createGovernanceKernel, GovernanceRepository } from '../../src/agent/governance';
 import {
   copyAuthorizedInput,
   createSessionWorkspace,
@@ -52,7 +53,6 @@ describe('Claude Agent SDK runtime boundary', () => {
       sessionId,
       capabilityBundlePath,
     });
-
     try {
       await copyAuthorizedInput({
         workspace,
@@ -90,6 +90,7 @@ describe('Claude Agent SDK runtime boundary', () => {
       sessionId,
       capabilityBundlePath,
     });
+    const governanceRepository = new GovernanceRepository();
 
     try {
       const options = buildAgentOptions({
@@ -102,6 +103,7 @@ describe('Claude Agent SDK runtime boundary', () => {
           model: 'synthetic-model',
         },
         limits: { maxTurns: 4, maxBudgetUsd: 0.1 },
+        mcpServers: createGovernanceKernel(governanceRepository),
       });
 
       expect(options.settingSources).toEqual(['project']);
@@ -114,6 +116,7 @@ describe('Claude Agent SDK runtime boundary', () => {
       ]));
       expect(options.allowedTools).toEqual([]);
     } finally {
+      governanceRepository.close();
       await purgeSessionWorkspace(sessionsRoot, sessionId);
       await rm(sessionsRoot, { recursive: true, force: true });
     }
