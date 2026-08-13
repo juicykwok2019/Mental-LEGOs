@@ -5,10 +5,11 @@ import { spawnSync } from 'node:child_process';
 
 const repositoryRoot = process.cwd();
 const stagedOnly = process.argv.includes('--staged');
+const gitConfiguration = ['-c', `safe.directory=${repositoryRoot}`];
 
 const gitArgs = stagedOnly
-  ? ['diff', '--cached', '--name-only', '--diff-filter=ACMR', '-z']
-  : ['ls-files', '--cached', '--others', '--exclude-standard', '-z'];
+  ? [...gitConfiguration, 'diff', '--cached', '--name-only', '--diff-filter=ACMR', '-z']
+  : [...gitConfiguration, 'ls-files', '--cached', '--others', '--exclude-standard', '-z'];
 
 const gitResult = spawnSync('git', gitArgs, {
   cwd: repositoryRoot,
@@ -53,7 +54,7 @@ for (const file of files) {
 
   let content;
   if (stagedOnly) {
-    const stagedFile = spawnSync('git', ['show', `:${file}`], {
+    const stagedFile = spawnSync('git', [...gitConfiguration, 'show', `:${file}`], {
       cwd: repositoryRoot,
       encoding: null,
     });
