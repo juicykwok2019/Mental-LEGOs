@@ -21,6 +21,8 @@ exports/
 node_modules/
 dist/
 build/
+out/
+.vite/
 coverage/
 .cache/
 tmp/
