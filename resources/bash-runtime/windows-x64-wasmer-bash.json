@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "id": "wasmer-bash-windows-x64-7-2-1",
+  "displayName": "Wasmer 7.2.1 + GNU Bash WASIX",
+  "platform": "win32",
+  "architecture": "x64",
+  "runner": {
+    "name": "Wasmer",
+    "version": "7.2.1",
+    "archive": {
+      "url": "https://github.com/wasmerio/wasmer/releases/download/v7.2.1/wasmer-windows-amd64.tar.gz",
+      "bytes": 217593643,
+      "sha256": "3d708642cfdc9458eccbf51dcbb2e61a9d247bb1c9cb637341849b136a6e70bb"
+    },
+    "files": {
+      "bin/wasmer.exe": {
+        "bytes": 91971072,
+        "sha256": "3ee4ebf1a3966ad35bd93d72c4984ea966cec278436f600ccf8ca36dbe3dbe06"
+      },
+      "bin/wasmer-headless.exe": {
+        "bytes": 14331392,
+        "sha256": "c6bcff7365c0c6a82329254683b6d19c637b0b8b7045239716112deb8c127215"
+      },
+      "LICENSE": {
+        "bytes": 1118,
+        "sha256": "67af97d42a6bedede99f12b0030ed1486ccb361d3ec4bf5ac8f9daa19b6afc9c"
+      },
+      "ATTRIBUTIONS": {
+        "bytes": 36025,
+        "sha256": "5c5236625ddd293e06cbe9c8310e4534daa460ec9d8a6acba165d93c1c32cf00"
+      }
+    },
+    "project": "https://github.com/wasmerio/wasmer",
+    "license": "MIT"
+  },
+  "packages": {
+    "bash": {
+      "name": "wasmer/bash",
+      "version": "1.0.25",
+      "artifact": {
+        "url": "https://cdn.wasmer.io/webcimages/059606d132e2e6bc1afe3b432ee64dcb1b1b059815c8bb213cf3b24798ef21e1.webc",
+        "bytes": 1870786,
+        "sha256": "059606d132e2e6bc1afe3b432ee64dcb1b1b059815c8bb213cf3b24798ef21e1"
+      },
+      "registry": "https://wasmer.io/wasmer/bash",
+      "runtimeReportedLicense": "GPLv3+"
+    },
+    "coreutils": {
+      "name": "wasmer/coreutils",
+      "version": "1.0.25",
+      "artifact": {
+        "url": "https://cdn.wasmer.io/webcimages/36ea48f185ca15fe8454b1defb6a11754659dbed6330549662b62874d509f95f.webc",
+        "bytes": 5069975,
+        "sha256": "36ea48f185ca15fe8454b1defb6a11754659dbed6330549662b62874d509f95f"
+      },
+      "registry": "https://wasmer.io/wasmer/coreutils",
+      "license": "MIT"
+    }
+  }
+}
