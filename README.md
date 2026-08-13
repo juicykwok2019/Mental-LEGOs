@@ -10,7 +10,21 @@ Mental LEGOs 是一个本地优先的训练系统，帮助用户把个人知识�
 
 ### 项目状态
 
-项目目前处于产品需求与技术架构定义阶段，尚无公开版本或可用应用。
+项目目前处于 **Phase 0 架构验证阶段**，尚无公开版本，也还不是可用于正式训练的 P0 产品。
+
+当前仓库已经实现并自动验证：
+
+- 安全加固的 Electron Windows 桌面壳与受限 IPC；
+- 以 Claude Agent SDK / Claude Code 为唯一核心 Agent Runtime 的单 Agent 循环；
+- 隔离的原生 Read、Write、Edit、Bash、Python、Skill、MCP、Hooks 与会话恢复；
+- 10 个可执行的产品 Skills 与最小 MCP 治理内核；
+- 会话级或 Windows 凭据管理器保存的 BYOK Provider 配置，Renderer 不可回读密钥；
+- 两阶段真实 Provider 能力认证：先生成合成候选预览，用户确认后才签发一次性 token、恢复会话并写入，最后清除全部测试数据；
+- 可下载、逐文件校验的离线 Bash / Coreutils / Python 运行时；
+- 基于 SenseVoice / sherpa-onnx 的本地 ASR 运行时和模型管理基础设施；
+- Windows 打包、安装、合成全链路、架构边界和隐私扫描测试。
+
+进入 Phase 1 前仍需使用用户自己的真实 Provider Key 完成 Anthropic 基线及至少一个国产 Anthropic 格式端点的认证，并完成干净 Windows 环境验收。简历、JD、录音、转写和语言模块等真实数据功能尚未开放。
 
 首个产品目标是使用 Electron 构建一款单用户 Windows 桌面应用。Web 和移动端可能在后续阶段扩展，但不属于第一版范围。
 
@@ -114,7 +128,21 @@ The goal is not to let AI answer on the user's behalf. It is to help the user bu
 
 ### Status
 
-The project is currently in product-requirements and architecture definition. There is no public release or usable application yet.
+The project is currently in **Phase 0 architecture verification**. There is no public release, and it is not yet a usable P0 training product.
+
+The repository now implements and automatically verifies:
+
+- a hardened Electron Windows shell with constrained IPC;
+- a single-agent loop whose only core Agent Runtime is Claude Agent SDK / Claude Code;
+- isolated native Read, Write, Edit, Bash, Python, Skill, MCP, hook, and session-resume capabilities;
+- ten executable product Skills and a minimal MCP governance kernel;
+- BYOK provider setup backed by session memory or Windows Credential Manager, without renderer key readback;
+- two-stage real-provider certification: create a synthetic preview first, issue a one-time token and resume only after user confirmation, then purge all certification data;
+- a downloadable and per-file-verified offline Bash / Coreutils / Python runtime;
+- local SenseVoice / sherpa-onnx ASR runtime and model-management foundations; and
+- Windows packaging, installation, synthetic end-to-end, architecture-boundary, and privacy-scan tests.
+
+Before Phase 1 begins, the app still requires certification with a user-supplied key against the Anthropic baseline and at least one Chinese Anthropic-format endpoint, plus clean-Windows acceptance. Real resume, job-description, recording, transcript, and language-module workflows are not available yet.
 
 The initial product target is a single-user Windows desktop application built with Electron. Web and mobile clients are possible later extensions, not part of the first release.
 
