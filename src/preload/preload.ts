@@ -5,6 +5,9 @@ import {
   AGENT_READINESS_GET_CHANNEL,
   BASH_RUNTIME_INSTALL_CHANNEL,
   PROVIDER_SETUP_CLEAR_CHANNEL,
+  PROVIDER_CERTIFICATION_CANCEL_CHANNEL,
+  PROVIDER_CERTIFICATION_CONFIRM_CHANNEL,
+  PROVIDER_CERTIFICATION_START_CHANNEL,
   PROVIDER_SETUP_GET_CHANNEL,
   PROVIDER_SETUP_SAVE_CHANNEL,
   RENDERER_READY_CHANNEL,
@@ -12,6 +15,9 @@ import {
   agentReadinessStateSchema,
   providerSetupInputSchema,
   providerSetupStateSchema,
+  providerCertificationDraftSchema,
+  providerCertificationIdSchema,
+  providerCertificationResultSchema,
   type MentalLegosDesktopApi,
   type ProviderSetupInput,
 } from '../shared/contracts';
@@ -47,6 +53,24 @@ const desktopApi: MentalLegosDesktopApi = Object.freeze({
   async installBashRuntime() {
     const value: unknown = await ipcRenderer.invoke(BASH_RUNTIME_INSTALL_CHANNEL);
     return agentReadinessStateSchema.parse(value);
+  },
+  async startProviderCertification() {
+    const value: unknown = await ipcRenderer.invoke(PROVIDER_CERTIFICATION_START_CHANNEL);
+    return providerCertificationDraftSchema.parse(value);
+  },
+  async confirmProviderCertification(certificationId: string) {
+    const id = providerCertificationIdSchema.parse(certificationId);
+    const value: unknown = await ipcRenderer.invoke(
+      PROVIDER_CERTIFICATION_CONFIRM_CHANNEL,
+      id,
+    );
+    return providerCertificationResultSchema.parse(value);
+  },
+  async cancelProviderCertification(certificationId: string) {
+    await ipcRenderer.invoke(
+      PROVIDER_CERTIFICATION_CANCEL_CHANNEL,
+      providerCertificationIdSchema.parse(certificationId),
+    );
   },
 });
 

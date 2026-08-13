@@ -16,6 +16,7 @@ import { AsrWorkerHost } from './asr-worker-host';
 import { BashRuntimeManager } from '../bash/runtime-manager';
 import { loadBashRuntimeManifest } from '../bash/runtime-manifest';
 import { CredentialVault } from './credential-vault';
+import { ProviderCertificationService } from './provider-certification';
 import { ProviderConfigurationService } from './provider-configuration';
 import { ProviderSettingsStore } from './provider-settings-store';
 
@@ -24,6 +25,9 @@ import {
   AGENT_READINESS_GET_CHANNEL,
   BASH_RUNTIME_INSTALL_CHANNEL,
   PROVIDER_SETUP_CLEAR_CHANNEL,
+  PROVIDER_CERTIFICATION_CANCEL_CHANNEL,
+  PROVIDER_CERTIFICATION_CONFIRM_CHANNEL,
+  PROVIDER_CERTIFICATION_START_CHANNEL,
   PROVIDER_SETUP_GET_CHANNEL,
   PROVIDER_SETUP_SAVE_CHANNEL,
   RENDERER_READY_CHANNEL,
@@ -31,6 +35,9 @@ import {
   agentReadinessStateSchema,
   providerSetupInputSchema,
   providerSetupStateSchema,
+  providerCertificationDraftSchema,
+  providerCertificationIdSchema,
+  providerCertificationResultSchema,
 } from '../shared/contracts';
 import { providerRegistry } from '../shared/providers';
 import {
@@ -53,9 +60,11 @@ let asrWorkerHost: AsrWorkerHost | null = null;
 let credentialVault: CredentialVault | null = null;
 let providerConfiguration: ProviderConfigurationService | null = null;
 let bashRuntimeManager: BashRuntimeManager | null = null;
+let providerCertification: ProviderCertificationService | null = null;
 let agentRuntimeDiagnostic: 'checking' | 'ready' | 'error' = 'checking';
 let agentRuntimeDiagnosticDetail: string | null = null;
 let bashInstallPromise: Promise<unknown> | null = null;
+let quitCleanupStarted = false;
 const isPackagedSmokeTest = process.argv.includes('--smoke-test');
 const isAgentE2eSmokeTest = process.argv.includes('--agent-e2e-smoke');
 const agentE2eBashRuntimeDirectory = process.argv
@@ -393,6 +402,39 @@ function registerIpcHandlers(): void {
     await bashInstallPromise;
     return getAgentReadinessState();
   });
+
+  ipcMain.handle(PROVIDER_CERTIFICATION_START_CHANNEL, async (event) => {
+    const senderUrl = event.senderFrame?.url;
+    if (!senderUrl) throw new Error('IPC request rejected: missing sender frame.');
+    assertTrustedIpcSender(event.sender.id, senderUrl);
+    if (!providerCertification) throw new Error('Provider certification is unavailable.');
+    return providerCertificationDraftSchema.parse(await providerCertification.start());
+  });
+
+  ipcMain.handle(
+    PROVIDER_CERTIFICATION_CONFIRM_CHANNEL,
+    async (event, value: unknown) => {
+      const senderUrl = event.senderFrame?.url;
+      if (!senderUrl) throw new Error('IPC request rejected: missing sender frame.');
+      assertTrustedIpcSender(event.sender.id, senderUrl);
+      if (!providerCertification) throw new Error('Provider certification is unavailable.');
+      const id = providerCertificationIdSchema.parse(value);
+      return providerCertificationResultSchema.parse(
+        await providerCertification.confirm(id),
+      );
+    },
+  );
+
+  ipcMain.handle(
+    PROVIDER_CERTIFICATION_CANCEL_CHANNEL,
+    async (event, value: unknown) => {
+      const senderUrl = event.senderFrame?.url;
+      if (!senderUrl) throw new Error('IPC request rejected: missing sender frame.');
+      assertTrustedIpcSender(event.sender.id, senderUrl);
+      if (!providerCertification) throw new Error('Provider certification is unavailable.');
+      await providerCertification.cancel(providerCertificationIdSchema.parse(value));
+    },
+  );
 }
 
 async function createMainWindow(): Promise<void> {
@@ -454,6 +496,14 @@ app.whenReady().then(async () => {
     isPackagedSmokeTest,
     isAgentE2eSmokeTest,
   );
+  providerCertification = new ProviderCertificationService({
+    agent: agentWorkerHost,
+    provider: providerConfiguration,
+    bashManager: bashRuntimeManager,
+    paths: runtimePaths,
+    manifestPath: getBashRuntimeManifestPath(),
+    temporaryRoot: app.getPath('temp'),
+  });
   void agentWorkerHost.diagnose(runtimePaths).then(async () => {
     agentRuntimeDiagnostic = 'ready';
     agentRuntimeDiagnosticDetail = null;
@@ -512,4 +562,11 @@ app.on('window-all-closed', () => {
   agentWorkerHost?.close();
   asrWorkerHost?.close();
   app.quit();
+});
+
+app.on('before-quit', (event) => {
+  if (quitCleanupStarted) return;
+  event.preventDefault();
+  quitCleanupStarted = true;
+  void Promise.resolve(providerCertification?.cancelAll()).finally(() => app.quit());
 });

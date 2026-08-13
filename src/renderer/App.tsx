@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import type {
   AgentReadinessState,
   AppInfo,
+  ProviderCertificationDraft,
+  ProviderCertificationResult,
   ProviderSetupInput,
   ProviderSetupState,
 } from '../shared/contracts';
@@ -23,6 +25,9 @@ export function App() {
   const [apiKey, setApiKey] = useState('');
   const [busy, setBusy] = useState(false);
   const [runtimeBusy, setRuntimeBusy] = useState(false);
+  const [certificationBusy, setCertificationBusy] = useState(false);
+  const [certificationDraft, setCertificationDraft] = useState<ProviderCertificationDraft | null>(null);
+  const [certificationResult, setCertificationResult] = useState<ProviderCertificationResult | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -123,6 +128,61 @@ export function App() {
       setNotice(null);
     } finally {
       setRuntimeBusy(false);
+    }
+  }
+
+  async function startCertification(): Promise<void> {
+    setCertificationBusy(true);
+    setCertificationDraft(null);
+    setCertificationResult(null);
+    setNotice('核心 Agent 正在执行 Skill、原生工具、隔离 Python 与 MCP 认证…');
+    setError(null);
+    try {
+      setCertificationDraft(await window.mentalLegos.startProviderCertification());
+      setNotice(null);
+    } catch (reason) {
+      setError(messageFrom(reason));
+      setNotice(null);
+    } finally {
+      setCertificationBusy(false);
+    }
+  }
+
+  async function confirmCertification(): Promise<void> {
+    if (!certificationDraft) return;
+    setCertificationBusy(true);
+    setNotice('正在签发一次性确认 token，并恢复同一个 Agent 会话…');
+    setError(null);
+    try {
+      const result = await window.mentalLegos.confirmProviderCertification(
+        certificationDraft.certificationId,
+      );
+      setCertificationResult(result);
+      setCertificationDraft(null);
+      setNotice('完整 Provider 能力认证已通过，合成测试数据已清理。');
+    } catch (reason) {
+      setCertificationDraft(null);
+      setError(messageFrom(reason));
+      setNotice(null);
+    } finally {
+      setCertificationBusy(false);
+    }
+  }
+
+  async function cancelCertification(): Promise<void> {
+    if (!certificationDraft) return;
+    setCertificationBusy(true);
+    setError(null);
+    try {
+      await window.mentalLegos.cancelProviderCertification(
+        certificationDraft.certificationId,
+      );
+      setCertificationDraft(null);
+      setNotice('认证已取消，合成候选和临时工作区已清理。');
+    } catch (reason) {
+      setError(messageFrom(reason));
+    } finally {
+      setCertificationBusy(false);
     }
   }
 
@@ -317,6 +377,82 @@ export function App() {
             </span>
           </div>
         </form>
+
+        <div className="certification-panel">
+          <div>
+            <p className="step-label">架构验证 02</p>
+            <h3>完整 Provider 能力认证</h3>
+            <p>
+              认证会向当前服务商发送纯合成测试内容，可能产生少量 API 费用；不会发送你的
+              简历、JD、录音、画像或语言模块。
+            </p>
+          </div>
+          {!certificationDraft && !certificationResult && (
+            <button
+              className="primary-button"
+              type="button"
+              disabled={
+                certificationBusy
+                || !setup?.configured
+                || readiness?.agentRuntime !== 'ready'
+                || readiness.bashRuntime !== 'ready'
+              }
+              onClick={() => void startCertification()}
+            >
+              {certificationBusy ? 'Agent 正在认证…' : '运行完整能力认证'}
+            </button>
+          )}
+
+          {certificationDraft && (
+            <div className="certification-preview">
+              <div className="preview-heading">
+                <strong>确认写入这个临时合成模块？</strong>
+                <span>{certificationDraft.providerName} · {certificationDraft.model}</span>
+              </div>
+              <dl>
+                <div><dt>语义内核</dt><dd>{certificationDraft.candidate.semanticCore}</dd></div>
+                <div><dt>逻辑骨架</dt><dd>{certificationDraft.candidate.logicalSkeleton}</dd></div>
+                <div><dt>语言外壳</dt><dd>{certificationDraft.candidate.languageShell}</dd></div>
+                <div><dt>作用域</dt><dd>仅认证会话，完成后清除</dd></div>
+              </dl>
+              <div className="check-grid">
+                {certificationDraft.checks.map((check) => (
+                  <span key={check.id}>✓ {check.label}</span>
+                ))}
+              </div>
+              <div className="preview-actions">
+                <button
+                  className="primary-button"
+                  type="button"
+                  disabled={certificationBusy}
+                  onClick={() => void confirmCertification()}
+                >
+                  {certificationBusy ? '正在确认并恢复…' : '确认预览并完成认证'}
+                </button>
+                <button
+                  className="quiet-button"
+                  type="button"
+                  disabled={certificationBusy}
+                  onClick={() => void cancelCertification()}
+                >
+                  取消并清理
+                </button>
+              </div>
+            </div>
+          )}
+
+          {certificationResult && (
+            <div className="certification-success" role="status">
+              <strong>认证通过</strong>
+              <span>{certificationResult.providerName} · {certificationResult.model}</span>
+              <div className="check-grid">
+                {certificationResult.checks.map((check) => (
+                  <span key={check.id}>✓ {check.label}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
         {(notice || error) && (
           <div className={`notice ${error ? 'notice-error' : ''}`} role="status">
