@@ -7,10 +7,26 @@ import { FuseV1Options, FuseVersion } from '@electron/fuses';
 
 const config: ForgeConfig = {
   packagerConfig: {
-    asar: true,
+    asar: {
+      unpack: '**/*.{node,dll}',
+    },
+    ignore(filePath) {
+      if (!filePath) return false;
+      if (filePath === '/node_modules') return false;
+      const packagedPaths = [
+        '/.vite',
+        '/node_modules/sherpa-onnx-node',
+        '/node_modules/sherpa-onnx-win-x64',
+      ];
+      return !packagedPaths.some((candidate) => (
+        filePath === candidate || filePath.startsWith(`${candidate}/`)
+      ));
+    },
     extraResource: [
       'resources/capability-bundle',
       'resources/agent-runtime-manifest.json',
+      'resources/asr-models',
+      'resources/licenses',
       'node_modules/@anthropic-ai/claude-agent-sdk-win32-x64/claude.exe',
       'resources/windows-sandbox/MentalLegos.SandboxLauncher.exe',
       'resources/windows-sandbox/MentalLegos.CredentialVault.exe',
@@ -37,6 +53,11 @@ const config: ForgeConfig = {
         {
           entry: 'src/agent/worker.ts',
           config: 'vite.agent.config.ts',
+          target: 'main',
+        },
+        {
+          entry: 'src/asr/worker.ts',
+          config: 'vite.asr.config.ts',
           target: 'main',
         },
       ],

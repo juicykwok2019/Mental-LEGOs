@@ -10,6 +10,7 @@ import {
 } from 'electron';
 
 import { AgentWorkerHost } from './agent-worker-host';
+import { AsrWorkerHost } from './asr-worker-host';
 
 import {
   APP_INFO_CHANNEL,
@@ -32,13 +33,25 @@ declare const MAIN_WINDOW_VITE_NAME: string;
 
 let mainWindow: BrowserWindow | null = null;
 let agentWorkerHost: AgentWorkerHost | null = null;
+let asrWorkerHost: AsrWorkerHost | null = null;
 const isPackagedSmokeTest = process.argv.includes('--smoke-test');
+const asrSmokeModelDirectory = process.argv
+  .find((argument) => argument.startsWith('--asr-smoke-model='))
+  ?.slice('--asr-smoke-model='.length);
+const asrSmokeAudioPath = process.argv
+  .find((argument) => argument.startsWith('--asr-smoke-audio='))
+  ?.slice('--asr-smoke-audio='.length);
+const isAsrTranscriptionSmokeTest = Boolean(
+  asrSmokeModelDirectory && asrSmokeAudioPath,
+);
 let rendererSmokeReady = false;
 let agentSmokeReady = false;
+let asrSmokeReady = false;
 
 function completePackagedSmokeTest(): void {
-  if (isPackagedSmokeTest && rendererSmokeReady && agentSmokeReady) {
+  if (isPackagedSmokeTest && rendererSmokeReady && agentSmokeReady && asrSmokeReady) {
     agentWorkerHost?.close();
+    asrWorkerHost?.close();
     app.exit(0);
   }
 }
@@ -217,11 +230,32 @@ app.whenReady().then(async () => {
     if (isPackagedSmokeTest) app.exit(1);
   });
 
+  asrWorkerHost = new AsrWorkerHost(
+    path.join(__dirname, 'asr-worker.mjs'),
+    isPackagedSmokeTest,
+  );
+  void asrWorkerHost.diagnose().then(async () => {
+    if (asrSmokeModelDirectory && asrSmokeAudioPath) {
+      const transcription = await asrWorkerHost?.transcribe({
+        modelDirectory: asrSmokeModelDirectory,
+        audioPath: asrSmokeAudioPath,
+      });
+      if (!transcription?.text.trim()) {
+        throw new Error('The packaged local speech probe returned an empty transcript.');
+      }
+    }
+    asrSmokeReady = true;
+    completePackagedSmokeTest();
+  }).catch((reason: unknown) => {
+    console.error('Local speech runtime diagnostic failed.', reason);
+    if (isPackagedSmokeTest) app.exit(1);
+  });
+
   if (isPackagedSmokeTest) {
     setTimeout(() => {
       console.error('Packaged smoke test timed out before renderer readiness.');
       app.exit(1);
-    }, 8_000).unref();
+    }, isAsrTranscriptionSmokeTest ? 30_000 : 8_000).unref();
   }
 
   app.on('activate', () => {
@@ -236,5 +270,6 @@ app.whenReady().then(async () => {
 
 app.on('window-all-closed', () => {
   agentWorkerHost?.close();
+  asrWorkerHost?.close();
   app.quit();
 });

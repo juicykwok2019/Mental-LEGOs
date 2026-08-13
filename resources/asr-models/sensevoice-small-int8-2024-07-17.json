@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "sensevoice-small-int8-2024-07-17",
+  "displayName": "SenseVoiceSmall int8 2024-07-17",
+  "runtime": "sherpa-onnx-node@1.13.4",
+  "languages": ["zh", "en", "ja", "ko", "yue"],
+  "archive": {
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17.tar.bz2",
+    "bytes": 163002883,
+    "sha256": "7d1efa2138a65b0b488df37f8b89e3d91a60676e416f515b952358d83dfd347e"
+  },
+  "rootDirectory": "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17",
+  "files": {
+    "model.int8.onnx": {
+      "bytes": 239233841,
+      "sha256": "c71f0ce00bec95b07744e116345e33d8cbbe08cef896382cf907bf4b51a2cd51"
+    },
+    "tokens.txt": {
+      "bytes": 315894,
+      "sha256": "f449eb28dc567533d7fa59be34e2abca8784f771850c78a47fb731a31429a1dc"
+    }
+  },
+  "attribution": {
+    "modelName": "SenseVoiceSmall",
+    "modelProject": "https://github.com/FunAudioLLM/SenseVoice",
+    "runtimeProject": "https://github.com/k2-fsa/sherpa-onnx",
+    "modelLicense": "FunASR Model Open Source License Agreement",
+    "commercialUseClarification": "https://github.com/FunAudioLLM/SenseVoice/issues/286"
+  }
+}
