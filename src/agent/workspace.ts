@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { copyFile, cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { verifyCapabilityBundle } from './integrity';
@@ -13,6 +14,9 @@ export interface SessionWorkspace {
   output: string;
   temporary: string;
   config: string;
+  bashIpc: string;
+  bashGuestRoot: string;
+  bashProxy: string;
   sandboxProfile: string;
   initialBundleSha256: string;
 }
@@ -42,6 +46,12 @@ export async function createSessionWorkspace(options: {
   const output = resolveWithin(root, 'output');
   const temporary = resolveWithin(root, 'tmp');
   const config = resolveWithin(root, '.agent-config');
+  const ipcRoot = resolveWithin(options.sessionsRoot, '.runtime-ipc');
+  const bashIpc = resolveWithin(ipcRoot, options.sessionId);
+  const guestRoot = resolveWithin(options.sessionsRoot, '.runtime-guests');
+  const bashGuestRoot = resolveWithin(guestRoot, options.sessionId);
+  const runtimeDirectory = resolveWithin(root, '.runtime');
+  const bashProxy = resolveWithin(runtimeDirectory, 'bash.exe');
   const sandboxProfile = `MentalLEGOs.Agent.${createHash('sha256')
     .update(options.sessionId, 'utf8')
     .digest('hex')
@@ -54,6 +64,9 @@ export async function createSessionWorkspace(options: {
     mkdir(output, { recursive: true }),
     mkdir(temporary, { recursive: true }),
     mkdir(config, { recursive: true }),
+    mkdir(bashIpc, { recursive: true }),
+    mkdir(bashGuestRoot, { recursive: true }),
+    mkdir(runtimeDirectory, { recursive: true }),
   ]);
 
   await cp(
@@ -85,6 +98,24 @@ export async function createSessionWorkspace(options: {
     }, null, 2)}\n`,
     { encoding: 'utf8', flag: 'wx' },
   );
+  await writeFile(
+    path.join(bashGuestRoot, '.guest-policy.json'),
+    `${JSON.stringify({
+      schema_version: 1,
+      session_id: options.sessionId,
+      workspace_root_sha256: createHash('sha256').update(root, 'utf8').digest('hex'),
+    }, null, 2)}\n`,
+    { encoding: 'utf8', flag: 'wx' },
+  );
+  await writeFile(
+    path.join(bashIpc, '.ipc-policy.json'),
+    `${JSON.stringify({
+      schema_version: 1,
+      session_id: options.sessionId,
+      workspace_root_sha256: createHash('sha256').update(root, 'utf8').digest('hex'),
+    }, null, 2)}\n`,
+    { encoding: 'utf8', flag: 'wx' },
+  );
 
   return {
     root,
@@ -93,9 +124,28 @@ export async function createSessionWorkspace(options: {
     output,
     temporary,
     config,
+    bashIpc,
+    bashGuestRoot,
+    bashProxy,
     sandboxProfile,
     initialBundleSha256: verifiedBundle.bundleSha256,
   };
+}
+
+export async function stageSessionBashProxy(options: {
+  workspace: SessionWorkspace;
+  verifiedProxyPath: string;
+}): Promise<string> {
+  try {
+    await copyFile(
+      path.resolve(options.verifiedProxyPath),
+      options.workspace.bashProxy,
+      constants.COPYFILE_EXCL,
+    );
+  } catch (reason) {
+    if ((reason as NodeJS.ErrnoException).code !== 'EEXIST') throw reason;
+  }
+  return options.workspace.bashProxy;
 }
 
 export async function verifySessionCapabilityIntegrity(
@@ -129,11 +179,40 @@ export async function purgeSessionWorkspace(
     throw new Error('Invalid session identifier.');
   }
   const root = resolveWithin(sessionsRoot, sessionId);
+  const bashIpc = resolveWithin(
+    resolveWithin(sessionsRoot, '.runtime-ipc'),
+    sessionId,
+  );
+  const bashGuestRoot = resolveWithin(
+    resolveWithin(sessionsRoot, '.runtime-guests'),
+    sessionId,
+  );
   const marker = JSON.parse(
     await readFile(path.join(root, '.workspace-policy.json'), 'utf8'),
   ) as { session_id?: unknown };
   if (marker.session_id !== sessionId) {
     throw new Error('Refusing to purge a directory without its matching session marker.');
   }
+  const ipcMarker = JSON.parse(
+    await readFile(path.join(bashIpc, '.ipc-policy.json'), 'utf8'),
+  ) as { session_id?: unknown; workspace_root_sha256?: unknown };
+  const expectedWorkspaceHash = createHash('sha256').update(root, 'utf8').digest('hex');
+  if (
+    ipcMarker.session_id !== sessionId
+    || ipcMarker.workspace_root_sha256 !== expectedWorkspaceHash
+  ) {
+    throw new Error('Refusing to purge an IPC directory without its matching marker.');
+  }
+  const guestMarker = JSON.parse(
+    await readFile(path.join(bashGuestRoot, '.guest-policy.json'), 'utf8'),
+  ) as { session_id?: unknown; workspace_root_sha256?: unknown };
+  if (
+    guestMarker.session_id !== sessionId
+    || guestMarker.workspace_root_sha256 !== expectedWorkspaceHash
+  ) {
+    throw new Error('Refusing to purge a Bash guest directory without its matching marker.');
+  }
   await rm(root, { recursive: true, force: false });
+  await rm(bashIpc, { recursive: true, force: false });
+  await rm(bashGuestRoot, { recursive: true, force: false });
 }

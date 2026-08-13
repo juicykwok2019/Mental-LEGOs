@@ -6,11 +6,13 @@ import { describe, expect, it } from 'vitest';
 
 import { diagnoseAgentRuntime, buildAgentOptions, buildMinimalAgentEnvironment } from '../../src/agent/runtime';
 import { evaluateToolUse } from '../../src/agent/policy';
+import { buildSandboxLauncherArguments } from '../../src/agent/sandbox';
 import { createGovernanceKernel, GovernanceRepository } from '../../src/agent/governance';
 import {
   copyAuthorizedInput,
   createSessionWorkspace,
   purgeSessionWorkspace,
+  stageSessionBashProxy,
   verifySessionCapabilityIntegrity,
 } from '../../src/agent/workspace';
 
@@ -41,6 +43,12 @@ const binaryPath = path.join(
   '@anthropic-ai',
   'claude-agent-sdk-win32-x64',
   'claude.exe',
+);
+const bashRuntimeManifestPath = path.join(
+  repositoryRoot,
+  'resources',
+  'bash-runtime',
+  'windows-x64-wasmer-bash.json',
 );
 
 describe('Claude Agent SDK runtime boundary', () => {
@@ -81,6 +89,16 @@ describe('Claude Agent SDK runtime boundary', () => {
         content: 'Synthetic, public-safe question.',
       });
       await verifySessionCapabilityIntegrity(workspace);
+      await stageSessionBashProxy({
+        workspace,
+        verifiedProxyPath: bashProxyPath,
+      });
+      await stageSessionBashProxy({
+        workspace,
+        verifiedProxyPath: bashProxyPath,
+      });
+      expect(path.relative(workspace.root, workspace.bashIpc)).toMatch(/^\.\./u);
+      expect(path.relative(workspace.root, workspace.bashGuestRoot)).toMatch(/^\.\./u);
 
       expect(evaluateToolUse('Read', { file_path: 'input/synthetic-question.txt' }, workspace))
         .toEqual({ behavior: 'allow' });
@@ -96,6 +114,20 @@ describe('Claude Agent SDK runtime boundary', () => {
         .toMatchObject({ behavior: 'deny' });
       expect(evaluateToolUse('mcp__commit__commit_confirmed', {}, workspace))
         .toMatchObject({ behavior: 'ask' });
+      const launcherArguments = buildSandboxLauncherArguments({
+        launcherPath: sandboxLauncherPath,
+        workspace,
+      }, {
+        command: binaryPath,
+        args: ['--version'],
+        cwd: workspace.root,
+        env: {},
+        signal: new AbortController().signal,
+      });
+      expect(launcherArguments).toEqual(expect.arrayContaining([
+        '--writable',
+        workspace.bashIpc,
+      ]));
     } finally {
       await purgeSessionWorkspace(sessionsRoot, sessionId);
       await rm(sessionsRoot, { recursive: true, force: true });
@@ -131,6 +163,11 @@ describe('Claude Agent SDK runtime boundary', () => {
           model: 'synthetic-model',
         },
         limits: { maxTurns: 4, maxBudgetUsd: 0.1 },
+        bashRuntime: {
+          manifestPath: bashRuntimeManifestPath,
+          runtimeDirectory: path.join(repositoryRoot, '.private', 'synthetic-bash-runtime'),
+          cacheDirectory: path.join(repositoryRoot, '.private', 'synthetic-bash-cache'),
+        },
         mcpServers: createGovernanceKernel(governanceRepository),
       });
 

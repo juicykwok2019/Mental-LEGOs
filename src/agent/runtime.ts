@@ -1,10 +1,18 @@
+import path from 'node:path';
+
 import type { Options, SDKMessage, SDKSystemMessage } from '@anthropic-ai/claude-agent-sdk';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 
+import { WasmerBashBroker } from '../bash/broker';
+import { resolveVerifiedBashRuntime } from '../bash/runtime-manager';
+import { loadBashRuntimeManifest } from '../bash/runtime-manifest';
 import { skillNames } from './contracts';
 import { governanceToolNames } from './governance';
 import { createCanUseTool, createPolicyHooks } from './policy';
-import { createWindowsSandboxSpawner } from './sandbox';
+import {
+  createWindowsSandboxSpawner,
+  deleteWindowsSandboxProfile,
+} from './sandbox';
 import {
   verifyAgentBinary,
   verifyBashProxy,
@@ -13,7 +21,10 @@ import {
   verifySandboxLauncher,
 } from './integrity';
 import type { SessionWorkspace } from './workspace';
-import { verifySessionCapabilityIntegrity } from './workspace';
+import {
+  stageSessionBashProxy,
+  verifySessionCapabilityIntegrity,
+} from './workspace';
 
 export const nativeAgentTools = [
   'Read',
@@ -52,12 +63,19 @@ export interface AgentRuntimeLimits {
   maxBudgetUsd?: number;
 }
 
+export interface AgentBashRuntimeConfiguration {
+  manifestPath: string;
+  runtimeDirectory: string;
+  cacheDirectory: string;
+}
+
 export interface AgentRunRequest {
   prompt: string;
   workspace: SessionWorkspace;
   paths: AgentRuntimePaths;
   provider: ProviderProcessEnvironment;
   limits: AgentRuntimeLimits;
+  bashRuntime: AgentBashRuntimeConfiguration;
   resume?: string;
   mcpServers: NonNullable<Options['mcpServers']>;
 }
@@ -103,7 +121,10 @@ export function buildMinimalAgentEnvironment(options: {
   return environment;
 }
 
-export function buildAgentOptions(request: AgentRunRequest): Options {
+export function buildAgentOptions(
+  request: AgentRunRequest,
+  bashEnvironment?: Record<string, string>,
+): Options {
   if (!request.provider.baseUrl.startsWith('https://')
     && !request.provider.baseUrl.startsWith('http://127.0.0.1:')) {
     throw new Error('Provider Base URL must use HTTPS or the loopback broker.');
@@ -139,10 +160,15 @@ export function buildAgentOptions(request: AgentRunRequest): Options {
     mcpServers: request.mcpServers,
     canUseTool: createCanUseTool(request.workspace),
     hooks: createPolicyHooks(request.workspace),
-    env: buildMinimalAgentEnvironment({
-      provider: request.provider,
-      configDirectory: request.workspace.config,
-    }),
+    env: {
+      ...buildMinimalAgentEnvironment({
+        provider: request.provider,
+        configDirectory: request.workspace.config,
+      }),
+      TEMP: request.workspace.temporary,
+      TMP: request.workspace.temporary,
+      ...(bashEnvironment ?? {}),
+    },
     permissionMode: 'default',
     maxTurns: request.limits.maxTurns,
     ...(request.limits.maxBudgetUsd === undefined
@@ -213,28 +239,79 @@ export async function runAgent(request: AgentRunRequest): Promise<AgentRunResult
     ),
   ]);
 
+  const bashManifest = await loadBashRuntimeManifest(request.bashRuntime.manifestPath);
+  await stageSessionBashProxy({
+    workspace: request.workspace,
+    verifiedProxyPath: request.paths.bashProxyPath,
+  });
+  await verifyBashProxy(
+    request.workspace.bashProxy,
+    request.paths.runtimeManifestPath,
+  );
+  const bashRuntime = await resolveVerifiedBashRuntime({
+    manifest: bashManifest,
+    runtimeDirectory: request.bashRuntime.runtimeDirectory,
+    cacheDirectory: request.bashRuntime.cacheDirectory,
+    proxyPath: request.workspace.bashProxy,
+  });
+  const bashBroker = new WasmerBashBroker({
+    ipcDirectory: request.workspace.bashIpc,
+    workspaceRoot: request.workspace.root,
+    temporaryDirectory: request.workspace.temporary,
+    scratchDirectory: request.workspace.scratch,
+    outputDirectory: request.workspace.output,
+    guestRootDirectory: request.workspace.bashGuestRoot,
+    runtime: bashRuntime,
+  });
+  await bashBroker.start();
+
   const messages: SDKMessage[] = [];
   let init: SDKSystemMessage | undefined;
   let sessionId: string | undefined;
 
-  const stream = query({
-    prompt: request.prompt,
-    options: buildAgentOptions(request),
-  });
-
+  let executionError: unknown;
   try {
-    for await (const message of stream) {
-      messages.push(message);
-      if (message.type === 'system' && message.subtype === 'init') {
-        validateInitMessage(message);
-        init = message;
-        sessionId = message.session_id;
+    const stream = query({
+      prompt: request.prompt,
+      options: buildAgentOptions(request, bashBroker.agentEnvironment()),
+    });
+    try {
+      for await (const message of stream) {
+        messages.push(message);
+        if (message.type === 'system' && message.subtype === 'init') {
+          validateInitMessage(message);
+          init = message;
+          sessionId = message.session_id;
+        }
       }
+    } finally {
+      stream.close();
     }
-  } finally {
-    stream.close();
-    await verifySessionCapabilityIntegrity(request.workspace);
+  } catch (reason) {
+    executionError = reason;
   }
+
+  const cleanup = await Promise.allSettled([
+    bashBroker.close(),
+    deleteWindowsSandboxProfile({
+      launcherPath: request.paths.sandboxLauncherPath,
+      profileName: request.workspace.sandboxProfile,
+      aclPaths: [
+        request.workspace.root,
+        request.workspace.scratch,
+        request.workspace.output,
+        request.workspace.temporary,
+        request.workspace.config,
+        request.workspace.bashIpc,
+        path.dirname(request.paths.binaryPath),
+        request.paths.binaryPath,
+      ],
+    }),
+  ]);
+  await verifySessionCapabilityIntegrity(request.workspace);
+  const cleanupFailure = cleanup.find((result) => result.status === 'rejected');
+  if (cleanupFailure?.status === 'rejected') throw cleanupFailure.reason;
+  if (executionError) throw executionError;
 
   if (!init || !sessionId) {
     throw new Error('Claude Agent SDK did not emit a valid init message.');

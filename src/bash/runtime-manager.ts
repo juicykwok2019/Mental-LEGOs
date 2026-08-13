@@ -19,6 +19,7 @@ import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 import { promisify } from 'node:util';
 
 import type { BashRuntimeManifest } from './runtime-manifest';
+import type { BashRuntimePaths } from './broker';
 
 const execFileAsync = promisify(execFile);
 const DOWNLOAD_HOSTS = new Set([
@@ -625,4 +626,42 @@ export class BashRuntimeManager {
     await rename(runtimeDirectory, trashDirectory);
     await rm(trashDirectory, { recursive: true, force: true });
   }
+}
+
+export async function resolveVerifiedBashRuntime(options: {
+  manifest: BashRuntimeManifest;
+  runtimeDirectory: string;
+  cacheDirectory: string;
+  proxyPath: string;
+}): Promise<BashRuntimePaths> {
+  const runtimeDirectory = path.resolve(options.runtimeDirectory);
+  const manager = new BashRuntimeManager({
+    runtimesRoot: path.dirname(runtimeDirectory),
+  });
+  if (manager.runtimeDirectory(options.manifest) !== runtimeDirectory) {
+    throw new BashRuntimeManagerError(
+      'RUNTIME_INVALID',
+      'Bash runtime directory does not match its fixed manifest identifier.',
+    );
+  }
+  const status = await manager.inspect(options.manifest, true);
+  if (status.state !== 'installed') {
+    throw new BashRuntimeManagerError(
+      'RUNTIME_INVALID',
+      `Bash runtime is not ready: ${status.state === 'invalid' ? status.reason : 'missing'}.`,
+    );
+  }
+  return {
+    runnerPath: path.join(runtimeDirectory, 'bin', 'wasmer.exe'),
+    bashWebcPath: path.join(runtimeDirectory, 'packages', 'bash.webc'),
+    coreutilsWebcPath: path.join(runtimeDirectory, 'packages', 'coreutils.webc'),
+    coreutilsManifestPath: path.join(
+      runtimeDirectory,
+      'packages',
+      'coreutils-manifest.json',
+    ),
+    coreutilsVersion: options.manifest.packages.coreutils.version,
+    cacheDirectory: path.resolve(options.cacheDirectory),
+    proxyPath: path.resolve(options.proxyPath),
+  };
 }

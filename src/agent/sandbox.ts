@@ -35,6 +35,7 @@ export function buildSandboxLauncherArguments(
     '--writable', configuration.workspace.output,
     '--writable', configuration.workspace.temporary,
     '--writable', configuration.workspace.config,
+    '--writable', configuration.workspace.bashIpc,
     '--',
     ...options.args,
   ];

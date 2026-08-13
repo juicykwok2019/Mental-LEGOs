@@ -223,6 +223,7 @@ internal static class SandboxLauncher
             {
                 if (args.Length < 2) throw new ArgumentException("delete-profile requires a profile name.");
                 IntPtr sidPointer = IntPtr.Zero;
+                List<string> cleanupWarnings = new List<string>();
                 try
                 {
                     int deriveResult = DeriveAppContainerSidFromAppContainerName(args[1], out sidPointer);
@@ -230,7 +231,14 @@ internal static class SandboxLauncher
                     SecurityIdentifier sid = new SecurityIdentifier(sidPointer);
                     for (int index = 2; index < args.Length; index++)
                     {
-                        RemoveSandboxAccess(Path.GetFullPath(args[index]), sid);
+                        try
+                        {
+                            RemoveSandboxAccess(Path.GetFullPath(args[index]), sid);
+                        }
+                        catch (Exception exception)
+                        {
+                            cleanupWarnings.Add(Path.GetFileName(args[index]) + ": " + exception.GetType().Name);
+                        }
                     }
                 }
                 finally
@@ -239,6 +247,12 @@ internal static class SandboxLauncher
                 }
                 int result = DeleteAppContainerProfile(args[1]);
                 if (result < 0) Marshal.ThrowExceptionForHR(result);
+                if (cleanupWarnings.Count > 0)
+                {
+                    Console.Error.WriteLine(
+                        "Mental LEGOs deleted the AppContainer profile; Windows retained inert ACL entries on: "
+                        + String.Join(", ", cleanupWarnings.ToArray()));
+                }
                 return 0;
             }
             throw new ArgumentException("Unknown sandbox command.");
@@ -567,7 +581,12 @@ internal static class SandboxLauncher
                 ref startup,
                 out process))
             {
-                throw new Win32Exception(Marshal.GetLastWin32Error(), "CreateProcess could not launch the AppContainer target");
+                int createProcessError = Marshal.GetLastWin32Error();
+                throw new Win32Exception(
+                    createProcessError,
+                    "CreateProcess could not launch the AppContainer target (Win32 "
+                    + createProcessError.ToString()
+                    + ")");
             }
 
             job = CreateKillOnCloseJob();

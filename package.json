@@ -20,6 +20,7 @@
     "guard:skills": "node scripts/skill-bundle-manifest.mjs",
     "probe:sdk:offline": "node scripts/sdk-offline-probe.mjs",
     "build:sandbox:windows": "node scripts/build-windows-sandbox.mjs",
+    "build:bash-proxy:windows": "node scripts/build-native-bash-proxy.mjs",
     "probe:sandbox:windows": "npm run build:sandbox:windows && node scripts/windows-sandbox-probe.mjs",
     "probe:credentials:windows": "npm run build:sandbox:windows && node scripts/credential-vault-probe.mjs",
     "check": "npm run typecheck && npm run lint && npm run test && npm run guard:architecture && npm run guard:skills && npm run guard:privacy"

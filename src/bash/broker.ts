@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import {
+  cp,
   lstat,
   mkdir,
   readFile,
@@ -58,6 +59,13 @@ function assertOutsideRoot(root: string, candidate: string, label: string): void
   const relative = path.relative(path.resolve(root), path.resolve(candidate));
   if (!relative || (!relative.startsWith('..') && !path.isAbsolute(relative))) {
     throw new Error(`${label} must remain outside the guest workspace mount.`);
+  }
+}
+
+function assertWithinRoot(root: string, candidate: string, label: string): void {
+  const relative = path.relative(path.resolve(root), path.resolve(candidate));
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error(`${label} must remain inside its managed root.`);
   }
 }
 
@@ -135,6 +143,12 @@ export function buildBashHostEnvironment(options: {
 export function buildWasmerBashInvocation(options: {
   runtime: BashRuntimePaths;
   workspaceRoot: string;
+  guestWorkspaceRoot: string;
+  writableDirectories: {
+    scratch: string;
+    output: string;
+    temporary: string;
+  };
   temporaryDirectory: string;
   bashArguments: string[];
   registryUrl: string;
@@ -151,7 +165,10 @@ export function buildWasmerBashInvocation(options: {
       '--env', 'TEMP=/workspace/tmp',
       '--env', 'TMP=/workspace/tmp',
       '--env', 'MENTAL_LEGOS_BASH_SANDBOX=1',
-      '--volume', `${options.workspaceRoot}:/workspace`,
+      '--volume', `${options.guestWorkspaceRoot}:/workspace`,
+      '--volume', `${options.writableDirectories.scratch}:/workspace/scratch`,
+      '--volume', `${options.writableDirectories.output}:/workspace/output`,
+      '--volume', `${options.writableDirectories.temporary}:/workspace/tmp`,
       '--cwd', '/workspace',
       '--include-webc', options.runtime.coreutilsWebcPath,
       options.runtime.bashWebcPath,
@@ -392,6 +409,10 @@ export class WasmerBashBroker {
   readonly #ipcDirectory: string;
   readonly #workspaceRoot: string;
   readonly #temporaryDirectory: string;
+  readonly #scratchDirectory: string;
+  readonly #outputDirectory: string;
+  readonly #guestRootDirectory: string;
+  readonly #guestWorkspaceDirectory: string;
   readonly #runtime: BashRuntimePaths;
   readonly #executor: BashExecutor;
   readonly #registry: LocalWasmerRegistry;
@@ -404,14 +425,43 @@ export class WasmerBashBroker {
     ipcDirectory: string;
     workspaceRoot: string;
     temporaryDirectory: string;
+    scratchDirectory: string;
+    outputDirectory: string;
+    guestRootDirectory: string;
     runtime: BashRuntimePaths;
     executor?: BashExecutor;
   }) {
     this.#ipcDirectory = path.resolve(options.ipcDirectory);
     this.#workspaceRoot = path.resolve(options.workspaceRoot);
     this.#temporaryDirectory = path.resolve(options.temporaryDirectory);
+    this.#scratchDirectory = path.resolve(options.scratchDirectory);
+    this.#outputDirectory = path.resolve(options.outputDirectory);
+    this.#guestRootDirectory = path.resolve(options.guestRootDirectory);
+    this.#guestWorkspaceDirectory = path.join(
+      this.#guestRootDirectory,
+      `rootfs-${randomBytes(8).toString('hex')}`,
+    );
     this.#runtime = options.runtime;
     assertOutsideRoot(this.#workspaceRoot, this.#ipcDirectory, 'Bash IPC directory');
+    assertOutsideRoot(
+      this.#workspaceRoot,
+      this.#guestRootDirectory,
+      'Bash guest root directory',
+    );
+    const sessionStorageRoot = path.dirname(this.#workspaceRoot);
+    assertWithinRoot(sessionStorageRoot, this.#ipcDirectory, 'Bash IPC directory');
+    assertWithinRoot(
+      sessionStorageRoot,
+      this.#guestRootDirectory,
+      'Bash guest root directory',
+    );
+    for (const [label, directory] of [
+      ['Bash scratch directory', this.#scratchDirectory],
+      ['Bash output directory', this.#outputDirectory],
+      ['Bash temporary directory', this.#temporaryDirectory],
+    ] as const) {
+      assertWithinRoot(this.#workspaceRoot, directory, label);
+    }
     assertOutsideRoot(
       this.#workspaceRoot,
       options.runtime.cacheDirectory,
@@ -446,13 +496,43 @@ export class WasmerBashBroker {
     ]);
     await Promise.all([
       mkdir(this.#runtime.cacheDirectory, { recursive: true }),
+      mkdir(this.#scratchDirectory, { recursive: true }),
+      mkdir(this.#outputDirectory, { recursive: true }),
       mkdir(this.#temporaryDirectory, { recursive: true }),
       mkdir(this.#ipcDirectory, { recursive: true }),
+      mkdir(this.#guestRootDirectory, { recursive: true }),
     ]);
     const ipcMetadata = await lstat(this.#ipcDirectory);
     if (!ipcMetadata.isDirectory() || ipcMetadata.isSymbolicLink()) {
       throw new Error('Bash IPC directory is unsafe.');
     }
+    const guestRootMetadata = await lstat(this.#guestRootDirectory);
+    if (!guestRootMetadata.isDirectory() || guestRootMetadata.isSymbolicLink()) {
+      throw new Error('Bash guest root directory is unsafe.');
+    }
+    const excludedRoots = new Set([
+      'scratch',
+      'output',
+      'tmp',
+      '.agent-config',
+      '.runtime',
+    ]);
+    await cp(this.#workspaceRoot, this.#guestWorkspaceDirectory, {
+      recursive: true,
+      force: false,
+      errorOnExist: true,
+      filter: (source) => {
+        const relative = path.relative(this.#workspaceRoot, source);
+        if (!relative) return true;
+        const topLevel = relative.split(path.sep)[0];
+        return topLevel !== undefined && !excludedRoots.has(topLevel);
+      },
+    });
+    await Promise.all([
+      mkdir(path.join(this.#guestWorkspaceDirectory, 'scratch')),
+      mkdir(path.join(this.#guestWorkspaceDirectory, 'output')),
+      mkdir(path.join(this.#guestWorkspaceDirectory, 'tmp')),
+    ]);
     try {
       this.#activeRegistryUrl = await this.#registry.start();
       this.#running = true;
@@ -468,6 +548,7 @@ export class WasmerBashBroker {
     await this.#loop;
     this.#loop = undefined;
     await this.#registry.close();
+    await rm(this.#guestWorkspaceDirectory, { recursive: true, force: true });
     this.#activeRegistryUrl = undefined;
   }
 
@@ -525,6 +606,12 @@ export class WasmerBashBroker {
       const invocation = buildWasmerBashInvocation({
         runtime: this.#runtime,
         workspaceRoot: this.#workspaceRoot,
+        guestWorkspaceRoot: this.#guestWorkspaceDirectory,
+        writableDirectories: {
+          scratch: this.#scratchDirectory,
+          output: this.#outputDirectory,
+          temporary: this.#temporaryDirectory,
+        },
         temporaryDirectory: this.#temporaryDirectory,
         bashArguments,
         registryUrl: this.#registryUrl(),
@@ -536,11 +623,13 @@ export class WasmerBashBroker {
           this.#workspaceRoot,
           this.#runtime.cacheDirectory,
           path.dirname(this.#runtime.runnerPath),
+          this.#guestWorkspaceDirectory,
         ]),
         stderr: sanitizeBashText(execution.stderr, [
           this.#workspaceRoot,
           this.#runtime.cacheDirectory,
           path.dirname(this.#runtime.runnerPath),
+          this.#guestWorkspaceDirectory,
         ]),
       };
     } catch {

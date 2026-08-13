@@ -26,6 +26,7 @@ const config: ForgeConfig = {
       'resources/capability-bundle',
       'resources/agent-runtime-manifest.json',
       'resources/asr-models',
+      'resources/bash-runtime',
       'resources/licenses',
       'node_modules/@anthropic-ai/claude-agent-sdk-win32-x64/claude.exe',
       'resources/windows-sandbox/MentalLegos.SandboxLauncher.exe',

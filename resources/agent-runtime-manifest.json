@@ -9,8 +9,8 @@
   },
   "sandbox_launcher": {
     "file": "MentalLegos.SandboxLauncher.exe",
-    "bytes": 14848,
-    "sha256": "f6738eedbc3629081fcc7ad997f7339ad3ebbafbb9fde6d1977f97da8ec769cc"
+    "bytes": 15360,
+    "sha256": "f4d624f0a96922a2e60f107aa157782fc9420660e08ebe866666ab5c96f71b9e"
   },
   "credential_vault": {
     "file": "MentalLegos.CredentialVault.exe",
@@ -19,7 +19,7 @@
   },
   "bash_proxy": {
     "file": "MentalLegos.BashProxy.exe",
-    "bytes": 6656,
-    "sha256": "16c8467007aaafe114d60ed8170804a53e981b0500c94a9359ca17fd0500445b"
+    "bytes": 54784,
+    "sha256": "c8f6a3d9a313aa926a977b1a453ac451bf1f2ad6ff9082de5f9f21b2bf9e4197"
   }
 }

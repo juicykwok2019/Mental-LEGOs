@@ -6,6 +6,9 @@ application installer. Installation is an explicit user action. Every asset is
 downloaded directly from its upstream publisher and verified against the exact
 size and SHA-256 digest recorded in the public runtime manifest.
 
+The native `MentalLegos.BashProxy.exe` bridge is compiled with Zig 0.16.0.
+Zig is licensed under the MIT License; see `ZIG_LICENSE.txt` in this directory.
+
 ## Wasmer
 
 - Version: 7.2.1
