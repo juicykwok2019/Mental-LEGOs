@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { z } from 'zod';
 
-import { GovernanceRepository } from '../agent/governance';
+import { GovernanceRepository } from '../agent/governance/repository';
 import type { AgentRuntimePaths } from '../agent/runtime';
 import type { BashRuntimeManager } from '../bash/runtime-manager';
 import { loadBashRuntimeManifest } from '../bash/runtime-manifest';
