@@ -1,0 +1,174 @@
+{
+  "schema_version": 1,
+  "bundle_version": "0.1.0",
+  "skills": [
+    "deep-research",
+    "first-attempt-coach",
+    "lego-extraction",
+    "post-event-review",
+    "privacy-provenance",
+    "professional-speaking",
+    "profile-evidence",
+    "response-diagnosis",
+    "scenario-preparation",
+    "transfer-question-design"
+  ],
+  "files": [
+    {
+      "path": ".claude/skills/deep-research/references/source-policy.md",
+      "sha256": "05b1ca425c30ab60c315a6297205457b306cadf827cf9823e5169b3d5b8f8547",
+      "bytes": 660
+    },
+    {
+      "path": ".claude/skills/deep-research/scripts/synthesize-evidence.mjs",
+      "sha256": "e81781427ba7548ab64bfa4e489cb67143cd890b7c99b63364db465ba149a3b5",
+      "bytes": 605
+    },
+    {
+      "path": ".claude/skills/deep-research/SKILL.md",
+      "sha256": "7158438858afff3c569481ac29d1818330414989771fbc4308fdd0888aeb5d86",
+      "bytes": 1678
+    },
+    {
+      "path": ".claude/skills/first-attempt-coach/references/hint-policy.md",
+      "sha256": "077cf05281ab8b6988545681d1d39d4c436a5942251fdcf45422b3c73738a080",
+      "bytes": 1097
+    },
+    {
+      "path": ".claude/skills/first-attempt-coach/scripts/select-hint.mjs",
+      "sha256": "fc6bebdf092e6c2334696f2b76b3d35e24ccaf47323c978047a0c6f2ab5d9072",
+      "bytes": 787
+    },
+    {
+      "path": ".claude/skills/first-attempt-coach/SKILL.md",
+      "sha256": "6a0a701d68938e384ff489c541809df591680e241f4869512ef844bff5ce3dc1",
+      "bytes": 1770
+    },
+    {
+      "path": ".claude/skills/lego-extraction/references/module-schema.md",
+      "sha256": "78575907decb59e38de81f37121e00118d409842d7d407d42410406b694c9f95",
+      "bytes": 901
+    },
+    {
+      "path": ".claude/skills/lego-extraction/scripts/validate-candidate.mjs",
+      "sha256": "9e51e7826cfefe9f350351e53e54ca73ead00d384f32c24471b45b5ddb22772f",
+      "bytes": 677
+    },
+    {
+      "path": ".claude/skills/lego-extraction/SKILL.md",
+      "sha256": "4feb84cc155bc43be1768961df56cc89a38e1f82f07e8160063538e457d7a674",
+      "bytes": 1652
+    },
+    {
+      "path": ".claude/skills/post-event-review/references/review-protocol.md",
+      "sha256": "efe9165d3596306c778398236063ffb056b2ac5943af639fe865d64a780bd9e9",
+      "bytes": 656
+    },
+    {
+      "path": ".claude/skills/post-event-review/scripts/align-turns.mjs",
+      "sha256": "6e21747619bac0ccdb170c4384d44eaee07ca43f7bd8c5597006607734a95330",
+      "bytes": 556
+    },
+    {
+      "path": ".claude/skills/post-event-review/SKILL.md",
+      "sha256": "87340598fb1177cb916400e2762768171099e8e3487cd252c5267c1c5b954e4f",
+      "bytes": 1492
+    },
+    {
+      "path": ".claude/skills/privacy-provenance/references/scope-and-provenance.md",
+      "sha256": "55e1266e773d4b39e5edc6cfa0fb0123681e265380dcdbf8453fc63fd412425f",
+      "bytes": 841
+    },
+    {
+      "path": ".claude/skills/privacy-provenance/scripts/scan-output.mjs",
+      "sha256": "e834fa012f83a17981d2bb7989dd921ca547997fbe4bb5ce8a8df4ea7760ed45",
+      "bytes": 606
+    },
+    {
+      "path": ".claude/skills/privacy-provenance/SKILL.md",
+      "sha256": "4147b173ae9d3a671315157a3a7296d509173ab68367ff9343bd3e5be94a1e9d",
+      "bytes": 1556
+    },
+    {
+      "path": ".claude/skills/professional-speaking/references/speech-structure.md",
+      "sha256": "98bb69cf147b8ff341a3bcf7a0c4349ea51a04530105d065e42dbd0890c8f82c",
+      "bytes": 720
+    },
+    {
+      "path": ".claude/skills/professional-speaking/scripts/segment-timing.mjs",
+      "sha256": "5f465193ff68f40bdff6d64810f2a35ad37830f490a2404cd95dd6c980ef7500",
+      "bytes": 587
+    },
+    {
+      "path": ".claude/skills/professional-speaking/SKILL.md",
+      "sha256": "c9177fecf7a783afd995ea5aab7a016264f19498e8c8c4f64f957d19a6afeba3",
+      "bytes": 1549
+    },
+    {
+      "path": ".claude/skills/profile-evidence/references/assertion-states.md",
+      "sha256": "ec9b6e3f191079dbbcc27eb6a95e460e02606c2746e82183d8e1d3db9ed775a5",
+      "bytes": 744
+    },
+    {
+      "path": ".claude/skills/profile-evidence/scripts/check-profile-candidate.mjs",
+      "sha256": "a6f3de97d4f266f39aba17a0b0294a2b0e922f847bd19afa877508a88d4512e5",
+      "bytes": 667
+    },
+    {
+      "path": ".claude/skills/profile-evidence/SKILL.md",
+      "sha256": "ee3b41898ea29b71faf3d00f632a77aac155d9c5981dde443973e02aae0a6923",
+      "bytes": 1400
+    },
+    {
+      "path": ".claude/skills/response-diagnosis/references/rubric.md",
+      "sha256": "9078ffec1934b0df01a11eaebcf22467c8834a46e6acf610f6c1fa35e807ed7b",
+      "bytes": 834
+    },
+    {
+      "path": ".claude/skills/response-diagnosis/scripts/score-structure.mjs",
+      "sha256": "ac462ef22ec225081284a7b18ebaf27c295044aa4c0da060ba5629d4ab9b3b4c",
+      "bytes": 721
+    },
+    {
+      "path": ".claude/skills/response-diagnosis/SKILL.md",
+      "sha256": "8b75ef32d5b9e797af9fce920e2dd7391532930e4b31357211210bfbe9e19747",
+      "bytes": 1546
+    },
+    {
+      "path": ".claude/skills/scenario-preparation/references/material-routing.md",
+      "sha256": "6f600d2af4aa7e9108003bcce5340f5fc055f9bbaf158a3bf7f4d7823dfe01fd",
+      "bytes": 812
+    },
+    {
+      "path": ".claude/skills/scenario-preparation/scripts/extract-material.mjs",
+      "sha256": "0f1e47629dac64e764ded6c3c694ae4930ffa2b19d3f5b493bf0649939a9ddf6",
+      "bytes": 754
+    },
+    {
+      "path": ".claude/skills/scenario-preparation/SKILL.md",
+      "sha256": "5bbaf7df3f7b07d134343dcde005f2205d7a5a1963eb077ec69662d0028d0649",
+      "bytes": 1620
+    },
+    {
+      "path": ".claude/skills/transfer-question-design/references/variation-taxonomy.md",
+      "sha256": "18d1ed1079f45537a59fd20c1a98003dbd02ccf75f1f4731d6b2e1f55f82c126",
+      "bytes": 662
+    },
+    {
+      "path": ".claude/skills/transfer-question-design/scripts/build-transfer-matrix.mjs",
+      "sha256": "1751e9e004a26d5e1bb1204bbfe6b88c9a88b7d70c226516e8d904a20d4f7fac",
+      "bytes": 625
+    },
+    {
+      "path": ".claude/skills/transfer-question-design/SKILL.md",
+      "sha256": "06d926ec47943299d7eecc741b4d83f8fd73f314790cbe7334f66d6d4de349d0",
+      "bytes": 1450
+    },
+    {
+      "path": "CLAUDE.md",
+      "sha256": "a3f286a3da564b17d2ff923752688068efeffb977f24657ddcca42faf7346ec0",
+      "bytes": 1272
+    }
+  ],
+  "bundle_sha256": "48c8abddf2dc5e593bf3dd45d19f20cb449982bbbae67247e7b5ac4d23777370"
+}

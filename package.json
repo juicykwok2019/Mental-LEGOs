@@ -16,7 +16,9 @@
     "guard:architecture": "node scripts/architecture-guard.mjs",
     "guard:privacy": "node scripts/privacy-scan.mjs",
     "guard:privacy:staged": "node scripts/privacy-scan.mjs --staged",
-    "check": "npm run typecheck && npm run lint && npm run test && npm run guard:architecture && npm run guard:privacy"
+    "bundle:skills:write": "node scripts/skill-bundle-manifest.mjs --write",
+    "guard:skills": "node scripts/skill-bundle-manifest.mjs",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run guard:architecture && npm run guard:skills && npm run guard:privacy"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.3.229",
