@@ -19,7 +19,7 @@ Mental LEGOs 是一个本地优先的训练系统，帮助用户把个人知识�
 - 隔离的原生 Read、Write、Edit、Bash、Python、Skill、MCP、Hooks 与会话恢复；
 - 10 个可执行的产品 Skills 与最小 MCP 治理内核；
 - 会话级或 Windows 凭据管理器保存的 BYOK Provider 配置，Renderer 不可回读密钥；
-- 明确分离的 Kimi Code Anthropic 直连与 Kimi 开放平台 OpenAI Chat Completions 本地适配通道；
+- 预置服务全部使用官方 Anthropic 兼容端点直连，并保留 OpenAI Chat Completions 本地适配通道作为备用；
 - 两阶段真实 Provider 能力认证：先生成合成候选预览，用户确认后才签发一次性 token、恢复会话并写入，最后清除全部测试数据；
 - 可下载、逐文件校验的离线 Bash / Coreutils / Python 运行时；
 - 基于 SenseVoice / sherpa-onnx 的本地 ASR 运行时和模型管理基础设施；
@@ -102,14 +102,9 @@ Mental LEGOs 是一个本地优先的训练系统，帮助用户把个人知识�
 
 桌面架构会分离 Electron Renderer、Preload Bridge、Main Process、Agent Runtime Worker、本地策略与数据 Broker 以及语音 Worker。Renderer 不能直接访问 Node.js、数据库、凭证、Shell 或不受限制的文件系统。
 
-#### 两种 Kimi 接入是两个独立产品
+#### Provider 接入策略
 
-| 界面选项 | Key 来源 | 网络协议 | 费用归属 |
-| --- | --- | --- | --- |
-| **Kimi Code（Coding Key / 订阅额度）** | [Kimi Code 控制台](https://www.kimi.com/code/console) | `https://api.kimi.com/coding`，Anthropic Messages 直连 | Kimi Code 订阅套餐额度 |
-| **Kimi 开放平台（API Key / 按量计费）** | [Kimi 开放平台 API Keys](https://platform.kimi.com/console/api-keys) | `https://api.moonshot.cn/v1`，OpenAI Chat Completions；由本地主机 Broker 双向转换 | 开放平台余额与按量计费 |
-
-两种 Key **不通用**。界面会同时显示产品名、正确的 Key 来源、Base URL、协议和计费归属，避免把开放平台 Key 填到 Kimi Code 端点，或反向混用。依据包括 [Kimi Code 的 Claude Code 接入说明](https://www.kimi.com/code/docs/third-party-tools/claude-code.html)、[开放平台 Chat Completions 文档](https://platform.kimi.com/docs/api/chat)和[开放平台 Token 估算文档](https://platform.kimi.com/docs/api/estimate)。
+预置服务只收录**官方提供 Anthropic 兼容端点、且条款允许第三方应用按量使用标准 API Key** 的产品，例如 Kimi 开放平台的官方 Anthropic 端点（`https://api.moonshot.cn/anthropic`，见[官方接入说明](https://platform.kimi.com/docs/guide/claude-code-kimi)）。面向编码工具的订阅制 Coding Key（如 Kimi Code）因官方将其限定为交互式编码用途且禁止篡改客户端标识，**不作为本产品的接入通道**。
 
 ```mermaid
 flowchart LR
@@ -117,11 +112,11 @@ flowchart LR
   MAIN --> VAULT["会话内存 / Windows 凭据管理器"]
   MAIN --> AGENT["单一 Claude Agent SDK Runtime<br/>Skills + 原生工具 + MCP"]
   AGENT --> BROKER["本地主机安全 Provider Broker"]
-  BROKER -->|"Anthropic Messages 直连"| CODE["Kimi Code"]
-  BROKER -->|"Anthropic ↔ OpenAI 双向转换"| OPEN["Kimi 开放平台"]
+  BROKER -->|"Anthropic Messages 直连"| DIRECT["官方 Anthropic 兼容端点<br/>Anthropic / Kimi 开放平台 / DeepSeek / 智谱"]
+  BROKER -.->|"Anthropic ↔ OpenAI 双向转换（备用）"| OPEN["仅 OpenAI 协议的服务"]
 ```
 
-协议转换只存在于受信任的 Provider 边界：Claude Agent SDK 仍然是唯一核心 Agent，并继续完整使用 Skill、Read、Write、Edit、Bash、Python、MCP、Hooks 和会话恢复。转换器负责 Messages / Chat Completions 请求、工具调用、工具结果、流式事件、Token 估算、停止原因和 Kimi 保留式思考的映射；它不是第二个 Agent，也不是写死的业务工作流。两条通道都必须通过相同的完整 Provider 能力认证，不能把 OpenAI 通道降级成普通聊天调用。
+OpenAI Chat Completions 本地转换器保留为备用通道，面向未来只有 OpenAI 协议的服务；协议转换只存在于受信任的 Provider 边界，转换器不是第二个 Agent。任何通道都必须通过相同的完整 Provider 能力认证，不能降级成普通聊天调用。应用始终如实发送自身客户端标识，不伪装成其他工具。
 
 ### 隐私与安全方向
 
@@ -159,7 +154,7 @@ The repository now implements and automatically verifies:
 - isolated native Read, Write, Edit, Bash, Python, Skill, MCP, hook, and session-resume capabilities;
 - ten executable product Skills and a minimal MCP governance kernel;
 - BYOK provider setup backed by session memory or Windows Credential Manager, without renderer key readback;
-- explicitly separate Kimi Code Anthropic-direct and Kimi Open Platform OpenAI Chat Completions adapter routes;
+- official Anthropic-compatible endpoints for every preset provider, with a local OpenAI Chat Completions adapter kept as a fallback route;
 - two-stage real-provider certification: create a synthetic preview first, issue a one-time token and resume only after user confirmation, then purge all certification data;
 - a downloadable and per-file-verified offline Bash / Coreutils / Python runtime;
 - local SenseVoice / sherpa-onnx ASR runtime and model-management foundations; and
@@ -242,14 +237,9 @@ The architecture follows these constraints:
 
 The desktop architecture separates the Electron renderer, preload bridge, main process, agent runtime worker, local policy/data broker, and speech worker. The renderer has no direct Node.js, database, credential, Shell, or unrestricted filesystem access.
 
-#### The two Kimi routes are separate products
+#### Provider access policy
 
-| UI option | Key source | Network protocol | Billing source |
-| --- | --- | --- | --- |
-| **Kimi Code (Coding Key / subscription quota)** | [Kimi Code console](https://www.kimi.com/code/console) | Direct Anthropic Messages at `https://api.kimi.com/coding` | Kimi Code subscription quota |
-| **Kimi Open Platform (API Key / usage billing)** | [Kimi Open Platform API Keys](https://platform.kimi.com/console/api-keys) | OpenAI Chat Completions at `https://api.moonshot.cn/v1`, translated by the local host broker | Open Platform balance and usage billing |
-
-The keys are **not interchangeable**. The UI shows the product, correct key source, Base URL, protocol, and billing source together to prevent product mismatch. Primary references are the [Kimi Code Claude Code guide](https://www.kimi.com/code/docs/third-party-tools/claude-code.html), [Open Platform Chat Completions reference](https://platform.kimi.com/docs/api/chat), and [Open Platform token-estimation reference](https://platform.kimi.com/docs/api/estimate).
+Preset providers are limited to products that expose an **official Anthropic-compatible endpoint** and whose terms allow third-party applications with pay-as-you-go standard API keys — for example the Kimi Open Platform official Anthropic endpoint (`https://api.moonshot.cn/anthropic`, see the [official guide](https://platform.kimi.com/docs/guide/claude-code-kimi)). Subscription coding keys such as Kimi Code are **not supported**: their vendors restrict them to interactive coding use and forbid client-identity spoofing.
 
 ```mermaid
 flowchart LR
@@ -257,11 +247,11 @@ flowchart LR
   MAIN --> VAULT["session memory / Windows Credential Manager"]
   MAIN --> AGENT["one Claude Agent SDK Runtime<br/>Skills + native tools + MCP"]
   AGENT --> BROKER["trusted local Provider Broker"]
-  BROKER -->|"direct Anthropic Messages"| CODE["Kimi Code"]
-  BROKER -->|"Anthropic ↔ OpenAI translation"| OPEN["Kimi Open Platform"]
+  BROKER -->|"direct Anthropic Messages"| DIRECT["official Anthropic-compatible endpoints<br/>Anthropic / Kimi Open Platform / DeepSeek / Zhipu"]
+  BROKER -.->|"Anthropic ↔ OpenAI translation (fallback)"| OPEN["OpenAI-protocol-only services"]
 ```
 
-Translation exists only at the trusted provider boundary. Claude Agent SDK remains the only core Agent and retains Skill, Read, Write, Edit, Bash, Python, MCP, hooks, and session recovery. The adapter maps Messages and Chat Completions requests, tool calls and results, streaming events, token estimation, stop reasons, and Kimi preserved thinking. It is neither a second Agent nor a hard-coded product workflow. Both routes must pass the same full provider capability certification; the OpenAI route is not allowed to degrade into ordinary chat-only API use.
+The local OpenAI Chat Completions adapter remains a fallback for future providers that only speak the OpenAI protocol. Translation exists only at the trusted provider boundary and the adapter is not a second Agent. Every route must pass the same full provider capability certification and may not degrade into ordinary chat-only API use. The application always sends its own client identity and never impersonates another tool.
 
 ### Privacy and security direction
 

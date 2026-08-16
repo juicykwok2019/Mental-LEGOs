@@ -264,27 +264,30 @@ export function App() {
         </div>
 
         <p className="section-copy">
-          核心始终是同一个 Claude Agent SDK Agent。Anthropic 协议服务由安全 Broker
-          直连；OpenAI Chat Completions 服务在本地主机边界完成双向转换。密钥只进入受信任主进程，
+          核心始终是同一个 Claude Agent SDK Agent。所有预置服务均使用官方 Anthropic
+          兼容端点由安全 Broker 直连；OpenAI Chat Completions 本地转换通道保留为
+          没有官方 Anthropic 端点的服务的备用方案。密钥只进入受信任主进程，
           不进入界面、Agent 工作区、日志或 Git。
         </p>
 
-        <div className="provider-lanes" aria-label="Kimi 两种独立接入方式">
-          <article>
-            <div className="lane-heading">
-              <strong>Kimi Code</strong>
-              <span>Anthropic Messages 直连</span>
-            </div>
-            <p>使用 Kimi Code 控制台生成的 Coding Key，消耗 Kimi Code 订阅套餐额度。</p>
-            <code>https://www.kimi.com/code/console</code>
-          </article>
+        <div className="provider-lanes" aria-label="按量计费 API Key 说明">
           <article>
             <div className="lane-heading">
               <strong>Kimi 开放平台</strong>
-              <span>OpenAI Chat Completions · 本地转换</span>
+              <span>官方 Anthropic 端点 · 直连</span>
             </div>
-            <p>使用开放平台 API Key 和平台余额，按 API 用量计费；不能填写 Kimi Code Coding Key。</p>
+            <p>使用开放平台 API Key 和平台余额，按 API 用量计费。</p>
             <code>https://platform.kimi.com/console/api-keys</code>
+          </article>
+          <article>
+            <div className="lane-heading">
+              <strong>不支持订阅制 Coding Key</strong>
+              <span>条款限制</span>
+            </div>
+            <p>
+              Kimi Code 等面向编码工具的订阅套餐 Key 仅限官方允许的交互式编码用途，
+              本产品不提供接入，避免违反其使用规范。
+            </p>
           </article>
         </div>
 
@@ -321,11 +324,13 @@ export function App() {
                   <option key={provider.id} value={provider.id}>{provider.displayName}</option>
                 ))}
               </optgroup>
-              <optgroup label="OpenAI Chat Completions（本地转换）">
-                {adaptedProviders.map((provider) => (
-                  <option key={provider.id} value={provider.id}>{provider.displayName}</option>
-                ))}
-              </optgroup>
+              {adaptedProviders.length > 0 && (
+                <optgroup label="OpenAI Chat Completions（本地转换）">
+                  {adaptedProviders.map((provider) => (
+                    <option key={provider.id} value={provider.id}>{provider.displayName}</option>
+                  ))}
+                </optgroup>
+              )}
               <option value="custom">自定义 Anthropic 兼容服务</option>
             </select>
           </label>

@@ -9,26 +9,22 @@ import {
 } from '../../src/shared/providers';
 
 describe('provider protocol registry', () => {
-  it('keeps reviewed Anthropic and OpenAI provider products explicit', () => {
+  it('keeps only reviewed providers with official Anthropic-compatible endpoints', () => {
     expect(providerRegistry.map((provider) => provider.id)).toEqual([
-      'anthropic', 'kimi-code', 'kimi-open-platform', 'deepseek', 'zhipu',
+      'anthropic', 'kimi-open-platform', 'deepseek', 'zhipu',
     ]);
     for (const provider of providerRegistry) {
       expect(provider.baseUrl).toMatch(/^https:\/\//u);
       expect(provider.baseUrl).not.toMatch(/chat\/completions|\/v1\/responses/u);
       expect(provider.officialSource).toMatch(/^https:\/\//u);
       expect(provider.keySourceUrl).toMatch(/^https:\/\//u);
-      expect(provider.reviewedOn).toBe('2026-08-14');
+      expect(['2026-08-14', '2026-08-17']).toContain(provider.reviewedOn);
+      expect(provider.protocol).toBe('anthropic-messages');
     }
-    expect(providerRegistry.find((provider) => provider.id === 'kimi-code')).toMatchObject({
-      protocol: 'anthropic-messages',
-      baseUrl: 'https://api.kimi.com/coding',
-      recommendedModels: ['kimi-for-coding'],
-    });
     expect(providerRegistry.find((provider) => provider.id === 'kimi-open-platform'))
       .toMatchObject({
-        protocol: 'openai-chat-completions',
-        baseUrl: 'https://api.moonshot.cn/v1',
+        protocol: 'anthropic-messages',
+        baseUrl: 'https://api.moonshot.cn/anthropic',
       });
   });
 
@@ -57,11 +53,11 @@ describe('provider protocol registry', () => {
       id: randomUUID(),
       providerId: 'kimi-open-platform',
       displayName: 'Kimi Open Platform',
-      baseUrl: 'https://gateway.example.test/v1',
+      baseUrl: 'https://gateway.example.test/anthropic',
       model: 'kimi-k3',
       credentialReference: `session:model:${randomUUID()}`,
     });
-    expect(openPlatform.protocol).toBe('openai-chat-completions');
+    expect(openPlatform.protocol).toBe('anthropic-messages');
     expect(openPlatform.certification).toBe('custom-unverified');
   });
 
