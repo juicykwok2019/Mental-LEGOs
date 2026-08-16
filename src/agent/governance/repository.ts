@@ -494,6 +494,30 @@ export class GovernanceRepository {
     return { assetIds, duplicateCount };
   }
 
+  listFormalAssets(): Array<{
+    id: string;
+    candidateId: string;
+    kind: CandidateKind;
+    payload: JsonRecord;
+    provenance: JsonRecord;
+    scope: DataScope;
+    version: number;
+  }> {
+    const rows = this.#database.prepare(`
+      SELECT id, candidate_id, kind, payload_json, provenance_json, scope, version
+      FROM formal_assets ORDER BY created_at
+    `).all() as Record<string, unknown>[];
+    return rows.map((row) => ({
+      id: String(row.id),
+      candidateId: String(row.candidate_id),
+      kind: String(row.kind) as CandidateKind,
+      payload: parseJsonRecord(row.payload_json),
+      provenance: parseJsonRecord(row.provenance_json),
+      scope: String(row.scope) as DataScope,
+      version: Number(row.version),
+    }));
+  }
+
   getFormalAssetCount(): number {
     const row = this.#database.prepare('SELECT count(*) AS count FROM formal_assets').get() as {
       count: number;
