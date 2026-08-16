@@ -25,7 +25,7 @@ Mental LEGOs 是一个本地优先的训练系统，帮助用户把个人知识�
 - 基于 SenseVoice / sherpa-onnx 的本地 ASR 运行时和模型管理基础设施；
 - Windows 打包、安装、合成全链路、架构边界和隐私扫描测试。
 
-进入 Phase 1 前仍需使用用户自己的真实 Provider Key 完成目标端点的完整 Agent 能力认证，并完成干净 Windows 环境验收。简历、JD、录音、转写和语言模块等真实数据功能尚未开放。
+2026-08-17 起项目进入 **Phase 1 开发**：完整 Agent 能力认证已在 Kimi 开放平台官方 Anthropic 端点（`kimi-k3` 与 `kimi-k2.5`）真实通过；加密正式数据层、治理资产物化桥、第一遍门禁训练引擎和 Chat 形态的完整训练闭环（真实端点端到端验证）已经落地。干净 Windows 环境验收、录音与本地 ASR 产品化、场景与演讲模式仍在进行中。
 
 首个产品目标是使用 Electron 构建一款单用户 Windows 桌面应用。Web 和移动端可能在后续阶段扩展，但不属于第一版范围。
 
@@ -160,7 +160,7 @@ The repository now implements and automatically verifies:
 - local SenseVoice / sherpa-onnx ASR runtime and model-management foundations; and
 - Windows packaging, installation, synthetic end-to-end, architecture-boundary, and privacy-scan tests.
 
-Before Phase 1 begins, the app still requires full Agent capability certification against target endpoints with user-supplied keys, plus clean-Windows acceptance. Real resume, job-description, recording, transcript, and language-module workflows are not available yet.
+As of 2026-08-17 the project is in **Phase 1 development**: full Agent capability certification passed for real against the Kimi Open Platform official Anthropic endpoint (`kimi-k3` and `kimi-k2.5`), and the encrypted formal data layer, governance-asset materializer, first-attempt-gate training engine, and the complete chat-form training loop (verified end to end on the live endpoint) are in place. Clean-Windows acceptance, recording and local ASR productization, and the scenario and speaking modes are still in progress.
 
 The initial product target is a single-user Windows desktop application built with Electron. Web and mobile clients are possible later extensions, not part of the first release.
 
