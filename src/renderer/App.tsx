@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 
+import { TrainingPanel } from './TrainingPanel';
 import type {
   AgentReadinessState,
   AppInfo,
@@ -218,6 +219,8 @@ export function App() {
       <section className="intro">
         <p>先回答，再辅助。把真实表达提炼成可被大脑快速调用、灵活拼装的语言乐高。</p>
       </section>
+
+      <TrainingPanel />
 
       <section className="runtime-card" aria-labelledby="runtime-heading">
         <div>

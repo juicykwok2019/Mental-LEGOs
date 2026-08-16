@@ -123,6 +123,87 @@ export type ProviderCertificationResult = z.infer<
 
 export const providerCertificationIdSchema = z.string().uuid();
 
+export const TRAINING_START_CHANNEL = 'training:start' as const;
+export const TRAINING_CLOSE_FIRST_CHANNEL = 'training:close-first' as const;
+export const TRAINING_DIAGNOSE_CHANNEL = 'training:diagnose' as const;
+export const TRAINING_HINT_CHANNEL = 'training:hint' as const;
+export const TRAINING_SECOND_CHANNEL = 'training:second' as const;
+export const TRAINING_EXTRACT_CHANNEL = 'training:extract' as const;
+export const TRAINING_CONFIRM_CHANNEL = 'training:confirm' as const;
+export const TRAINING_DUE_CHANNEL = 'training:due' as const;
+
+export const trainingStartInputSchema = z.object({
+  topic: z.string().trim().max(400).default(''),
+});
+export type TrainingStartInput = z.infer<typeof trainingStartInputSchema>;
+
+export const trainingCloseFirstInputSchema = z.object({
+  outcome: z.enum(['answered', 'cannot-answer', 'skipped']),
+  responseText: z.string().max(30_000).default(''),
+});
+export type TrainingCloseFirstInput = z.infer<typeof trainingCloseFirstInputSchema>;
+
+export const trainingSecondInputSchema = z.object({
+  responseText: z.string().min(1).max(30_000),
+});
+export type TrainingSecondInput = z.infer<typeof trainingSecondInputSchema>;
+
+export const trainingConfirmInputSchema = z.object({
+  candidateIds: z.array(z.string().min(1).max(100)).min(1).max(10),
+});
+export type TrainingConfirmInput = z.infer<typeof trainingConfirmInputSchema>;
+
+export const trainingTranscriptEntrySchema = z.object({
+  role: z.enum(['coach', 'user', 'system']),
+  kind: z.enum([
+    'question', 'response', 'diagnosis', 'hint', 'status', 'candidates', 'committed',
+  ]),
+  text: z.string(),
+});
+
+export const trainingHintLevelSchema = z.enum(['L1', 'L2', 'L3', 'L4']);
+export type TrainingHintLevel = z.infer<typeof trainingHintLevelSchema>;
+
+export const trainingCandidateSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  semanticKernel: z.string().min(1),
+  logicSkeleton: z.array(z.string()),
+  languageShells: z.array(z.string()),
+});
+export type TrainingCandidate = z.infer<typeof trainingCandidateSchema>;
+
+export const trainingTurnStateSchema = z.object({
+  sessionId: z.string().min(1).nullable(),
+  phase: z.enum([
+    'idle', 'first-attempt', 'first-closed', 'assistance', 'second-done',
+    'candidates-ready', 'committed',
+  ]),
+  question: z.object({ id: z.string().uuid(), prompt: z.string().min(1) }).nullable(),
+  gate: z.object({
+    attemptId: z.string().uuid(),
+    state: z.enum([
+      'QUESTION_CREATED', 'FIRST_ATTEMPT_RECORDING', 'FIRST_ATTEMPT_CLOSED',
+      'ASSISTANCE_ALLOWED',
+    ]),
+    assistanceAllowed: z.boolean(),
+    nextHintLevel: trainingHintLevelSchema.nullable(),
+  }).nullable(),
+  transcript: z.array(trainingTranscriptEntrySchema),
+  candidates: z.array(trainingCandidateSchema),
+  committedCount: z.number().int().nonnegative(),
+});
+export type TrainingTurnState = z.infer<typeof trainingTurnStateSchema>;
+
+export const trainingDueItemSchema = z.object({
+  moduleId: z.string().uuid(),
+  title: z.string().min(1),
+  stage: z.string().min(1),
+  dueAt: z.string().nullable(),
+});
+export const trainingDueListSchema = z.array(trainingDueItemSchema);
+export type TrainingDueItem = z.infer<typeof trainingDueItemSchema>;
+
 export interface MentalLegosDesktopApi {
   getAppInfo(): Promise<AppInfo>;
   reportReady(): Promise<void>;
@@ -134,4 +215,12 @@ export interface MentalLegosDesktopApi {
   startProviderCertification(): Promise<ProviderCertificationDraft>;
   confirmProviderCertification(certificationId: string): Promise<ProviderCertificationResult>;
   cancelProviderCertification(certificationId: string): Promise<void>;
+  startTraining(input: TrainingStartInput): Promise<TrainingTurnState>;
+  closeFirstAttempt(input: TrainingCloseFirstInput): Promise<TrainingTurnState>;
+  requestDiagnosis(): Promise<TrainingTurnState>;
+  requestHint(level: TrainingHintLevel): Promise<TrainingTurnState>;
+  submitSecondAttempt(input: TrainingSecondInput): Promise<TrainingTurnState>;
+  extractCandidates(): Promise<TrainingTurnState>;
+  confirmCandidates(input: TrainingConfirmInput): Promise<TrainingTurnState>;
+  getDueModules(): Promise<TrainingDueItem[]>;
 }

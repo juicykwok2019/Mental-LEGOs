@@ -11,6 +11,14 @@ import {
   PROVIDER_SETUP_GET_CHANNEL,
   PROVIDER_SETUP_SAVE_CHANNEL,
   RENDERER_READY_CHANNEL,
+  TRAINING_CLOSE_FIRST_CHANNEL,
+  TRAINING_CONFIRM_CHANNEL,
+  TRAINING_DIAGNOSE_CHANNEL,
+  TRAINING_DUE_CHANNEL,
+  TRAINING_EXTRACT_CHANNEL,
+  TRAINING_HINT_CHANNEL,
+  TRAINING_SECOND_CHANNEL,
+  TRAINING_START_CHANNEL,
   appInfoSchema,
   agentReadinessStateSchema,
   providerSetupInputSchema,
@@ -18,8 +26,20 @@ import {
   providerCertificationDraftSchema,
   providerCertificationIdSchema,
   providerCertificationResultSchema,
+  trainingCloseFirstInputSchema,
+  trainingConfirmInputSchema,
+  trainingDueListSchema,
+  trainingHintLevelSchema,
+  trainingSecondInputSchema,
+  trainingStartInputSchema,
+  trainingTurnStateSchema,
   type MentalLegosDesktopApi,
   type ProviderSetupInput,
+  type TrainingCloseFirstInput,
+  type TrainingConfirmInput,
+  type TrainingHintLevel,
+  type TrainingSecondInput,
+  type TrainingStartInput,
 } from '../shared/contracts';
 
 const desktopApi: MentalLegosDesktopApi = Object.freeze({
@@ -71,6 +91,53 @@ const desktopApi: MentalLegosDesktopApi = Object.freeze({
       PROVIDER_CERTIFICATION_CANCEL_CHANNEL,
       providerCertificationIdSchema.parse(certificationId),
     );
+  },
+  async startTraining(input: TrainingStartInput) {
+    const value: unknown = await ipcRenderer.invoke(
+      TRAINING_START_CHANNEL,
+      trainingStartInputSchema.parse(input),
+    );
+    return trainingTurnStateSchema.parse(value);
+  },
+  async closeFirstAttempt(input: TrainingCloseFirstInput) {
+    const value: unknown = await ipcRenderer.invoke(
+      TRAINING_CLOSE_FIRST_CHANNEL,
+      trainingCloseFirstInputSchema.parse(input),
+    );
+    return trainingTurnStateSchema.parse(value);
+  },
+  async requestDiagnosis() {
+    const value: unknown = await ipcRenderer.invoke(TRAINING_DIAGNOSE_CHANNEL);
+    return trainingTurnStateSchema.parse(value);
+  },
+  async requestHint(level: TrainingHintLevel) {
+    const value: unknown = await ipcRenderer.invoke(
+      TRAINING_HINT_CHANNEL,
+      trainingHintLevelSchema.parse(level),
+    );
+    return trainingTurnStateSchema.parse(value);
+  },
+  async submitSecondAttempt(input: TrainingSecondInput) {
+    const value: unknown = await ipcRenderer.invoke(
+      TRAINING_SECOND_CHANNEL,
+      trainingSecondInputSchema.parse(input),
+    );
+    return trainingTurnStateSchema.parse(value);
+  },
+  async extractCandidates() {
+    const value: unknown = await ipcRenderer.invoke(TRAINING_EXTRACT_CHANNEL);
+    return trainingTurnStateSchema.parse(value);
+  },
+  async confirmCandidates(input: TrainingConfirmInput) {
+    const value: unknown = await ipcRenderer.invoke(
+      TRAINING_CONFIRM_CHANNEL,
+      trainingConfirmInputSchema.parse(input),
+    );
+    return trainingTurnStateSchema.parse(value);
+  },
+  async getDueModules() {
+    const value: unknown = await ipcRenderer.invoke(TRAINING_DUE_CHANNEL);
+    return trainingDueListSchema.parse(value);
   },
 });
 

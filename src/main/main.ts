@@ -19,6 +19,9 @@ import { CredentialVault } from './credential-vault';
 import { ProviderCertificationService } from './provider-certification';
 import { ProviderConfigurationService } from './provider-configuration';
 import { ProviderSettingsStore } from './provider-settings-store';
+import { TrainingSessionService } from './training-session';
+import { loadVaultDataKeyProvider } from '../data/data-key';
+import { ProductDatabase } from '../data/product-database';
 
 import {
   APP_INFO_CHANNEL,
@@ -31,6 +34,14 @@ import {
   PROVIDER_SETUP_GET_CHANNEL,
   PROVIDER_SETUP_SAVE_CHANNEL,
   RENDERER_READY_CHANNEL,
+  TRAINING_CLOSE_FIRST_CHANNEL,
+  TRAINING_CONFIRM_CHANNEL,
+  TRAINING_DIAGNOSE_CHANNEL,
+  TRAINING_DUE_CHANNEL,
+  TRAINING_EXTRACT_CHANNEL,
+  TRAINING_HINT_CHANNEL,
+  TRAINING_SECOND_CHANNEL,
+  TRAINING_START_CHANNEL,
   appInfoSchema,
   agentReadinessStateSchema,
   providerSetupInputSchema,
@@ -38,6 +49,13 @@ import {
   providerCertificationDraftSchema,
   providerCertificationIdSchema,
   providerCertificationResultSchema,
+  trainingCloseFirstInputSchema,
+  trainingConfirmInputSchema,
+  trainingDueListSchema,
+  trainingHintLevelSchema,
+  trainingSecondInputSchema,
+  trainingStartInputSchema,
+  trainingTurnStateSchema,
 } from '../shared/contracts';
 import { providerRegistry } from '../shared/providers';
 import {
@@ -61,6 +79,9 @@ let credentialVault: CredentialVault | null = null;
 let providerConfiguration: ProviderConfigurationService | null = null;
 let bashRuntimeManager: BashRuntimeManager | null = null;
 let providerCertification: ProviderCertificationService | null = null;
+let productDatabase: ProductDatabase | null = null;
+let trainingService: TrainingSessionService | null = null;
+let trainingServicePromise: Promise<TrainingSessionService> | null = null;
 let agentRuntimeDiagnostic: 'checking' | 'ready' | 'error' = 'checking';
 let agentRuntimeDiagnosticDetail: string | null = null;
 let bashInstallPromise: Promise<unknown> | null = null;
@@ -165,6 +186,53 @@ async function getAgentReadinessState() {
       ? `Managed runtime verification failed: ${status.reason}`
       : agentRuntimeDiagnosticDetail,
   });
+}
+
+async function getTrainingService(): Promise<TrainingSessionService> {
+  if (trainingService) return trainingService;
+  if (!trainingServicePromise) {
+    trainingServicePromise = (async () => {
+      if (!agentWorkerHost || !providerConfiguration || !bashRuntimeManager) {
+        throw new Error('The training runtime is not initialized yet.');
+      }
+      const runtimePaths = getAgentRuntimePaths();
+      const databaseDirectory = path.join(app.getPath('userData'), 'database');
+      const keyProvider = await loadVaultDataKeyProvider({
+        vaultExecutablePath: runtimePaths.credentialVaultPath,
+        databaseDirectory,
+      });
+      productDatabase = new ProductDatabase(
+        path.join(databaseDirectory, 'product.db'),
+        keyProvider,
+      );
+      const agent = agentWorkerHost;
+      const provider = providerConfiguration;
+      const bashManager = bashRuntimeManager;
+      trainingService = new TrainingSessionService({
+        agent,
+        provider,
+        runtime: {
+          paths: () => runtimePaths,
+          manifestPath: getBashRuntimeManifestPath,
+          resolveBashRuntimeDirectory: async () => {
+            const manifest = await loadBashRuntimeManifest(getBashRuntimeManifestPath());
+            const status = await bashManager.inspect(manifest, true);
+            if (status.state !== 'installed') {
+              throw new Error('先在设置中下载并校验离线 Bash 运行时，再开始训练。');
+            }
+            return status.runtimeDirectory;
+          },
+        },
+        product: productDatabase,
+        sessionsRoot: path.join(app.getPath('userData'), 'training-sessions'),
+      });
+      return trainingService;
+    })().catch((reason: unknown) => {
+      trainingServicePromise = null;
+      throw reason;
+    });
+  }
+  return trainingServicePromise;
 }
 
 async function runPackagedAgentE2eSmoke(): Promise<void> {
@@ -436,6 +504,45 @@ function registerIpcHandlers(): void {
       await providerCertification.cancel(providerCertificationIdSchema.parse(value));
     },
   );
+
+  const trainingHandler = (
+    channel: string,
+    work: (service: TrainingSessionService, value: unknown) => Promise<unknown>,
+  ): void => {
+    ipcMain.handle(channel, async (event, value: unknown) => {
+      const senderUrl = event.senderFrame?.url;
+      if (!senderUrl) throw new Error('IPC request rejected: missing sender frame.');
+      assertTrustedIpcSender(event.sender.id, senderUrl);
+      return work(await getTrainingService(), value);
+    });
+  };
+
+  trainingHandler(TRAINING_START_CHANNEL, async (service, value) => trainingTurnStateSchema.parse(
+    await service.start(trainingStartInputSchema.parse(value).topic),
+  ));
+  trainingHandler(TRAINING_CLOSE_FIRST_CHANNEL, async (service, value) => (
+    trainingTurnStateSchema.parse(
+      await service.closeFirst(trainingCloseFirstInputSchema.parse(value)),
+    )
+  ));
+  trainingHandler(TRAINING_DIAGNOSE_CHANNEL, async (service) => trainingTurnStateSchema.parse(
+    await service.diagnose(),
+  ));
+  trainingHandler(TRAINING_HINT_CHANNEL, async (service, value) => trainingTurnStateSchema.parse(
+    await service.hint(trainingHintLevelSchema.parse(value)),
+  ));
+  trainingHandler(TRAINING_SECOND_CHANNEL, async (service, value) => trainingTurnStateSchema.parse(
+    await service.second(trainingSecondInputSchema.parse(value).responseText),
+  ));
+  trainingHandler(TRAINING_EXTRACT_CHANNEL, async (service) => trainingTurnStateSchema.parse(
+    await service.extract(),
+  ));
+  trainingHandler(TRAINING_CONFIRM_CHANNEL, async (service, value) => trainingTurnStateSchema.parse(
+    await service.confirm(trainingConfirmInputSchema.parse(value).candidateIds),
+  ));
+  trainingHandler(TRAINING_DUE_CHANNEL, async (service) => trainingDueListSchema.parse(
+    service.dueQueue(),
+  ));
 }
 
 async function createMainWindow(): Promise<void> {
@@ -562,6 +669,14 @@ app.on('window-all-closed', () => {
   credentialVault?.clearSessionSecrets();
   agentWorkerHost?.close();
   asrWorkerHost?.close();
+  try {
+    productDatabase?.close();
+  } catch {
+    // already closed
+  }
+  productDatabase = null;
+  trainingService = null;
+  trainingServicePromise = null;
   app.quit();
 });
 

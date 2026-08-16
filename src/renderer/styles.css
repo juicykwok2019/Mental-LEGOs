@@ -437,3 +437,76 @@ button:disabled { cursor: wait; opacity: 0.58; }
   .section-heading { align-items: flex-start; }
   .certification-panel { grid-template-columns: 1fr; }
 }
+
+.training-panel .chat-log {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 14px 0;
+  padding: 14px;
+  border: 1px solid #ddd6c6;
+  border-radius: 12px;
+  background: #fbf8f1;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.chat-entry { display: grid; grid-template-columns: 44px 1fr; gap: 10px; }
+.chat-entry p { margin: 0; font-size: 0.92rem; white-space: pre-wrap; }
+.chat-role { font-size: 0.78rem; font-weight: 700; color: #6a7466; padding-top: 2px; }
+.chat-coach p { color: #2f3a2d; }
+.chat-user p { color: #1f2a44; }
+.chat-system p { color: #8a7a52; font-size: 0.84rem; }
+
+.training-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.topic-input {
+  flex: 1 1 240px;
+  padding: 9px 12px;
+  border: 1px solid #cfc7b4;
+  border-radius: 9px;
+  font: inherit;
+}
+
+.response-input {
+  flex: 1 1 100%;
+  min-height: 96px;
+  padding: 10px 12px;
+  border: 1px solid #cfc7b4;
+  border-radius: 9px;
+  font: inherit;
+  resize: vertical;
+}
+
+.training-busy { color: #6a7466; font-size: 0.86rem; margin-top: 10px; }
+
+.candidate-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+
+.candidate-card {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #ddd6c6;
+  border-radius: 12px;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.candidate-card p { margin: 4px 0 0; font-size: 0.86rem; color: #4c5548; }
+
+.due-list {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px dashed #cfc7b4;
+  border-radius: 10px;
+  font-size: 0.88rem;
+}
+
+.due-list p { margin: 6px 0 0; }
