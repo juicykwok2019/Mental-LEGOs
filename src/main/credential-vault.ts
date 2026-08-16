@@ -22,7 +22,7 @@ function minimalNativeEnvironment(): NodeJS.ProcessEnv {
   return environment;
 }
 
-async function runCredentialHelper(options: {
+export async function runCredentialHelper(options: {
   executablePath: string;
   command: 'write' | 'read' | 'exists' | 'delete';
   target: string;
