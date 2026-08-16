@@ -274,8 +274,13 @@ async function executeProviderRequest(
           ? { authorization: `Bearer ${invocation.providerApiKey}` }
           : { 'x-api-key': invocation.providerApiKey }),
       },
+      // Node >= 22 expects the array form from custom lookup callbacks; the
+      // legacy (err, address, family) form fails with ERR_INVALID_IP_ADDRESS.
       lookup: (_hostname, _options, callback) => {
-        callback(null, selected.address, selected.family);
+        (callback as unknown as (
+          error: Error | null,
+          addresses: Array<{ address: string; family: number }>,
+        ) => void)(null, [{ address: selected.address, family: selected.family }]);
       },
       signal,
     }, (response) => {
