@@ -202,6 +202,24 @@ const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   'pressure-probe': '追问压力',
 };
 
+export function speechStatsLine(
+  responseText: string,
+  durationMs: number,
+  pauseCount: number | null,
+  longestPauseMs: number | null,
+): string {
+  const minutes = durationMs / 60_000;
+  const characters = responseText.replace(/\s/gu, '').length;
+  const pace = Math.round(characters / minutes);
+  return [
+    `试讲用时 ${Math.floor(durationMs / 60_000)} 分 ${Math.round((durationMs % 60_000) / 1000)} 秒`,
+    `约 ${characters} 字 · 语速 ~${pace} 字/分（汉语演讲舒适区约 180-220 字/分）`,
+    typeof pauseCount === 'number' && pauseCount > 0
+      ? `明显停顿 ${pauseCount} 次，最长 ${((longestPauseMs ?? 0) / 1000).toFixed(1)} 秒`
+      : '没有超过 1.2 秒的明显停顿',
+  ].join(' · ');
+}
+
 function truncate(text: string, limit: number): string {
   return text.length > limit ? `${text.slice(0, limit)}…` : text;
 }
@@ -381,16 +399,9 @@ export class TrainingSessionService {
         // Speech rehearsal gets measurable delivery stats from the recording:
         // duration, pace, and real (timestamp-derived) pauses.
         if (session.mode === 'speech' && input.durationMs && input.durationMs > 0) {
-          const minutes = input.durationMs / 60_000;
-          const characters = input.responseText.replace(/\s/gu, '').length;
-          const pace = Math.round(characters / minutes);
-          const stats = [
-            `试讲用时 ${Math.floor(input.durationMs / 60_000)} 分 ${Math.round((input.durationMs % 60_000) / 1000)} 秒`,
-            `约 ${characters} 字 · 语速 ~${pace} 字/分（汉语演讲舒适区约 180-220 字/分）`,
-            typeof input.pauseCount === 'number' && input.pauseCount > 0
-              ? `明显停顿 ${input.pauseCount} 次，最长 ${((input.longestPauseMs ?? 0) / 1000).toFixed(1)} 秒`
-              : '没有超过 1.2 秒的明显停顿',
-          ].join(' · ');
+          const stats = speechStatsLine(
+            input.responseText, input.durationMs, input.pauseCount ?? null, input.longestPauseMs ?? null,
+          );
           session.speechStats = stats;
           session.transcript.push({ role: 'system', kind: 'status', text: stats });
         }
@@ -548,6 +559,59 @@ export class TrainingSessionService {
         { role: 'user', kind: 'response', text: responseText },
         { role: 'system', kind: 'status', text: '第二遍完成。可以提炼语言乐高，场景模式下也可以继续追问。' },
       );
+      return Promise.resolve(this.#turnState());
+    });
+  }
+
+  // Speech mode only: unlimited rehearsal rounds, each with measured delivery
+  // stats, until the user decides they are done and moves to extraction.
+  async rehearse(input: {
+    responseText: string;
+    recordingId: string | null;
+    durationMs: number | null;
+    pauseCount?: number | null;
+    longestPauseMs?: number | null;
+  }): Promise<TrainingTurnState> {
+    return this.#exclusive(async () => {
+      const session = this.#session;
+      if (!session) throw new Error('No training session is active.');
+      if (session.mode !== 'speech') throw new Error('只有演讲训练支持多遍复练。');
+      if (!['first-closed', 'assistance', 'second-done'].includes(session.phase)) {
+        throw new Error('先完成第一遍试讲，再进行复练。');
+      }
+      if (!session.questionId || !session.firstAttemptId) throw new Error('No open question.');
+      if (session.phase === 'first-closed') {
+        this.#engine.releaseAssistance(session.firstAttemptId);
+      }
+      this.#engine.recordSecondAttempt({
+        questionId: session.questionId,
+        firstAttemptId: session.firstAttemptId,
+        responseText: input.responseText,
+        ...(input.durationMs === null || input.durationMs === undefined
+          ? {}
+          : { durationMs: input.durationMs }),
+      });
+      session.secondResponse = input.responseText;
+      session.phase = 'second-done';
+      session.transcript.push({ role: 'user', kind: 'response', text: input.responseText });
+      if (input.durationMs && input.durationMs > 0) {
+        const stats = speechStatsLine(
+          input.responseText, input.durationMs, input.pauseCount ?? null, input.longestPauseMs ?? null,
+        );
+        session.speechStats = stats;
+        session.transcript.push({ role: 'system', kind: 'status', text: stats });
+      } else {
+        session.transcript.push({
+          role: 'system',
+          kind: 'status',
+          text: '这一遍是文字提交，没有实测数据——用 🎙 录音试讲才能得到时长、语速和停顿反馈。',
+        });
+      }
+      session.transcript.push({
+        role: 'system',
+        kind: 'status',
+        text: '可以继续"再练一遍"打磨，或觉得练够了就提炼语言乐高。',
+      });
       return Promise.resolve(this.#turnState());
     });
   }

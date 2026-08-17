@@ -84,6 +84,7 @@ import {
   TRAINING_FOLLOW_UP_CHANNEL,
   TRAINING_GAP_CHANNEL,
   TRAINING_HINT_CHANNEL,
+  TRAINING_REHEARSE_CHANNEL,
   TRAINING_SECOND_CHANNEL,
   TRAINING_START_CHANNEL,
   TRAINING_STATE_CHANNEL,
@@ -687,6 +688,9 @@ function registerIpcHandlers(): void {
   ));
   withService(TRAINING_HINT_CHANNEL, async (service, value) => trainingTurnStateSchema.parse(
     await service.hint(trainingHintLevelSchema.parse(value)),
+  ));
+  withService(TRAINING_REHEARSE_CHANNEL, async (service, value) => trainingTurnStateSchema.parse(
+    await service.rehearse(trainingSecondInputSchema.parse(value)),
   ));
   withService(TRAINING_SECOND_CHANNEL, async (service, value) => trainingTurnStateSchema.parse(
     await service.second(trainingSecondInputSchema.parse(value).responseText),

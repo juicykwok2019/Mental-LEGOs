@@ -399,15 +399,29 @@ export function ChatView(props: ChatViewProps) {
         )}
 
         {phase === 'first-closed' && (
-          <div className="phase-actions">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => props.onAction('正在诊断…', () => api.requestDiagnosis())}
-            >
-              请求诊断
-            </button>
-          </div>
+          <>
+            {turn.mode === 'speech' && (
+              <Composer
+                placeholder="🎙 再练一遍试讲——每一遍都会给出时长、语速和停顿的实测评估。"
+                submitLabel="提交这一遍"
+                disabled={busy}
+                speech={props.speech}
+                onSpeechInstall={props.onSpeechInstall}
+                onSubmit={(draft) => props.onAction('记录这一遍试讲…', () => api.rehearseSpeech({
+                  ...draft,
+                }))}
+              />
+            )}
+            <div className="phase-actions">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => props.onAction('正在诊断…', () => api.requestDiagnosis())}
+              >
+                请求诊断
+              </button>
+            </div>
+          </>
         )}
 
         {phase === 'assistance' && (
@@ -439,6 +453,19 @@ export function ChatView(props: ChatViewProps) {
           </>
         )}
 
+        {phase === 'second-done' && turn.mode === 'speech' && (
+          <Composer
+            placeholder="🎙 还想再练？直接开口——练到满意为止，每一遍都有实测评估。"
+            submitLabel="再练一遍"
+            disabled={busy}
+            speech={props.speech}
+            onSpeechInstall={props.onSpeechInstall}
+            onSubmit={(draft) => props.onAction('记录这一遍试讲…', () => api.rehearseSpeech({
+              ...draft,
+            }))}
+          />
+        )}
+
         {phase === 'second-done' && (
           <div className="phase-actions">
             <button
@@ -446,7 +473,7 @@ export function ChatView(props: ChatViewProps) {
               disabled={busy}
               onClick={() => props.onAction('提炼候选模块…', () => api.extractCandidates())}
             >
-              提炼语言乐高
+              {turn.mode === 'speech' ? '练够了，提炼语言乐高' : '提炼语言乐高'}
             </button>
             {turn.mode !== 'open' && (
               <button

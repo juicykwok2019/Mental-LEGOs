@@ -52,6 +52,33 @@ export interface FinishedRecording {
   durationMs: number;
 }
 
+// Decode an imported audio file (mp3/m4a/wav/ogg… whatever Chromium decodes)
+// to 16 kHz mono WAV entirely in the renderer, so imported recordings ride the
+// same local transcription path as microphone audio and never leave the device.
+export async function decodeAudioFileToWav(fileBytes: ArrayBuffer): Promise<FinishedRecording> {
+  const probe = new AudioContext();
+  let decoded: AudioBuffer;
+  try {
+    decoded = await probe.decodeAudioData(fileBytes.slice(0));
+  } catch (reason) {
+    throw new Error('无法解码这个音频文件。支持常见格式（wav / mp3 / m4a / ogg）。', { cause: reason });
+  } finally {
+    await probe.close();
+  }
+  const mono = new Float32Array(decoded.length);
+  for (let channel = 0; channel < decoded.numberOfChannels; channel += 1) {
+    const data = decoded.getChannelData(channel);
+    for (let index = 0; index < data.length; index += 1) {
+      mono[index] = (mono[index] ?? 0) + (data[index] ?? 0) / decoded.numberOfChannels;
+    }
+  }
+  const resampled = downsample(mono, decoded.sampleRate, TARGET_SAMPLE_RATE);
+  return {
+    wav: encodeWav(resampled, TARGET_SAMPLE_RATE),
+    durationMs: Math.round(decoded.duration * 1000),
+  };
+}
+
 export class VoiceRecorder {
   #context: AudioContext | null = null;
   #stream: MediaStream | null = null;

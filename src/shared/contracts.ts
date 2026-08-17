@@ -154,6 +154,7 @@ export const TRAINING_GAP_CHANNEL = 'training:resolve-gap' as const;
 export const TRAINING_DIAGNOSE_CHANNEL = 'training:diagnose' as const;
 export const TRAINING_HINT_CHANNEL = 'training:hint' as const;
 export const TRAINING_SECOND_CHANNEL = 'training:second' as const;
+export const TRAINING_REHEARSE_CHANNEL = 'training:rehearse' as const;
 export const TRAINING_EXTRACT_CHANNEL = 'training:extract' as const;
 export const TRAINING_CONFIRM_CHANNEL = 'training:confirm' as const;
 export const TRAINING_VARIATION_ANSWER_CHANNEL = 'training:variation-answer' as const;
@@ -621,6 +622,7 @@ export interface MentalLegosDesktopApi {
   requestDiagnosis(): Promise<TrainingTurnState>;
   requestHint(level: TrainingHintLevel): Promise<TrainingTurnState>;
   submitSecondAttempt(input: TrainingSecondInput): Promise<TrainingTurnState>;
+  rehearseSpeech(input: TrainingSecondInput): Promise<TrainingTurnState>;
   extractCandidates(): Promise<TrainingTurnState>;
   confirmCandidates(input: TrainingConfirmInput): Promise<TrainingTurnState>;
   answerVariation(input: TrainingVariationAnswerInput): Promise<TrainingTurnState>;

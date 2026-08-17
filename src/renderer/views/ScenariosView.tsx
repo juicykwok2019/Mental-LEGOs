@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import {
   AGENT_EXCERPT_CHARACTERS,
@@ -8,6 +8,7 @@ import {
   type ScenarioSummary,
 } from '../../shared/contracts';
 import { BusyIndicator } from '../components/BusyIndicator';
+import { decodeAudioFileToWav } from '../recorder';
 
 function messageFrom(reason: unknown): string {
   return reason instanceof Error ? reason.message : '发生了未知错误。';
@@ -49,6 +50,7 @@ export function ScenariosView(props: ScenariosViewProps) {
   const [intentDraft, setIntentDraft] = useState('');
   const [outlineMinutes, setOutlineMinutes] = useState(10);
   const [outlineAudience, setOutlineAudience] = useState('');
+  const audioInputRef = useRef<HTMLInputElement | null>(null);
   const [reviewTranscript, setReviewTranscript] = useState('');
   const [reviewNote, setReviewNote] = useState('');
   const [deletePreview, setDeletePreview] = useState<ScenarioDeletePreview | null>(null);
@@ -155,17 +157,8 @@ export function ScenariosView(props: ScenariosViewProps) {
   }
 
   if (selected) {
-    return (
-      <div className="scenario-view">
-        <header className="chat-header">
-          <button type="button" className="quiet-button" onClick={() => setSelectedId(null)}>← 场景列表</button>
-          <span>{TYPE_LABELS[selected.type as ScenarioCreateInput['type']] ?? selected.type} · {selected.title}</span>
-          <span />
-        </header>
-        {error && <p className="form-error">{error}</p>}
-        {working && <BusyIndicator label={working} />}
-
-        <section className="scenario-block">
+    const materialSection = (
+        <section className="scenario-block" key="materials">
           <h3>材料<span className="count-pill">{selected.materialCount}</span></h3>
           {selected.materials.length > 0 && (
             <ul className="version-list">
@@ -315,8 +308,10 @@ export function ScenariosView(props: ScenariosViewProps) {
             授权并导入这份材料
           </button>
         </section>
+    );
 
-        <section className="scenario-block">
+    const prepareSection = (
+        <section className="scenario-block" key="prepare">
           <h3>事前准备</h3>
           {selected.analysis
             ? <p className="scenario-analysis">{selected.analysis}</p>
@@ -381,9 +376,10 @@ export function ScenariosView(props: ScenariosViewProps) {
             </ol>
           )}
         </section>
+    );
 
-        {selected.type === 'speech' && (
-          <section className="scenario-block">
+    const outlineSection = selected.type === 'speech' ? (
+          <section className="scenario-block" key="outline">
             <h3>演讲骨架</h3>
             <p className="block-hint">
               把你积木库里的模块组装成这次演讲的骨架：开场钩子 → 要点（每个要点标注引用的模块）→
@@ -458,15 +454,16 @@ export function ScenariosView(props: ScenariosViewProps) {
                   </button>
                 </div>
                 <p className="block-hint">
-                  变换会覆盖当前骨架（模块引用保持不变）。练习入口：上方"事前准备"生成的试讲任务，
-                  试讲后会给出时长、语速和停顿的实测反馈。
+                  变换会覆盖当前骨架（模块引用保持不变）。练习入口：下方"事前准备"生成的试讲任务，
+                  每遍试讲都会给出时长、语速和停顿的实测反馈，可反复练到满意再提炼。
                 </p>
               </>
             )}
           </section>
-        )}
+    ) : null;
 
-        <section className="scenario-block">
+    const reviewSection = (
+        <section className="scenario-block" key="review">
           <h3>事后复盘</h3>
           <div className="phase-actions">
             <button
@@ -484,6 +481,36 @@ export function ScenariosView(props: ScenariosViewProps) {
             >
               📄 从文件导入转写（PDF / Word / 文本）
             </button>
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={working !== ''}
+              onClick={() => audioInputRef.current?.click()}
+            >
+              🎧 导入录音并本地转写（wav / mp3 / m4a）
+            </button>
+            <input
+              ref={audioInputRef}
+              type="file"
+              accept="audio/*,.m4a,.aac"
+              style={{ display: 'none' }}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = '';
+                if (!file) return;
+                void step('本地转写录音（长录音需要几分钟）…', async () => {
+                  const bytes = await file.arrayBuffer();
+                  const decoded = await decodeAudioFileToWav(bytes);
+                  const result = await window.mentalLegos.transcribeRecording(decoded.wav);
+                  if (!result.text.trim()) {
+                    setReviewNotice(`「${file.name}」转写结果为空——录音里可能没有清晰人声。`);
+                    return;
+                  }
+                  setReviewTranscript((current) => (current ? `${current}\n${result.text}` : result.text));
+                  setReviewNotice(`✓ 已本地转写「${file.name}」（${Math.round(result.audioDurationSeconds / 60)} 分钟音频），音频未离开本机。确认文本后开始复盘。`);
+                });
+              }}
+            />
           </div>
           <textarea
             placeholder="或直接粘贴真实交流的转写或笔记（录音可先在训练页用语音转写）"
@@ -534,8 +561,10 @@ export function ScenariosView(props: ScenariosViewProps) {
             )}
           </div>
         </section>
+    );
 
-        <section className="scenario-block scenario-danger">
+    const dangerSection = (
+        <section className="scenario-block scenario-danger" key="danger">
           <h3>删除场景</h3>
           {deletePreview ? (
             <>
@@ -581,6 +610,25 @@ export function ScenariosView(props: ScenariosViewProps) {
             </button>
           )}
         </section>
+    );
+
+    // The section order follows the workflow of each scenario type: a speech
+    // starts from the skeleton, an interview/meeting starts from materials.
+    const ordered = selected.type === 'speech'
+      ? [outlineSection, prepareSection, materialSection, reviewSection]
+      : [materialSection, prepareSection, reviewSection];
+
+    return (
+      <div className="scenario-view">
+        <header className="chat-header">
+          <button type="button" className="quiet-button" onClick={() => setSelectedId(null)}>← 场景列表</button>
+          <span>{TYPE_LABELS[selected.type as ScenarioCreateInput['type']] ?? selected.type} · {selected.title}</span>
+          <span />
+        </header>
+        {error && <p className="form-error">{error}</p>}
+        {working && <BusyIndicator label={working} />}
+        {ordered}
+        {dangerSection}
       </div>
     );
   }

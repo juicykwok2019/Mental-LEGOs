@@ -55,6 +55,7 @@ import {
   TRAINING_FOLLOW_UP_CHANNEL,
   TRAINING_GAP_CHANNEL,
   TRAINING_HINT_CHANNEL,
+  TRAINING_REHEARSE_CHANNEL,
   TRAINING_SECOND_CHANNEL,
   TRAINING_START_CHANNEL,
   TRAINING_STATE_CHANNEL,
@@ -326,6 +327,13 @@ const desktopApi: MentalLegosDesktopApi = Object.freeze({
   async submitSecondAttempt(input: TrainingSecondInput) {
     return invokeParsed(
       TRAINING_SECOND_CHANNEL,
+      trainingTurnStateSchema,
+      trainingSecondInputSchema.parse(input),
+    );
+  },
+  async rehearseSpeech(input: TrainingSecondInput) {
+    return invokeParsed(
+      TRAINING_REHEARSE_CHANNEL,
       trainingTurnStateSchema,
       trainingSecondInputSchema.parse(input),
     );
