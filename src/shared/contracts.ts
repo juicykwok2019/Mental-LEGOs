@@ -174,6 +174,18 @@ export const LIBRARY_PROMOTE_CHANNEL = 'library:promote-module' as const;
 export const LIBRARY_REAL_WORLD_CHANNEL = 'library:real-world-report' as const;
 export const PRIVACY_OVERVIEW_CHANNEL = 'privacy:overview' as const;
 export const PRIVACY_EXPORT_CHANNEL = 'privacy:export' as const;
+export const USAGE_OVERVIEW_CHANNEL = 'usage:overview' as const;
+
+const usageBucketSchema = z.object({
+  inputTokens: z.number().nonnegative(),
+  outputTokens: z.number().nonnegative(),
+  runs: z.number().int().nonnegative(),
+});
+export const usageOverviewSchema = z.object({
+  today: usageBucketSchema,
+  total: usageBucketSchema,
+});
+export type UsageOverview = z.infer<typeof usageOverviewSchema>;
 
 export const profileSeedInputSchema = z.object({
   direction: z.string().trim().min(1).max(2000),
@@ -335,11 +347,19 @@ export const scenarioSummarySchema = z.object({
   counterpart: z.string(),
   status: z.string().min(1),
   materialCount: z.number().int().nonnegative(),
+  materialCharacters: z.number().int().nonnegative(),
   moduleCount: z.number().int().nonnegative(),
   preparedQuestions: z.array(scenarioQuestionSummarySchema),
   analysis: z.string().nullable(),
 });
 export type ScenarioSummary = z.infer<typeof scenarioSummarySchema>;
+
+// Agent calls excerpt long material/transcripts down to this window before
+// sending anything to the provider (see training-session.ts).
+export const AGENT_EXCERPT_CHARACTERS = 18_000;
+// Above this size the renderer asks for explicit confirmation before starting
+// a high-cost agent analysis (PRD §24.5).
+export const HIGH_COST_CONFIRM_CHARACTERS = 50_000;
 
 export const scenarioReviewInputSchema = z.object({
   scenarioId: z.string().uuid(),
@@ -430,6 +450,7 @@ export interface MentalLegosDesktopApi {
   transcribeRecording(wav: ArrayBuffer): Promise<SpeechTranscriptionResult>;
   getTrainingState(): Promise<TrainingTurnState>;
   parseMaterialFile(): Promise<ParsedMaterialFile | null>;
+  getUsageOverview(): Promise<UsageOverview>;
   startTraining(input: TrainingStartInput): Promise<TrainingTurnState>;
   closeFirstAttempt(input: TrainingCloseFirstInput): Promise<TrainingTurnState>;
   resolveGap(input: TrainingGapInput): Promise<TrainingTurnState>;

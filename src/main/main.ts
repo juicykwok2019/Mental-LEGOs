@@ -24,6 +24,7 @@ import { ProviderConfigurationService } from './provider-configuration';
 import { ProviderSettingsStore } from './provider-settings-store';
 import { SpeechService } from './speech-service';
 import { TrainingSessionService } from './training-session';
+import { UsageLedger } from './usage-ledger';
 import { loadVaultDataKeyProvider } from '../data/data-key';
 import { exportDatabase } from '../data/export';
 import { ProductDatabase } from '../data/product-database';
@@ -73,6 +74,7 @@ import {
   TRAINING_STATE_CHANNEL,
   TRAINING_VARIATION_ANSWER_CHANNEL,
   TRAINING_VARIATION_SKIP_CHANNEL,
+  USAGE_OVERVIEW_CHANNEL,
   appInfoSchema,
   agentReadinessStateSchema,
   libraryModuleDetailSchema,
@@ -105,6 +107,7 @@ import {
   trainingStartInputSchema,
   trainingTurnStateSchema,
   trainingVariationAnswerInputSchema,
+  usageOverviewSchema,
 } from '../shared/contracts';
 import { providerRegistry } from '../shared/providers';
 import {
@@ -239,6 +242,13 @@ async function getAgentReadinessState() {
   });
 }
 
+let usageLedgerPromise: Promise<UsageLedger> | null = null;
+
+function getUsageLedger(): Promise<UsageLedger> {
+  usageLedgerPromise ??= UsageLedger.open(app.getPath('userData'));
+  return usageLedgerPromise;
+}
+
 async function getTrainingService(): Promise<TrainingSessionService> {
   if (trainingService) return trainingService;
   if (!trainingServicePromise) {
@@ -259,7 +269,9 @@ async function getTrainingService(): Promise<TrainingSessionService> {
       const agent = agentWorkerHost;
       const provider = providerConfiguration;
       const bashManager = bashRuntimeManager;
+      const ledger = await getUsageLedger();
       trainingService = new TrainingSessionService({
+        onAgentUsage: (usage) => ledger.record(usage),
         agent,
         provider,
         runtime: {
@@ -786,6 +798,10 @@ function registerIpcHandlers(): void {
       note: input.note,
     });
   });
+
+  guarded(USAGE_OVERVIEW_CHANNEL, async () => usageOverviewSchema.parse(
+    (await getUsageLedger()).overview(),
+  ));
 
   guarded(MATERIAL_PARSE_FILE_CHANNEL, async () => {
     const window = mainWindow;

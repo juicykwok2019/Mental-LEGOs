@@ -45,6 +45,7 @@ import {
   TRAINING_STATE_CHANNEL,
   TRAINING_VARIATION_ANSWER_CHANNEL,
   TRAINING_VARIATION_SKIP_CHANNEL,
+  USAGE_OVERVIEW_CHANNEL,
   appInfoSchema,
   agentReadinessStateSchema,
   libraryModuleDetailSchema,
@@ -77,6 +78,7 @@ import {
   trainingStartInputSchema,
   trainingTurnStateSchema,
   trainingVariationAnswerInputSchema,
+  usageOverviewSchema,
   type MentalLegosDesktopApi,
   type LibraryPromoteInput,
   type LibraryRealWorldInput,
@@ -171,6 +173,9 @@ const desktopApi: MentalLegosDesktopApi = Object.freeze({
   },
   async parseMaterialFile() {
     return invokeParsed(MATERIAL_PARSE_FILE_CHANNEL, parsedMaterialFileSchema.nullable());
+  },
+  async getUsageOverview() {
+    return invokeParsed(USAGE_OVERVIEW_CHANNEL, usageOverviewSchema);
   },
   async startTraining(input: TrainingStartInput) {
     return invokeParsed(TRAINING_START_CHANNEL, trainingTurnStateSchema, trainingStartInputSchema.parse(input));

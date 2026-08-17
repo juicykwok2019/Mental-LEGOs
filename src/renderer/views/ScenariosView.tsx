@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 
-import type {
-  ScenarioCreateInput,
-  ScenarioDeletePreview,
-  ScenarioSummary,
+import {
+  AGENT_EXCERPT_CHARACTERS,
+  HIGH_COST_CONFIRM_CHARACTERS,
+  type ScenarioCreateInput,
+  type ScenarioDeletePreview,
+  type ScenarioSummary,
 } from '../../shared/contracts';
 
 function messageFrom(reason: unknown): string {
@@ -42,6 +44,7 @@ export function ScenariosView(props: ScenariosViewProps) {
   const [reviewTranscript, setReviewTranscript] = useState('');
   const [reviewNote, setReviewNote] = useState('');
   const [deletePreview, setDeletePreview] = useState<ScenarioDeletePreview | null>(null);
+  const [costConfirm, setCostConfirm] = useState<'prepare' | 'review' | null>(null);
 
   const selected = scenarios.find((scenario) => scenario.id === selectedId) ?? null;
 
@@ -209,15 +212,48 @@ export function ScenariosView(props: ScenariosViewProps) {
           {selected.analysis
             ? <p className="scenario-analysis">{selected.analysis}</p>
             : <p>还没有分析。导入材料后点击"生成针对性问题"。</p>}
-          <button
-            type="button"
-            disabled={working !== '' || props.busy}
-            onClick={() => void step('分析材料并生成问题…', () => (
-              window.mentalLegos.prepareScenario(selected.id)
-            ))}
-          >
-            {selected.preparedQuestions.length > 0 ? '重新生成问题' : '生成针对性问题'}
-          </button>
+          {costConfirm === 'prepare' ? (
+            <>
+              <p className="material-notice">
+                材料共 {selected.materialCharacters.toLocaleString()} 字符，超出单次分析窗口
+                （{AGENT_EXCERPT_CHARACTERS.toLocaleString()} 字符），只有靠前的内容会被分析；
+                这次调用会实际消耗你的 API 用量。确认继续吗？
+              </p>
+              <div className="phase-actions">
+                <button
+                  type="button"
+                  disabled={working !== '' || props.busy}
+                  onClick={() => {
+                    setCostConfirm(null);
+                    void step('分析材料并生成问题…', () => (
+                      window.mentalLegos.prepareScenario(selected.id)
+                    ));
+                  }}
+                >
+                  确认生成
+                </button>
+                <button type="button" className="quiet-button" onClick={() => setCostConfirm(null)}>
+                  取消
+                </button>
+              </div>
+            </>
+          ) : (
+            <button
+              type="button"
+              disabled={working !== '' || props.busy}
+              onClick={() => {
+                if (selected.materialCharacters > HIGH_COST_CONFIRM_CHARACTERS) {
+                  setCostConfirm('prepare');
+                  return;
+                }
+                void step('分析材料并生成问题…', () => (
+                  window.mentalLegos.prepareScenario(selected.id)
+                ));
+              }}
+            >
+              {selected.preparedQuestions.length > 0 ? '重新生成问题' : '生成针对性问题'}
+            </button>
+          )}
           {selected.preparedQuestions.length > 0 && (
             <ol className="scenario-questions">
               {selected.preparedQuestions.map((question) => (
@@ -250,21 +286,41 @@ export function ScenariosView(props: ScenariosViewProps) {
             maxLength={4000}
             onChange={(event) => setReviewNote(event.target.value)}
           />
-          <button
-            type="button"
-            disabled={working !== '' || props.busy || reviewTranscript.trim().length === 0}
-            onClick={() => {
-              props.onReview({
-                scenarioId: selected.id,
-                transcript: reviewTranscript.trim(),
-                outcomeNote: reviewNote.trim(),
-              });
-              setReviewTranscript('');
-              setReviewNote('');
-            }}
-          >
-            开始复盘
-          </button>
+          {costConfirm === 'review' && (
+            <p className="material-notice">
+              转写共 {reviewTranscript.trim().length.toLocaleString()} 字符，超出单次分析窗口
+              （{AGENT_EXCERPT_CHARACTERS.toLocaleString()} 字符），只有靠前的内容会被复盘；
+              这次调用会实际消耗你的 API 用量。确认继续吗？
+            </p>
+          )}
+          <div className="phase-actions">
+            <button
+              type="button"
+              disabled={working !== '' || props.busy || reviewTranscript.trim().length === 0}
+              onClick={() => {
+                const transcript = reviewTranscript.trim();
+                if (costConfirm !== 'review' && transcript.length > HIGH_COST_CONFIRM_CHARACTERS) {
+                  setCostConfirm('review');
+                  return;
+                }
+                setCostConfirm(null);
+                props.onReview({
+                  scenarioId: selected.id,
+                  transcript,
+                  outcomeNote: reviewNote.trim(),
+                });
+                setReviewTranscript('');
+                setReviewNote('');
+              }}
+            >
+              {costConfirm === 'review' ? '确认复盘' : '开始复盘'}
+            </button>
+            {costConfirm === 'review' && (
+              <button type="button" className="quiet-button" onClick={() => setCostConfirm(null)}>
+                取消
+              </button>
+            )}
+          </div>
         </section>
 
         <section className="scenario-block scenario-danger">

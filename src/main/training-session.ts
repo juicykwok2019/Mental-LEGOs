@@ -18,6 +18,10 @@ import {
 import { FormalMaterializer, validateCandidatePayload } from '../data/formal-materializer';
 import type { ProductDatabase } from '../data/product-database';
 import { TrainingEngine, type HintLevel } from '../training/engine';
+import { usageFromAgentMessages } from './usage-ledger';
+import {
+  AGENT_EXCERPT_CHARACTERS,
+} from '../shared/contracts';
 import type {
   ProfileSeedInput,
   ProfileState,
@@ -152,6 +156,7 @@ export class TrainingSessionService {
   readonly #product: ProductDatabase;
   readonly #engine: TrainingEngine;
   readonly #sessionsRoot: string;
+  readonly #onAgentUsage: ((usage: { inputTokens: number; outputTokens: number }) => void) | null;
   #session: ActiveSession | null = null;
   #busy = false;
 
@@ -161,6 +166,7 @@ export class TrainingSessionService {
     runtime: TrainingRuntimeResolver;
     product: ProductDatabase;
     sessionsRoot: string;
+    onAgentUsage?: (usage: { inputTokens: number; outputTokens: number }) => void;
   }) {
     this.#agent = options.agent;
     this.#provider = options.provider;
@@ -168,6 +174,7 @@ export class TrainingSessionService {
     this.#product = options.product;
     this.#engine = new TrainingEngine(options.product);
     this.#sessionsRoot = path.resolve(options.sessionsRoot);
+    this.#onAgentUsage = options.onAgentUsage ?? null;
   }
 
   // ─── Profile ─────────────────────────────────────────────────────────────
@@ -788,7 +795,10 @@ export class TrainingSessionService {
       if (!scenario) throw new Error('Scenario does not exist.');
       const extras = this.#product.getScenarioExtras(scenarioId);
       const segments = this.#product.listScenarioSegments(scenarioId);
-      const materialText = truncate(segments.map((segment) => segment.content).join('\n'), 18_000);
+      const materialText = truncate(
+        segments.map((segment) => segment.content).join('\n'),
+        AGENT_EXCERPT_CHARACTERS,
+      );
       const session = await this.#createSession(
         scenario.type === 'speech' ? 'speech' : 'scenario',
         scenarioId,
@@ -887,7 +897,7 @@ export class TrainingSessionService {
         'Post-event review of a real communication the user authorized for analysis.',
         `Scenario: ${scenario.title} (${scenario.type}) | objective: ${scenario.objective}`,
         input.outcomeNote ? `The user's own outcome note: ${input.outcomeNote}` : '',
-        `Authorized transcript:\n${truncate(input.transcript, 18_000)}`,
+        `Authorized transcript:\n${truncate(input.transcript, AGENT_EXCERPT_CHARACTERS)}`,
         'Align question → actual answer → missed knowledge → on-the-spot wording → outcome.',
         'Identify: successful module recalls, misses, and NEW wording worth keeping.',
         'Then submit at most three candidate modules (new or clearly better wording) via',
@@ -939,6 +949,8 @@ export class TrainingSessionService {
       counterpart: scenario.counterpart,
       status: scenario.status,
       materialCount: this.#product.countScenarioSources(scenario.id),
+      materialCharacters: this.#product.listScenarioSegments(scenario.id)
+        .reduce((total, segment) => total + segment.content.length, 0),
       moduleCount: this.#product.listLegoModules({ scenarioId: scenario.id }).length,
       preparedQuestions: questions.map((question) => ({
         id: question.id,
@@ -1042,6 +1054,10 @@ export class TrainingSessionService {
     });
     session.workspaceCreated = true;
     session.agentSessionId = output.agentSessionId;
+    if (this.#onAgentUsage) {
+      const usage = usageFromAgentMessages(output.messages);
+      if (usage) this.#onAgentUsage(usage);
+    }
     return output;
   }
 

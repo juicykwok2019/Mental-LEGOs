@@ -8,6 +8,7 @@ import type {
   ProviderSetupInput,
   ProviderSetupState,
   SpeechReadinessState,
+  UsageOverview,
 } from '../../shared/contracts';
 
 function messageFrom(reason: unknown): string {
@@ -26,6 +27,7 @@ export function SettingsView() {
   const [speech, setSpeech] = useState<SpeechReadinessState | null>(null);
   const [speechBusy, setSpeechBusy] = useState(false);
   const [privacy, setPrivacy] = useState<PrivacyOverview | null>(null);
+  const [usage, setUsage] = useState<UsageOverview | null>(null);
   const [exportPassword, setExportPassword] = useState('');
   const [providerId, setProviderId] = useState<ProviderSetupInput['providerId']>('anthropic');
   const [displayName, setDisplayName] = useState('Anthropic');
@@ -47,11 +49,13 @@ export function SettingsView() {
       window.mentalLegos.getAgentReadiness(),
       window.mentalLegos.getSpeechReadiness(),
       window.mentalLegos.getPrivacyOverview(),
-    ]).then(([providerSetup, agentReadiness, speechReadiness, privacyOverview]) => {
+      window.mentalLegos.getUsageOverview().catch(() => null),
+    ]).then(([providerSetup, agentReadiness, speechReadiness, privacyOverview, usageOverview]) => {
       setSetup(providerSetup);
       setReadiness(agentReadiness);
       setSpeech(speechReadiness);
       setPrivacy(privacyOverview);
+      setUsage(usageOverview);
     }).catch((reason: unknown) => {
       setError(messageFrom(reason));
     });
@@ -588,6 +592,14 @@ export function SettingsView() {
             {(privacy.diskUsageBytes / 1024 / 1024).toFixed(1)} MB · 模块{' '}
             {privacy.counts.lego_modules ?? 0} · 场景 {privacy.counts.scenarios ?? 0} · 回答{' '}
             {privacy.counts.attempts ?? 0} · 确认记录 {privacy.counts.consent_events ?? 0}
+          </p>
+        )}
+        {usage && (
+          <p className="section-copy">
+            API 用量（Provider 上报的原始 token 数，第三方价格不一，不折算金额）：今天{' '}
+            输入 {usage.today.inputTokens.toLocaleString()} · 输出 {usage.today.outputTokens.toLocaleString()} ·{' '}
+            调用 {usage.today.runs} 次；累计 输入 {usage.total.inputTokens.toLocaleString()} · 输出{' '}
+            {usage.total.outputTokens.toLocaleString()} · 调用 {usage.total.runs} 次
           </p>
         )}
         <div className="provider-form">
