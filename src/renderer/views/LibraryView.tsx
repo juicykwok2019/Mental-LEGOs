@@ -343,6 +343,11 @@ export function LibraryView() {
               );
             })}
           </div>
+          <p className="block-hint">
+            通用=任何行业沟通都能用；专业=绑定你的专业领域；
+            场景=只属于某次具体场景，随场景删除——确认能跨场景复用后，可在模块详情里提升为通用或专业；
+            已归档=暂停复现、随时可恢复。
+          </p>
           {visible.length === 0 && <p className="block-hint">这个分类还没有模块。</p>}
           <div className="scenario-list library-grid">
             {visible.map((module) => (
