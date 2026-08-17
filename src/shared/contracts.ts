@@ -330,6 +330,7 @@ export const scenarioMaterialInputSchema = z.object({
   scenarioId: z.string().uuid(),
   label: z.string().trim().min(1).max(300),
   content: z.string().trim().min(1).max(500_000),
+  intent: z.string().trim().max(2000).default(''),
 });
 export type ScenarioMaterialInput = z.infer<typeof scenarioMaterialInputSchema>;
 
@@ -361,6 +362,7 @@ export const scenarioSummarySchema = z.object({
   materials: z.array(z.object({
     id: z.string().uuid(),
     label: z.string().min(1),
+    intent: z.string(),
     characters: z.number().int().nonnegative(),
     addedAt: z.string(),
   })),

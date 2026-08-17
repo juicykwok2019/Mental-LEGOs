@@ -244,4 +244,14 @@ export const MIGRATIONS: readonly Migration[] = [
       ALTER TABLE scenarios ADD COLUMN analysis_enc TEXT NOT NULL DEFAULT '';
     `,
   },
+  {
+    version: 4,
+    name: 'source-intent',
+    statements: `
+      -- Optional per-material note on how the user wants the material used
+      -- (e.g. focus questions on the JD's algorithm requirements). Personal
+      -- free text, encrypted at rest like the material content itself.
+      ALTER TABLE sources ADD COLUMN intent_enc TEXT NOT NULL DEFAULT '';
+    `,
+  },
 ];

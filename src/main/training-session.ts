@@ -778,7 +778,9 @@ export class TrainingSessionService {
     return this.#scenarioSummary(scenario);
   }
 
-  addScenarioMaterial(input: { scenarioId: string; label: string; content: string }): ScenarioSummary {
+  addScenarioMaterial(input: {
+    scenarioId: string; label: string; content: string; intent?: string;
+  }): ScenarioSummary {
     const scenario = this.#product.getScenario(input.scenarioId);
     if (!scenario) throw new Error('Scenario does not exist.');
     const source = this.#product.registerSource({
@@ -787,6 +789,7 @@ export class TrainingSessionService {
       scope: 'scenario',
       kind: 'pasted-text',
       label: input.label,
+      intent: input.intent ?? '',
       contentHash: createHash('sha256').update(input.content, 'utf8').digest('hex'),
       mediaPath: null,
       retention: 'keep',
@@ -821,9 +824,14 @@ export class TrainingSessionService {
       const scenario = this.#product.getScenario(scenarioId);
       if (!scenario) throw new Error('Scenario does not exist.');
       const extras = this.#product.getScenarioExtras(scenarioId);
-      const segments = this.#product.listScenarioSegments(scenarioId);
+      // Present each material as its own block with the user's stated intent,
+      // so 出题 can honour "这是 JD，重点针对算法要求" style guidance per source.
       const materialText = truncate(
-        segments.map((segment) => segment.content).join('\n'),
+        this.#product.listScenarioSources(scenarioId).map((source) => [
+          `【材料：${source.label}】`,
+          source.intent ? `用户希望这份材料这样用：${source.intent}` : '',
+          this.#product.readSourceContent(source.id),
+        ].filter(Boolean).join('\n')).join('\n\n'),
         AGENT_EXCERPT_CHARACTERS,
       );
       const session = await this.#createSession(
@@ -839,6 +847,9 @@ export class TrainingSessionService {
         `Objective: ${scenario.objective}`,
         extras?.worries ? `The user worries about being asked: ${extras.worries}` : '',
         materialText ? `Authorized materials:\n${materialText}` : 'No materials were provided.',
+        materialText.includes('用户希望这份材料这样用')
+          ? 'When a material states a usage intent, weight your questions toward that intent.'
+          : '',
         `User profile for grounding:\n${this.#profileContext()}`,
         speech
           ? [
@@ -901,6 +912,7 @@ export class TrainingSessionService {
         scope: 'scenario',
         kind: 'transcript',
         label: '事后复盘转写',
+        intent: '',
         contentHash: createHash('sha256').update(input.transcript, 'utf8').digest('hex'),
         mediaPath: null,
         retention: 'keep',
@@ -982,6 +994,7 @@ export class TrainingSessionService {
     const materials = this.#product.listScenarioSources(scenario.id).map((source) => ({
       id: source.id,
       label: source.label,
+      intent: source.intent,
       characters: source.characters,
       addedAt: source.createdAt,
     }));

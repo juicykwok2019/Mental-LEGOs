@@ -41,6 +41,7 @@ export function ScenariosView(props: ScenariosViewProps) {
   });
   const [materialLabel, setMaterialLabel] = useState('');
   const [materialContent, setMaterialContent] = useState('');
+  const [materialIntent, setMaterialIntent] = useState('');
   const [materialNotice, setMaterialNotice] = useState<string | null>(null);
   const [reviewNotice, setReviewNotice] = useState<string | null>(null);
   const [materialToDelete, setMaterialToDelete] = useState<string | null>(null);
@@ -169,6 +170,7 @@ export function ScenariosView(props: ScenariosViewProps) {
                   <span>
                     {material.label} · {material.characters.toLocaleString()} 字符 ·{' '}
                     {material.addedAt.slice(0, 10)}
+                    {material.intent && <em className="material-intent">期望：{material.intent}</em>}
                   </span>
                   {materialToDelete === material.id ? (
                     <span className="phase-actions">
@@ -240,6 +242,12 @@ export function ScenariosView(props: ScenariosViewProps) {
             value={materialContent}
             onChange={(event) => setMaterialContent(event.target.value)}
           />
+          <input
+            placeholder="可选：希望这份材料怎么用（例如：这是 JD，重点针对算法要求出题）"
+            value={materialIntent}
+            maxLength={2000}
+            onChange={(event) => setMaterialIntent(event.target.value)}
+          />
           {materialNotice && <p className="material-notice">{materialNotice}</p>}
           <button
             type="button"
@@ -250,9 +258,11 @@ export function ScenariosView(props: ScenariosViewProps) {
                 scenarioId: selected.id,
                 label,
                 content: materialContent.trim(),
+                intent: materialIntent.trim(),
               });
               setMaterialLabel('');
               setMaterialContent('');
+              setMaterialIntent('');
               setMaterialNotice(`✓ 「${label}」已导入。可以继续添加材料，或点击下方"生成针对性问题"。`);
             })}
           >

@@ -63,6 +63,7 @@ describe('formal product database', () => {
       scope: 'scenario',
       kind: 'pasted-text',
       label: '合成职位描述',
+      intent: '',
       contentHash: 'a'.repeat(64),
       mediaPath: null,
       retention: 'keep',
@@ -180,6 +181,24 @@ describe('formal product database', () => {
     const [source] = sources;
     if (!source) throw new Error('seed produced no source');
     expect(source.characters).toBeGreaterThan(0);
+
+    database.registerSource({
+      id: randomUUID(),
+      scenarioId: ids.scenarioId,
+      scope: 'scenario',
+      kind: 'pasted-text',
+      label: '带意图材料',
+      intent: '重点针对算法要求出题',
+      contentHash: 'a'.repeat(64),
+      mediaPath: null,
+      retention: 'keep',
+      authorizedAt: NOW,
+      now: NOW,
+    });
+    const withIntent = database.listScenarioSources(ids.scenarioId)
+      .find((entry) => entry.label === '带意图材料');
+    expect(withIntent?.intent).toBe('重点针对算法要求出题');
+    if (withIntent) database.deleteSource(withIntent.id, LATER);
 
     database.deleteSource(source.id, LATER);
     expect(database.listScenarioSources(ids.scenarioId)).toHaveLength(0);

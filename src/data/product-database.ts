@@ -241,10 +241,10 @@ export class ProductDatabase {
   }
 
   listScenarioSources(scenarioId: string): Array<{
-    id: string; label: string; kind: string; createdAt: string; characters: number;
+    id: string; label: string; intent: string; kind: string; createdAt: string; characters: number;
   }> {
     const rows = this.#database.prepare(
-      'SELECT id, label, kind, created_at FROM sources WHERE scenario_id = ? ORDER BY created_at',
+      'SELECT id, label, intent_enc, kind, created_at FROM sources WHERE scenario_id = ? ORDER BY created_at',
     ).all(scenarioId) as Row[];
     const segmentStatement = this.#database.prepare(
       'SELECT content_enc FROM source_segments WHERE source_id = ?',
@@ -252,11 +252,19 @@ export class ProductDatabase {
     return rows.map((row) => ({
       id: String(row.id),
       label: String(row.label),
+      intent: row.intent_enc ? this.#codec.decrypt(String(row.intent_enc)) : '',
       kind: String(row.kind),
       createdAt: String(row.created_at),
       characters: (segmentStatement.all(String(row.id)) as Row[])
         .reduce((total, segment) => total + this.#codec.decrypt(String(segment.content_enc)).length, 0),
     }));
+  }
+
+  readSourceContent(sourceId: string): string {
+    const rows = this.#database.prepare(
+      'SELECT content_enc FROM source_segments WHERE source_id = ? ORDER BY rowid',
+    ).all(sourceId) as Row[];
+    return rows.map((row) => this.#codec.decrypt(String(row.content_enc))).join('\n');
   }
 
   // Per-material deletion (PRD layered deletion): one authorized source can be
@@ -325,11 +333,12 @@ export class ProductDatabase {
     const now = input.now ?? nowIso();
     const source = sourceSchema.parse({ ...input, createdAt: now });
     this.#database.prepare(`
-      INSERT INTO sources (id, scenario_id, scope, kind, label, content_hash, media_path,
-        retention, authorized_at, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO sources (id, scenario_id, scope, kind, label, intent_enc, content_hash,
+        media_path, retention, authorized_at, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      source.id, source.scenarioId, source.scope, source.kind, source.label, source.contentHash,
+      source.id, source.scenarioId, source.scope, source.kind, source.label,
+      this.#codec.encrypt(source.intent), source.contentHash,
       source.mediaPath, source.retention, source.authorizedAt, source.createdAt,
     );
     return source;

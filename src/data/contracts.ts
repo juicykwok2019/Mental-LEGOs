@@ -44,6 +44,7 @@ export const sourceSchema = z.object({
   scope: dataScopeSchema,
   kind: sourceKindSchema,
   label: z.string().trim().min(1).max(300),
+  intent: z.string().trim().max(2000).default(''),
   contentHash: z.string().regex(/^[a-f0-9]{64}$/u),
   mediaPath: z.string().max(1024).nullable().default(null),
   retention: z.enum(['keep', 'delete-original-keep-derived']).default('keep'),
