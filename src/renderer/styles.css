@@ -589,6 +589,27 @@ button:disabled { cursor: wait; opacity: 0.58; }
 .main-nav .nav-active, .main-nav button.nav-active:hover { background: #2f3a2d; color: #f5f1e8; }
 .shell-error, .shell-busy { width: min(1120px, 100%); margin: 10px auto 0; }
 
+.main-nav .nav-training { color: #2f5034; }
+.main-nav .nav-training.nav-active { color: #f5f1e8; }
+
+.resume-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: min(1120px, 100%);
+  margin: 16px auto 0;
+  padding: 12px 16px;
+  border: 1px solid #c8d8c4;
+  border-radius: 12px;
+  background: #eef5ea;
+  color: #315a35;
+  font-size: 0.9rem;
+}
+
+.resume-strip button { min-height: 36px; padding: 7px 16px; }
+
 /* ── Onboarding ── */
 .onboarding {
   max-width: 640px;
@@ -713,6 +734,7 @@ button:disabled { cursor: wait; opacity: 0.58; }
   box-shadow: 0 2px 10px rgb(65 55 38 / 5%);
 }
 .scenario-block h3 { margin: 0; font-size: 1rem; }
+.block-hint { margin: 0; color: #6a7466; font-size: 0.84rem; line-height: 1.55; }
 .scenario-danger { border-color: #d8b8ae; }
 .scenario-danger button:not(.quiet-button) { background: #a03d2e; }
 .scenario-danger button:not(.quiet-button):hover:not(:disabled) { background: #833225; }

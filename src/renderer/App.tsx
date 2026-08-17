@@ -212,6 +212,15 @@ export function App() {
               {label}
             </button>
           ))}
+          {turn && turn.phase !== 'idle' && (
+            <button
+              type="button"
+              className={view === 'chat' ? 'nav-active nav-training' : 'nav-training'}
+              onClick={() => setView('chat')}
+            >
+              ● 训练中
+            </button>
+          )}
         </nav>
         <div className="runtime-status">
           <span className="status-dot" aria-hidden="true" />
@@ -220,6 +229,13 @@ export function App() {
       </header>
 
       {error && view !== 'chat' && <p className="form-error shell-error" role="alert">{error}</p>}
+
+      {turn && turn.phase !== 'idle' && view !== 'chat' && !needsOnboarding && !editingProfile && (
+        <div className="resume-strip">
+          <span>有一场训练正在进行——切换页面不会丢失，随时回去接着练。</span>
+          <button type="button" onClick={() => setView('chat')}>继续训练</button>
+        </div>
+      )}
 
       {needsOnboarding || editingProfile ? (
         <ProfileOnboarding

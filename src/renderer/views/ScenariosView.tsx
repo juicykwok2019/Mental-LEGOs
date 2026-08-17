@@ -41,6 +41,7 @@ export function ScenariosView(props: ScenariosViewProps) {
   const [materialLabel, setMaterialLabel] = useState('');
   const [materialContent, setMaterialContent] = useState('');
   const [materialNotice, setMaterialNotice] = useState<string | null>(null);
+  const [reviewNotice, setReviewNotice] = useState<string | null>(null);
   const [reviewTranscript, setReviewTranscript] = useState('');
   const [reviewNote, setReviewNote] = useState('');
   const [deletePreview, setDeletePreview] = useState<ScenarioDeletePreview | null>(null);
@@ -159,18 +160,9 @@ export function ScenariosView(props: ScenariosViewProps) {
 
         <section className="scenario-block">
           <h3>材料（{selected.materialCount}）</h3>
-          <input
-            placeholder="材料名称，例如：JD / 我的简历 / 方案摘要"
-            value={materialLabel}
-            maxLength={300}
-            onChange={(event) => setMaterialLabel(event.target.value)}
-          />
-          <textarea
-            placeholder="粘贴材料文本，或用下方按钮选择 PDF / Word / 文本文件"
-            value={materialContent}
-            onChange={(event) => setMaterialContent(event.target.value)}
-          />
-          {materialNotice && <p className="material-notice">{materialNotice}</p>}
+          <p className="block-hint">
+            导入 JD、简历、方案等资料，系统据此生成针对性问题。选择文件，或直接把文本粘贴到下面。
+          </p>
           <div className="phase-actions">
             <button
               type="button"
@@ -186,25 +178,37 @@ export function ScenariosView(props: ScenariosViewProps) {
                   : `已从「${parsed.fileName}」提取 ${parsed.text.length} 字符。确认内容无误后再授权导入。`);
               })}
             >
-              从文件导入（PDF / Word / 文本）
-            </button>
-            <button
-              type="button"
-              disabled={working !== '' || !materialLabel.trim() || !materialContent.trim()}
-              onClick={() => void step('导入材料…', async () => {
-                await window.mentalLegos.addScenarioMaterial({
-                  scenarioId: selected.id,
-                  label: materialLabel.trim(),
-                  content: materialContent.trim(),
-                });
-                setMaterialLabel('');
-                setMaterialContent('');
-                setMaterialNotice(null);
-              })}
-            >
-              授权并导入这份材料
+              📄 选择文件（PDF / Word / 文本）
             </button>
           </div>
+          <input
+            placeholder="材料名称，例如：JD / 我的简历 / 方案摘要"
+            value={materialLabel}
+            maxLength={300}
+            onChange={(event) => setMaterialLabel(event.target.value)}
+          />
+          <textarea
+            placeholder="或直接把材料文本粘贴到这里"
+            value={materialContent}
+            onChange={(event) => setMaterialContent(event.target.value)}
+          />
+          {materialNotice && <p className="material-notice">{materialNotice}</p>}
+          <button
+            type="button"
+            disabled={working !== '' || !materialLabel.trim() || !materialContent.trim()}
+            onClick={() => void step('导入材料…', async () => {
+              await window.mentalLegos.addScenarioMaterial({
+                scenarioId: selected.id,
+                label: materialLabel.trim(),
+                content: materialContent.trim(),
+              });
+              setMaterialLabel('');
+              setMaterialContent('');
+              setMaterialNotice(null);
+            })}
+          >
+            授权并导入这份材料
+          </button>
         </section>
 
         <section className="scenario-block">
@@ -275,11 +279,29 @@ export function ScenariosView(props: ScenariosViewProps) {
 
         <section className="scenario-block">
           <h3>事后复盘</h3>
+          <div className="phase-actions">
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={working !== ''}
+              onClick={() => void step('解析文件…', async () => {
+                const parsed = await window.mentalLegos.parseMaterialFile();
+                if (!parsed) return;
+                setReviewTranscript(parsed.text);
+                setReviewNotice(parsed.warnings.length > 0
+                  ? parsed.warnings.join(' ')
+                  : `已从「${parsed.fileName}」提取转写文本，确认后开始复盘。`);
+              })}
+            >
+              📄 从文件导入转写（PDF / Word / 文本）
+            </button>
+          </div>
           <textarea
-            placeholder="粘贴真实交流的转写或笔记（录音可先在训练页用语音转写）"
+            placeholder="或直接粘贴真实交流的转写或笔记（录音可先在训练页用语音转写）"
             value={reviewTranscript}
             onChange={(event) => setReviewTranscript(event.target.value)}
           />
+          {reviewNotice && <p className="material-notice">{reviewNotice}</p>}
           <input
             placeholder="一句话结果备注（可选），例如：整体顺利，但证据被追问"
             value={reviewNote}
@@ -311,6 +333,7 @@ export function ScenariosView(props: ScenariosViewProps) {
                 });
                 setReviewTranscript('');
                 setReviewNote('');
+                setReviewNotice(null);
               }}
             >
               {costConfirm === 'review' ? '确认复盘' : '开始复盘'}
@@ -375,7 +398,9 @@ export function ScenariosView(props: ScenariosViewProps) {
         <button type="button" onClick={() => setShowCreate(true)}>创建场景</button>
       </div>
       {error && <p className="form-error">{error}</p>}
-      {scenarios.length === 0 && <p>还没有场景。为下一次重要交流创建一个。</p>}
+      {scenarios.length === 0 && (
+        <p>还没有场景。为下一次重要交流创建一个——创建后就能导入 JD、简历等文件材料，生成针对性问题。</p>
+      )}
       <div className="scenario-list">
         {scenarios.map((scenario) => (
           <button
