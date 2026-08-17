@@ -622,13 +622,19 @@ export function SettingsView() {
             {usage.total.outputTokens.toLocaleString()} · 调用 {usage.total.runs} 次
           </p>
         )}
-        {recordings.length > 0 && (
-          <div className="recording-manager">
+        <div className="recording-manager">
+          {recordings.length === 0 ? (
+            <p className="section-copy">
+              本机录音：还没有录音。语音回答后，音频会保存在这里并可逐条删除。
+            </p>
+          ) : (
             <p className="section-copy">
               本机录音（{recordings.length} 条，共{' '}
               {(recordings.reduce((total, item) => total + item.sizeBytes, 0) / 1024 / 1024).toFixed(1)} MB）
               ——转写文字保留在训练记录里，删除只移除音频文件：
             </p>
+          )}
+          {recordings.length > 0 && (
             <ul className="version-list">
               {recordings.map((item) => (
                 <li key={item.recordingId}>
@@ -672,8 +678,8 @@ export function SettingsView() {
                 </li>
               ))}
             </ul>
-          </div>
-        )}
+          )}
+        </div>
         <div className="provider-form">
           <label className="wide-field">
             <span>导出加密数据包（口令至少 8 位，丢失无法恢复）</span>

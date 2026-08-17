@@ -47,6 +47,7 @@ export function HomeView(props: HomeViewProps) {
           />
           <button
             type="button"
+            className="primary-button"
             disabled={props.busy}
             onClick={() => props.onStartOpenPractice(topic.trim())}
           >
