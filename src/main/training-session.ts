@@ -302,6 +302,19 @@ export class TrainingSessionService {
           .map((module) => `${module.title} → ${module.triggers.join('/')}`)
           .join(' | ')}`
         : '',
+      (() => {
+        const pairs: string[] = [];
+        for (const module of modules) {
+          for (const link of this.#product.listModuleLinks(module.id)) {
+            if (link.relation === 'composes-with' && link.direction === 'out') {
+              pairs.push(`${module.title} + ${link.otherTitle}`);
+            }
+          }
+        }
+        return pairs.length > 0
+          ? `Composable module pairs the user linked: ${pairs.slice(0, 5).join(' | ')}`
+          : '';
+      })(),
       gaps.length > 0
         ? `Known knowledge gaps (do NOT re-ask these directly): ${gaps
           .map((entry) => truncate(entry, 100)).join(' | ')}`
@@ -333,6 +346,9 @@ export class TrainingSessionService {
         recentTypes.length > 0
           ? `Recently used types (pick a DIFFERENT one): ${recentTypes.join(', ')}.`
           : '',
+        'If composable module pairs are listed, you MAY design the question so a strong',
+        'answer naturally requires combining one linked pair (composition practice) —',
+        'without naming the modules in the question.',
         'If the question reaches beyond what the profile clearly supports, set exploratory=true.',
         'Do NOT include any outline, answer, hints, or evaluation criteria.',
         'Reply with ONLY this JSON: {"question_type":"...","exploratory":false,"question":"..."}',
@@ -1193,7 +1209,7 @@ export class TrainingSessionService {
       .filter((module) => module.scope === 'global' || module.scenarioId === scenarioId)
       .slice(0, 20);
     if (modules.length === 0) return '(the user has no confirmed modules yet)';
-    return modules.map((module) => {
+    const lines = modules.map((module) => {
       const version = module.currentVersion
         ? this.#product.getLegoVersion(module.id, module.currentVersion)
         : null;
@@ -1204,7 +1220,24 @@ export class TrainingSessionService {
           ? `原话：${truncate(version.payload.languageShells[0], 200)}`
           : '',
       ].filter(Boolean).join(' ');
-    }).join('\n');
+    });
+    const relationLabels: Record<string, string> = {
+      'composes-with': '可组合',
+      'similar-to': '相似',
+      'conflicts-with': '互斥',
+      'precedes': '先于',
+    };
+    const relations: string[] = [];
+    for (const module of modules) {
+      for (const link of this.#product.listModuleLinks(module.id)) {
+        if (link.direction !== 'out') continue;
+        relations.push(`【${module.title}】${relationLabels[link.relation] ?? link.relation}【${link.otherTitle}】`);
+      }
+    }
+    if (relations.length > 0) {
+      lines.push(`Module relations declared by the user: ${relations.slice(0, 10).join('；')}`);
+    }
+    return lines.join('\n');
   }
 
   async composeSpeechOutline(input: {
@@ -1223,6 +1256,8 @@ export class TrainingSessionService {
         'The user\'s confirmed modules (bricks). Core claims MUST come from these:',
         this.#speechModuleContext(input.scenarioId),
         'Structure: 开场钩子 → 2-4 个要点（每个要点标注引用的模块【标题】和它的原话开头）→ 收尾落点。',
+        'Respect declared module relations: 可组合 pairs belong in the same or adjacent',
+        'points; 先于 ordering must hold; 互斥 bricks must not both anchor this speech.',
         'Give each section a time budget summing to the duration.',
         'Where a needed claim has no module, mark it 【缺积木：主题】 instead of inventing content.',
         'Reply in Chinese as a plain outline. No JSON, no full paragraphs of new prose.',
