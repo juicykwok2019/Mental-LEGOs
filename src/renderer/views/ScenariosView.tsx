@@ -197,14 +197,15 @@ export function ScenariosView(props: ScenariosViewProps) {
             type="button"
             disabled={working !== '' || !materialLabel.trim() || !materialContent.trim()}
             onClick={() => void step('导入材料…', async () => {
+              const label = materialLabel.trim();
               await window.mentalLegos.addScenarioMaterial({
                 scenarioId: selected.id,
-                label: materialLabel.trim(),
+                label,
                 content: materialContent.trim(),
               });
               setMaterialLabel('');
               setMaterialContent('');
-              setMaterialNotice(null);
+              setMaterialNotice(`✓ 「${label}」已导入。可以继续添加材料，或点击下方"生成针对性问题"。`);
             })}
           >
             授权并导入这份材料
