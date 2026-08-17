@@ -22,6 +22,11 @@ describe('pause statistics from token timestamps', () => {
 
     const paused = speechStatsLine('字'.repeat(100), 60_000, 3, 2600);
     expect(paused).toContain('明显停顿 3 次，最长 2.6 秒');
+
+    // Unmeasured pauses (text submission / history replay) say nothing
+    // instead of falsely claiming fluent delivery.
+    const unmeasured = speechStatsLine('字'.repeat(100), 60_000, null, null);
+    expect(unmeasured).not.toContain('停顿');
   });
 
   it('reports zero for fluent speech and empty input', () => {

@@ -231,6 +231,16 @@ export class ProductDatabase {
     };
   }
 
+  listQuestionAttempts(questionId: string): Attempt[] {
+    const rows = this.#database.prepare(
+      'SELECT id FROM attempts WHERE question_id = ? ORDER BY created_at',
+    ).all(questionId) as Row[];
+    return rows.flatMap((row) => {
+      const attempt = this.getAttempt(String(row.id));
+      return attempt ? [attempt] : [];
+    });
+  }
+
   listScenarioQuestions(scenarioId: string): Array<Question & { answered: boolean }> {
     const rows = this.#database.prepare(
       "SELECT id FROM questions WHERE scenario_id = ? AND origin != 'variation' ORDER BY created_at",

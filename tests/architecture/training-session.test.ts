@@ -337,6 +337,19 @@ describe('training session v2 orchestration', () => {
     expect(followedUp.phase).toBe('first-attempt');
     expect(followedUp.question?.prompt).toContain('证据');
 
+    // Re-entering a trained question must replay its practice history.
+    const reentered = await service.start({ topic: '', scenarioId: scenario.id, questionId: first.id });
+    expect(reentered.transcript.some((entry) => entry.text.includes('历史回顾'))).toBe(true);
+    expect(reentered.transcript.some((entry) => entry.text.includes('我推动过智能客服项目'))).toBe(true);
+    await service.closeFirst({
+      outcome: 'answered', responseText: '再次作答：我推动过智能客服项目，这次说得更稳。', recordingId: null,
+      openingDelayMs: null, durationMs: null,
+    });
+    await service.diagnose();
+    await service.second('这次我先给结论再给证据。');
+    const backToFollowUp = await service.followUp();
+    expect(backToFollowUp.phase).toBe('first-attempt');
+
     await service.closeFirst({
       outcome: 'answered', responseText: '证据是项目上线率提升。', recordingId: null,
       openingDelayMs: null, durationMs: null,

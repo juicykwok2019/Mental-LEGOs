@@ -214,10 +214,14 @@ export function speechStatsLine(
   return [
     `试讲用时 ${Math.floor(durationMs / 60_000)} 分 ${Math.round((durationMs % 60_000) / 1000)} 秒`,
     `约 ${characters} 字 · 语速 ~${pace} 字/分（汉语演讲舒适区约 180-220 字/分）`,
-    typeof pauseCount === 'number' && pauseCount > 0
-      ? `明显停顿 ${pauseCount} 次，最长 ${((longestPauseMs ?? 0) / 1000).toFixed(1)} 秒`
-      : '没有超过 1.2 秒的明显停顿',
-  ].join(' · ');
+    // null means pauses were not measured (text submission or history replay)
+    // — say nothing rather than falsely claiming a fluent delivery.
+    pauseCount === null
+      ? ''
+      : pauseCount > 0
+        ? `明显停顿 ${pauseCount} 次，最长 ${((longestPauseMs ?? 0) / 1000).toFixed(1)} 秒`
+        : '没有超过 1.2 秒的明显停顿',
+  ].filter(Boolean).join(' · ');
 }
 
 function truncate(text: string, limit: number): string {
@@ -348,6 +352,46 @@ export class TrainingSessionService {
   }
 
   #beginGate(session: ActiveSession, question: Question): void {
+    // Practice history must survive re-entry: attempts are persisted, so a
+    // question the user trained before replays its past answers up front.
+    const history = this.#product.listQuestionAttempts(question.id)
+      .filter((attempt) => attempt.responseText.trim().length > 0);
+    if (history.length > 0) {
+      session.transcript.push({
+        role: 'system',
+        kind: 'status',
+        text: `这道题你之前练过（共 ${history.length} 次有效作答）——历史回顾：`,
+      });
+      for (const attempt of history.slice(-5)) {
+        const day = attempt.createdAt.slice(0, 10);
+        const roundLabel = attempt.round === 'first' ? '第一遍'
+          : attempt.round === 'second' ? '复练' : '变体';
+        session.transcript.push({
+          role: 'user',
+          kind: 'response',
+          text: `〔${day} · ${roundLabel}〕${attempt.responseText}`,
+        });
+        if (session.mode === 'speech' && attempt.durationMs && attempt.durationMs > 0) {
+          session.transcript.push({
+            role: 'system',
+            kind: 'status',
+            text: speechStatsLine(attempt.responseText, attempt.durationMs, null, null),
+          });
+        }
+      }
+      if (history.length > 5) {
+        session.transcript.push({
+          role: 'system',
+          kind: 'status',
+          text: `（更早的 ${history.length - 5} 次作答已省略）`,
+        });
+      }
+      session.transcript.push({
+        role: 'system',
+        kind: 'status',
+        text: '以上为历史记录。现在开始新的一轮——',
+      });
+    }
     const gate = this.#engine.beginFirstAttempt(question.id);
     session.questionId = question.id;
     session.questionPrompt = question.prompt;
