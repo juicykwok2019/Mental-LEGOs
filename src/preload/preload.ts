@@ -30,6 +30,7 @@ import {
   SCENARIO_DELETE_CHANNEL,
   SCENARIO_DELETE_MATERIAL_CHANNEL,
   SCENARIO_DELETE_PREVIEW_CHANNEL,
+  SCENARIO_MATERIAL_INTENT_CHANNEL,
   SCENARIO_LIST_CHANNEL,
   SCENARIO_PREPARE_CHANNEL,
   SCENARIO_REVIEW_CHANNEL,
@@ -72,6 +73,7 @@ import {
   scenarioCreateInputSchema,
   scenarioDeleteMaterialInputSchema,
   scenarioDeletePreviewSchema,
+  scenarioMaterialIntentInputSchema,
   scenarioMaterialInputSchema,
   scenarioReviewInputSchema,
   scenarioSummarySchema,
@@ -96,6 +98,7 @@ import {
   type ScenarioCreateInput,
   type ScenarioDeleteMaterialInput,
   type ScenarioMaterialInput,
+  type ScenarioMaterialIntentInput,
   type ScenarioReviewInput,
   type TrainingCloseFirstInput,
   type TrainingConfirmInput,
@@ -186,6 +189,13 @@ const desktopApi: MentalLegosDesktopApi = Object.freeze({
   },
   async getUsageOverview() {
     return invokeParsed(USAGE_OVERVIEW_CHANNEL, usageOverviewSchema);
+  },
+  async updateScenarioMaterialIntent(input: ScenarioMaterialIntentInput) {
+    return invokeParsed(
+      SCENARIO_MATERIAL_INTENT_CHANNEL,
+      scenarioSummarySchema,
+      scenarioMaterialIntentInputSchema.parse(input),
+    );
   },
   async deleteScenarioMaterial(input: ScenarioDeleteMaterialInput) {
     return invokeParsed(

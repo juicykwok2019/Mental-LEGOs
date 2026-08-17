@@ -163,12 +163,20 @@ export const SCENARIO_CREATE_CHANNEL = 'scenario:create' as const;
 export const SCENARIO_ADD_MATERIAL_CHANNEL = 'scenario:add-material' as const;
 export const MATERIAL_PARSE_FILE_CHANNEL = 'material:parse-file' as const;
 export const SCENARIO_DELETE_MATERIAL_CHANNEL = 'scenario:delete-material' as const;
+export const SCENARIO_MATERIAL_INTENT_CHANNEL = 'scenario:update-material-intent' as const;
 
 export const scenarioDeleteMaterialInputSchema = z.object({
   scenarioId: z.string().uuid(),
   sourceId: z.string().uuid(),
 });
 export type ScenarioDeleteMaterialInput = z.infer<typeof scenarioDeleteMaterialInputSchema>;
+
+export const scenarioMaterialIntentInputSchema = z.object({
+  scenarioId: z.string().uuid(),
+  sourceId: z.string().uuid(),
+  intent: z.string().trim().max(2000),
+});
+export type ScenarioMaterialIntentInput = z.infer<typeof scenarioMaterialIntentInputSchema>;
 export const SCENARIO_PREPARE_CHANNEL = 'scenario:prepare' as const;
 export const SCENARIO_START_QUESTION_CHANNEL = 'scenario:start-question' as const;
 export const SCENARIO_REVIEW_CHANNEL = 'scenario:review' as const;
@@ -504,6 +512,7 @@ export interface MentalLegosDesktopApi {
   deleteModuleVersion(input: LibraryDeleteVersionInput): Promise<LibraryModuleDetail>;
   restoreLibraryModule(moduleId: string): Promise<LibraryModuleDetail>;
   deleteScenarioMaterial(input: ScenarioDeleteMaterialInput): Promise<ScenarioSummary>;
+  updateScenarioMaterialIntent(input: ScenarioMaterialIntentInput): Promise<ScenarioSummary>;
   listRecordings(): Promise<RecordingItem[]>;
   deleteRecording(recordingId: string): Promise<RecordingItem[]>;
   startTraining(input: TrainingStartInput): Promise<TrainingTurnState>;

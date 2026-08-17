@@ -1005,6 +1005,18 @@ export class TrainingSessionService {
     });
   }
 
+  updateScenarioMaterialIntent(input: {
+    scenarioId: string; sourceId: string; intent: string;
+  }): ScenarioSummary {
+    const scenario = this.#product.getScenario(input.scenarioId);
+    if (!scenario) throw new Error('Scenario does not exist.');
+    const owned = this.#product.listScenarioSources(input.scenarioId)
+      .some((source) => source.id === input.sourceId);
+    if (!owned) throw new Error('这份材料不属于当前场景。');
+    this.#product.updateSourceIntent(input.sourceId, input.intent);
+    return this.#scenarioSummary(scenario);
+  }
+
   deleteScenarioMaterial(input: { scenarioId: string; sourceId: string }): ScenarioSummary {
     const scenario = this.#product.getScenario(input.scenarioId);
     if (!scenario) throw new Error('Scenario does not exist.');

@@ -260,6 +260,13 @@ export class ProductDatabase {
     }));
   }
 
+  updateSourceIntent(sourceId: string, intent: string): void {
+    const result = this.#database.prepare(
+      'UPDATE sources SET intent_enc = ? WHERE id = ?',
+    ).run(this.#codec.encrypt(intent), sourceId);
+    if (Number(result.changes) === 0) throw new Error('Source does not exist.');
+  }
+
   readSourceContent(sourceId: string): string {
     const rows = this.#database.prepare(
       'SELECT content_enc FROM source_segments WHERE source_id = ? ORDER BY rowid',

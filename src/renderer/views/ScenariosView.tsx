@@ -45,6 +45,8 @@ export function ScenariosView(props: ScenariosViewProps) {
   const [materialNotice, setMaterialNotice] = useState<string | null>(null);
   const [reviewNotice, setReviewNotice] = useState<string | null>(null);
   const [materialToDelete, setMaterialToDelete] = useState<string | null>(null);
+  const [intentEditId, setIntentEditId] = useState<string | null>(null);
+  const [intentDraft, setIntentDraft] = useState('');
   const [reviewTranscript, setReviewTranscript] = useState('');
   const [reviewNote, setReviewNote] = useState('');
   const [deletePreview, setDeletePreview] = useState<ScenarioDeletePreview | null>(null);
@@ -170,7 +172,36 @@ export function ScenariosView(props: ScenariosViewProps) {
                   <span>
                     {material.label} · {material.characters.toLocaleString()} 字符 ·{' '}
                     {material.addedAt.slice(0, 10)}
-                    {material.intent && <em className="material-intent">期望：{material.intent}</em>}
+                    {intentEditId === material.id ? (
+                      <span className="intent-edit-row">
+                        <input
+                          value={intentDraft}
+                          maxLength={2000}
+                          placeholder="希望这份材料怎么用（留空即清除）"
+                          onChange={(event) => setIntentDraft(event.target.value)}
+                        />
+                        <button
+                          type="button"
+                          className="quiet-button"
+                          disabled={working !== ''}
+                          onClick={() => void step('保存期望…', async () => {
+                            await window.mentalLegos.updateScenarioMaterialIntent({
+                              scenarioId: selected.id,
+                              sourceId: material.id,
+                              intent: intentDraft.trim(),
+                            });
+                            setIntentEditId(null);
+                          })}
+                        >
+                          保存
+                        </button>
+                        <button type="button" className="quiet-button" onClick={() => setIntentEditId(null)}>
+                          取消
+                        </button>
+                      </span>
+                    ) : (
+                      material.intent && <em className="material-intent">期望：{material.intent}</em>
+                    )}
                   </span>
                   {materialToDelete === material.id ? (
                     <span className="phase-actions">
@@ -197,14 +228,27 @@ export function ScenariosView(props: ScenariosViewProps) {
                       </button>
                     </span>
                   ) : (
-                    <button
-                      type="button"
-                      className="quiet-button"
-                      disabled={working !== ''}
-                      onClick={() => setMaterialToDelete(material.id)}
-                    >
-                      删除
-                    </button>
+                    <span className="phase-actions">
+                      <button
+                        type="button"
+                        className="quiet-button intent-edit-button"
+                        disabled={working !== ''}
+                        onClick={() => {
+                          setIntentDraft(material.intent);
+                          setIntentEditId(material.id);
+                        }}
+                      >
+                        {material.intent ? '改期望' : '加期望'}
+                      </button>
+                      <button
+                        type="button"
+                        className="quiet-button"
+                        disabled={working !== ''}
+                        onClick={() => setMaterialToDelete(material.id)}
+                      >
+                        删除
+                      </button>
+                    </span>
                   )}
                 </li>
               ))}

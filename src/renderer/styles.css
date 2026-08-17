@@ -423,6 +423,12 @@ button:disabled { cursor: not-allowed; opacity: 0.58; }
 .version-list li + li { border-top: 1px solid #efe9db; }
 .version-list li > span:first-child { color: #4c5548; }
 .material-intent { display: block; color: #8a7a52; font-style: normal; font-size: 0.8rem; }
+.intent-edit-button { color: #57814e; }
+.intent-edit-row { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+.intent-edit-row input {
+  flex: 1; min-width: 240px; min-height: 32px;
+  padding: 5px 10px; border: 1px solid #cfc7b4; border-radius: 8px; font-size: 0.82rem;
+}
 .version-locked { color: #9aa294; font-size: 0.78rem; }
 
 .count-pill {
