@@ -326,8 +326,8 @@ export function SettingsView() {
       <section className="workspace" aria-labelledby="provider-heading">
         <div className="section-heading">
           <div>
-            <p className="step-label">架构验证 01</p>
-            <h2 id="provider-heading">连接你的核心 Agent</h2>
+            <p className="step-label">模型服务</p>
+            <h2 id="provider-heading" className="view-title">连接 AI 服务商</h2>
           </div>
           <span className={`badge ${setup?.configured ? 'badge-ready' : ''}`}>
             {setup?.configured ? '已配置' : '待配置'}
@@ -518,8 +518,8 @@ export function SettingsView() {
 
         <div className="certification-panel">
           <div>
-            <p className="step-label">架构验证 02</p>
-            <h3>完整 Provider 能力认证</h3>
+            <p className="step-label">服务认证</p>
+            <h3>服务商能力认证</h3>
             <p>
               认证会向当前服务商发送纯合成测试内容，可能产生少量 API 费用；不会发送你的
               简历、JD、录音、画像或语言模块。
@@ -602,13 +602,13 @@ export function SettingsView() {
       <section className="workspace" aria-labelledby="privacy-heading">
         <div className="section-heading">
           <div>
-            <p className="step-label">数据与隐私</p>
-            <h2 id="privacy-heading">你的数据留在本机</h2>
+            <p className="step-label">一切留在本机</p>
+            <h2 id="privacy-heading" className="view-title">数据与隐私</h2>
           </div>
         </div>
         {privacy && (
           <p className="section-copy">
-            数据目录：<code>{privacy.dataDirectory}</code> · 占用约{' '}
+            所有训练数据加密保存在本机，不上传。数据目录：<code>{privacy.dataDirectory}</code> · 占用约{' '}
             {(privacy.diskUsageBytes / 1024 / 1024).toFixed(1)} MB · 模块{' '}
             {privacy.counts.lego_modules ?? 0} · 场景 {privacy.counts.scenarios ?? 0} · 回答{' '}
             {privacy.counts.attempts ?? 0} · 确认记录 {privacy.counts.consent_events ?? 0}
