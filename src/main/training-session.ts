@@ -4,7 +4,10 @@ import path from 'node:path';
 
 import { z } from 'zod';
 
-import { GovernanceRepository } from '../agent/governance';
+// Import the repository directly: the governance index re-exports the MCP
+// kernel, which pulls the Agent SDK (ESM, import.meta) into the CJS main
+// bundle and crashes packaged startup with createRequire({}.url).
+import { GovernanceRepository } from '../agent/governance/repository';
 import type { AgentRuntimePaths } from '../agent/runtime';
 import { FormalMaterializer, validateCandidatePayload } from '../data/formal-materializer';
 import type { ProductDatabase } from '../data/product-database';

@@ -578,10 +578,21 @@ async function createMainWindow(): Promise<void> {
   });
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    await mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
-  } else {
-    await mainWindow.loadURL(PACKAGED_RENDERER_URL);
+    // The forge vite plugin launches Electron and the renderer dev server
+    // concurrently; on a warm start Electron wins the race and the first load
+    // hits ERR_CONNECTION_REFUSED, so retry until the dev server listens.
+    const deadline = Date.now() + 30_000;
+    for (;;) {
+      try {
+        await mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
+        return;
+      } catch (error) {
+        if (Date.now() > deadline) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+    }
   }
+  await mainWindow.loadURL(PACKAGED_RENDERER_URL);
 }
 
 app.whenReady().then(async () => {
