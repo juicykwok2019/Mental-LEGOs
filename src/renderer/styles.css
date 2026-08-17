@@ -137,6 +137,27 @@ h2 {
   letter-spacing: -0.035em;
 }
 
+/* Page-level titles: Chinese in the display serif falls back to a thin
+   oversized system sans, so view titles use the body face, bold, with the
+   same accent bar as inner section headings one size up. */
+.view-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: Inter, "Segoe UI", system-ui, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 750;
+  letter-spacing: 0.01em;
+}
+
+.view-title::before {
+  content: '';
+  width: 5px;
+  height: 22px;
+  border-radius: 3px;
+  background: #2f5034;
+}
+
 .badge {
   padding: 7px 12px;
   border-radius: 999px;

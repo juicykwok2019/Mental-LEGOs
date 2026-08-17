@@ -282,7 +282,7 @@ export function LibraryView() {
 
   return (
     <div className="library-view">
-      <h2>语言乐高库</h2>
+      <h2 className="view-title">语言乐高库</h2>
       {error && <p className="form-error">{error}</p>}
       {modules.length === 0 && <p>还没有模块。完成一次训练并确认候选后，它们会出现在这里。</p>}
       {groups.map((group) => {

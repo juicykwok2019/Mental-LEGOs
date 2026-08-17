@@ -80,7 +80,7 @@ export function ScenariosView(props: ScenariosViewProps) {
   if (showCreate) {
     return (
       <div className="scenario-view">
-        <h2>创建专项场景</h2>
+        <h2 className="view-title">创建专项场景</h2>
         <div className="scenario-form">
           <label>
             <span>类型</span>
@@ -458,7 +458,7 @@ export function ScenariosView(props: ScenariosViewProps) {
   return (
     <div className="scenario-view">
       <div className="section-heading">
-        <h2>专项场景</h2>
+        <h2 className="view-title">专项场景</h2>
         <button type="button" onClick={() => setShowCreate(true)}>创建场景</button>
       </div>
       {error && <p className="form-error">{error}</p>}
