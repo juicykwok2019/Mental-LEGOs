@@ -63,6 +63,11 @@ export function LibraryView() {
             {detail.dueAt && ` · 下次复现 ${detail.dueAt.slice(0, 10)}（到期会出现在首页提示条）`}
           </p>
 
+          <div>
+            <h3 className="anatomy-heading">模块解剖（语义内核 / 逻辑骨架 / 语言外壳 / 触发线索）</h3>
+            <p className="block-hint">一个模块的四件套——它们合起来，才是一块随时可调用的表达积木。</p>
+          </div>
+
           <div className="anatomy">
             <div className="anatomy-item">
               <div className="anatomy-label">语义内核<span>你想表达的核心判断，一句话</span></div>

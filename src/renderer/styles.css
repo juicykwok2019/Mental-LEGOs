@@ -813,6 +813,8 @@ button.scenario-item:hover:not(:disabled) {
 
 .module-meta { color: #6a7466; font-size: 0.84rem; }
 
+.anatomy-heading { margin: 0 0 4px; font-size: 1rem; }
+
 .anatomy { display: flex; flex-direction: column; gap: 16px; }
 .anatomy-item { display: flex; flex-direction: column; gap: 6px; }
 
