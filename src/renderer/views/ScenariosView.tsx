@@ -42,6 +42,7 @@ export function ScenariosView(props: ScenariosViewProps) {
   const [materialContent, setMaterialContent] = useState('');
   const [materialNotice, setMaterialNotice] = useState<string | null>(null);
   const [reviewNotice, setReviewNotice] = useState<string | null>(null);
+  const [materialToDelete, setMaterialToDelete] = useState<string | null>(null);
   const [reviewTranscript, setReviewTranscript] = useState('');
   const [reviewNote, setReviewNote] = useState('');
   const [deletePreview, setDeletePreview] = useState<ScenarioDeletePreview | null>(null);
@@ -160,6 +161,52 @@ export function ScenariosView(props: ScenariosViewProps) {
 
         <section className="scenario-block">
           <h3>材料（{selected.materialCount}）</h3>
+          {selected.materials.length > 0 && (
+            <ul className="version-list">
+              {selected.materials.map((material) => (
+                <li key={material.id}>
+                  <span>
+                    {material.label} · {material.characters.toLocaleString()} 字符 ·{' '}
+                    {material.addedAt.slice(0, 10)}
+                  </span>
+                  {materialToDelete === material.id ? (
+                    <span className="phase-actions">
+                      <button
+                        type="button"
+                        className="quiet-button"
+                        disabled={working !== ''}
+                        onClick={() => void step('删除材料…', async () => {
+                          await window.mentalLegos.deleteScenarioMaterial({
+                            scenarioId: selected.id,
+                            sourceId: material.id,
+                          });
+                          setMaterialToDelete(null);
+                        })}
+                      >
+                        确认删除
+                      </button>
+                      <button
+                        type="button"
+                        className="quiet-button"
+                        onClick={() => setMaterialToDelete(null)}
+                      >
+                        取消
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="quiet-button"
+                      disabled={working !== ''}
+                      onClick={() => setMaterialToDelete(material.id)}
+                    >
+                      删除
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
           <p className="block-hint">
             导入 JD、简历、方案等资料，系统据此生成针对性问题。选择文件，或直接把文本粘贴到下面。
           </p>

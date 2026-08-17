@@ -240,6 +240,47 @@ export class ProductDatabase {
     return Number(row.n ?? 0);
   }
 
+  listScenarioSources(scenarioId: string): Array<{
+    id: string; label: string; kind: string; createdAt: string; characters: number;
+  }> {
+    const rows = this.#database.prepare(
+      'SELECT id, label, kind, created_at FROM sources WHERE scenario_id = ? ORDER BY created_at',
+    ).all(scenarioId) as Row[];
+    const segmentStatement = this.#database.prepare(
+      'SELECT content_enc FROM source_segments WHERE source_id = ?',
+    );
+    return rows.map((row) => ({
+      id: String(row.id),
+      label: String(row.label),
+      kind: String(row.kind),
+      createdAt: String(row.created_at),
+      characters: (segmentStatement.all(String(row.id)) as Row[])
+        .reduce((total, segment) => total + this.#codec.decrypt(String(segment.content_enc)).length, 0),
+    }));
+  }
+
+  // Per-material deletion (PRD layered deletion): one authorized source can be
+  // withdrawn without touching the scenario. Module evidence referencing its
+  // segments keeps the module, mirroring scenario deletion semantics.
+  deleteSource(sourceId: string, now = nowIso()): void {
+    this.#transaction(() => {
+      const row = this.#database.prepare(
+        'SELECT id, scope FROM sources WHERE id = ?',
+      ).get(sourceId) as Row | undefined;
+      if (!row) throw new Error('Source does not exist.');
+      this.#database.prepare('DELETE FROM source_segments WHERE source_id = ?').run(sourceId);
+      this.#database.prepare('DELETE FROM sources WHERE id = ?').run(sourceId);
+      this.#recordConsent({
+        id: randomUUID(),
+        action: 'deletion',
+        objectRef: `source:${sourceId}`,
+        scope: (row.scope as DataScope | undefined) ?? 'scenario',
+        decision: 'granted',
+        occurredAt: now,
+      });
+    });
+  }
+
   listScenarioSegments(scenarioId: string): SourceSegment[] {
     const rows = this.#database.prepare(`
       SELECT ss.id FROM source_segments ss

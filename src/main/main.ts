@@ -56,6 +56,7 @@ import {
   SCENARIO_ADD_MATERIAL_CHANNEL,
   SCENARIO_CREATE_CHANNEL,
   SCENARIO_DELETE_CHANNEL,
+  SCENARIO_DELETE_MATERIAL_CHANNEL,
   SCENARIO_DELETE_PREVIEW_CHANNEL,
   SCENARIO_LIST_CHANNEL,
   SCENARIO_PREPARE_CHANNEL,
@@ -97,6 +98,7 @@ import {
   providerCertificationIdSchema,
   providerCertificationResultSchema,
   scenarioCreateInputSchema,
+  scenarioDeleteMaterialInputSchema,
   scenarioDeletePreviewSchema,
   scenarioMaterialInputSchema,
   scenarioReviewInputSchema,
@@ -699,6 +701,9 @@ function registerIpcHandlers(): void {
   ));
   withService(SCENARIO_ADD_MATERIAL_CHANNEL, async (service, value) => scenarioSummarySchema.parse(
     service.addScenarioMaterial(scenarioMaterialInputSchema.parse(value)),
+  ));
+  withService(SCENARIO_DELETE_MATERIAL_CHANNEL, async (service, value) => scenarioSummarySchema.parse(
+    service.deleteScenarioMaterial(scenarioDeleteMaterialInputSchema.parse(value)),
   ));
   withService(SCENARIO_PREPARE_CHANNEL, async (service, value) => scenarioSummarySchema.parse(
     await service.prepareScenario(z.string().uuid().parse(value)),

@@ -938,9 +938,25 @@ export class TrainingSessionService {
     });
   }
 
+  deleteScenarioMaterial(input: { scenarioId: string; sourceId: string }): ScenarioSummary {
+    const scenario = this.#product.getScenario(input.scenarioId);
+    if (!scenario) throw new Error('Scenario does not exist.');
+    const owned = this.#product.listScenarioSources(input.scenarioId)
+      .some((source) => source.id === input.sourceId);
+    if (!owned) throw new Error('这份材料不属于当前场景。');
+    this.#product.deleteSource(input.sourceId);
+    return this.#scenarioSummary(scenario);
+  }
+
   #scenarioSummary(scenario: Scenario): ScenarioSummary {
     const extras = this.#product.getScenarioExtras(scenario.id);
     const questions = this.#product.listScenarioQuestions(scenario.id);
+    const materials = this.#product.listScenarioSources(scenario.id).map((source) => ({
+      id: source.id,
+      label: source.label,
+      characters: source.characters,
+      addedAt: source.createdAt,
+    }));
     return {
       id: scenario.id,
       type: scenario.type,
@@ -948,9 +964,9 @@ export class TrainingSessionService {
       objective: scenario.objective,
       counterpart: scenario.counterpart,
       status: scenario.status,
-      materialCount: this.#product.countScenarioSources(scenario.id),
-      materialCharacters: this.#product.listScenarioSegments(scenario.id)
-        .reduce((total, segment) => total + segment.content.length, 0),
+      materialCount: materials.length,
+      materialCharacters: materials.reduce((total, material) => total + material.characters, 0),
+      materials,
       moduleCount: this.#product.listLegoModules({ scenarioId: scenario.id }).length,
       preparedQuestions: questions.map((question) => ({
         id: question.id,

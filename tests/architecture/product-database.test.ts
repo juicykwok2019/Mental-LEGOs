@@ -173,6 +173,21 @@ describe('formal product database', () => {
     expect(database.getMasteryState(ids.moduleId)?.stage).toBe('confirmed');
   });
 
+  it('lists scenario sources and deletes one with its segments', () => {
+    const ids = seedScenarioTraining();
+    const sources = database.listScenarioSources(ids.scenarioId);
+    expect(sources).toHaveLength(1);
+    const [source] = sources;
+    if (!source) throw new Error('seed produced no source');
+    expect(source.characters).toBeGreaterThan(0);
+
+    database.deleteSource(source.id, LATER);
+    expect(database.listScenarioSources(ids.scenarioId)).toHaveLength(0);
+    expect(database.listScenarioSegments(ids.scenarioId)).toHaveLength(0);
+    expect(database.listConsentEvents(`source:${source.id}`)).toHaveLength(1);
+    expect(() => database.deleteSource(source.id)).toThrow('Source');
+  });
+
   it('deletes a single module version and repoints the current pointer', () => {
     const ids = seedScenarioTraining();
     database.confirmLegoVersion(ids.moduleId, 1, NOW);
