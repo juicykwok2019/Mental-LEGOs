@@ -18,6 +18,7 @@ import { AsrWorkerHost } from './asr-worker-host';
 import { BashRuntimeManager } from '../bash/runtime-manager';
 import { loadBashRuntimeManifest } from '../bash/runtime-manifest';
 import { CredentialVault } from './credential-vault';
+import { parseMaterialFile } from './material-file';
 import { ProviderCertificationService } from './provider-certification';
 import { ProviderConfigurationService } from './provider-configuration';
 import { ProviderSettingsStore } from './provider-settings-store';
@@ -43,6 +44,7 @@ import {
   LIBRARY_MODULE_DETAIL_CHANNEL,
   LIBRARY_PROMOTE_CHANNEL,
   LIBRARY_REAL_WORLD_CHANNEL,
+  MATERIAL_PARSE_FILE_CHANNEL,
   PRIVACY_EXPORT_CHANNEL,
   PRIVACY_OVERVIEW_CHANNEL,
   PROFILE_GET_CHANNEL,
@@ -77,6 +79,7 @@ import {
   libraryModuleSummarySchema,
   libraryPromoteInputSchema,
   libraryRealWorldInputSchema,
+  parsedMaterialFileSchema,
   privacyExportResultSchema,
   privacyOverviewSchema,
   profileSeedInputSchema,
@@ -782,6 +785,22 @@ function registerIpcHandlers(): void {
       result: input.result,
       note: input.note,
     });
+  });
+
+  guarded(MATERIAL_PARSE_FILE_CHANNEL, async () => {
+    const window = mainWindow;
+    if (!window) throw new Error('Main window is unavailable.');
+    const dialogResult = await dialog.showOpenDialog(window, {
+      title: '选择材料文件',
+      properties: ['openFile'],
+      filters: [
+        { name: '材料文件', extensions: ['pdf', 'docx', 'txt', 'md', 'markdown'] },
+        { name: '所有文件', extensions: ['*'] },
+      ],
+    });
+    const [selectedPath] = dialogResult.filePaths;
+    if (dialogResult.canceled || !selectedPath) return null;
+    return parsedMaterialFileSchema.parse(await parseMaterialFile(selectedPath));
   });
 
   withService(PRIVACY_OVERVIEW_CHANNEL, async () => {

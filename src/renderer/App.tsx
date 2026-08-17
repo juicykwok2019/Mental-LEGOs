@@ -34,6 +34,7 @@ function ProfileOnboarding(props: {
   const [seed, setSeed] = useState<ProfileSeedInput>(props.initial ?? EMPTY_SEED);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   return (
     <div className="onboarding">
@@ -75,6 +76,29 @@ function ProfileOnboarding(props: {
           onChange={(event) => setSeed({ ...seed, material: event.target.value })}
         />
       </label>
+      <button
+        type="button"
+        className="secondary-button"
+        disabled={busy}
+        onClick={() => {
+          setBusy(true);
+          setError(null);
+          window.mentalLegos.parseMaterialFile().then((parsed) => {
+            if (!parsed) return;
+            // Profile seed material caps at 200k characters (profileSeedInputSchema).
+            const limit = 200_000;
+            setSeed((current) => ({ ...current, material: parsed.text.slice(0, limit) }));
+            const messages = [`已从「${parsed.fileName}」提取文本，确认内容无误后保存。`, ...parsed.warnings];
+            if (parsed.text.length > limit) messages.push('内容超过画像材料上限，已截断。');
+            setNotice(messages.join(' '));
+          }).catch((reason: unknown) => {
+            setError(messageFrom(reason));
+          }).finally(() => setBusy(false));
+        }}
+      >
+        从文件导入（PDF / Word / 文本）
+      </button>
+      {notice && <p className="material-notice">{notice}</p>}
       {error && <p className="form-error">{error}</p>}
       <div className="phase-actions">
         <button

@@ -347,6 +347,15 @@ button:disabled { cursor: wait; opacity: 0.58; }
   font-size: 0.86rem;
 }
 
+.material-notice {
+  margin: 4px 0 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #e9f2e5;
+  color: #315a35;
+  font-size: 0.82rem;
+}
+
 .notice-error { background: #fae9e5; color: #813e34; }
 
 .certification-panel {

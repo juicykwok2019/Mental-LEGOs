@@ -161,6 +161,7 @@ export const TRAINING_DUE_CHANNEL = 'training:due' as const;
 export const SCENARIO_LIST_CHANNEL = 'scenario:list' as const;
 export const SCENARIO_CREATE_CHANNEL = 'scenario:create' as const;
 export const SCENARIO_ADD_MATERIAL_CHANNEL = 'scenario:add-material' as const;
+export const MATERIAL_PARSE_FILE_CHANNEL = 'material:parse-file' as const;
 export const SCENARIO_PREPARE_CHANNEL = 'scenario:prepare' as const;
 export const SCENARIO_START_QUESTION_CHANNEL = 'scenario:start-question' as const;
 export const SCENARIO_REVIEW_CHANNEL = 'scenario:review' as const;
@@ -310,6 +311,15 @@ export const scenarioMaterialInputSchema = z.object({
 });
 export type ScenarioMaterialInput = z.infer<typeof scenarioMaterialInputSchema>;
 
+export const parsedMaterialFileSchema = z.object({
+  fileName: z.string().min(1),
+  kind: z.enum(['pdf', 'docx', 'text']),
+  text: z.string(),
+  warnings: z.array(z.string()),
+  truncated: z.boolean(),
+});
+export type ParsedMaterialFile = z.infer<typeof parsedMaterialFileSchema>;
+
 export const scenarioQuestionSummarySchema = z.object({
   id: z.string().uuid(),
   prompt: z.string().min(1),
@@ -419,6 +429,7 @@ export interface MentalLegosDesktopApi {
   installSpeechModel(): Promise<SpeechReadinessState>;
   transcribeRecording(wav: ArrayBuffer): Promise<SpeechTranscriptionResult>;
   getTrainingState(): Promise<TrainingTurnState>;
+  parseMaterialFile(): Promise<ParsedMaterialFile | null>;
   startTraining(input: TrainingStartInput): Promise<TrainingTurnState>;
   closeFirstAttempt(input: TrainingCloseFirstInput): Promise<TrainingTurnState>;
   resolveGap(input: TrainingGapInput): Promise<TrainingTurnState>;

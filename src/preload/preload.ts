@@ -9,6 +9,7 @@ import {
   LIBRARY_MODULE_DETAIL_CHANNEL,
   LIBRARY_PROMOTE_CHANNEL,
   LIBRARY_REAL_WORLD_CHANNEL,
+  MATERIAL_PARSE_FILE_CHANNEL,
   PRIVACY_EXPORT_CHANNEL,
   PRIVACY_OVERVIEW_CHANNEL,
   PROFILE_GET_CHANNEL,
@@ -50,6 +51,7 @@ import {
   libraryModuleSummarySchema,
   libraryPromoteInputSchema,
   libraryRealWorldInputSchema,
+  parsedMaterialFileSchema,
   privacyExportResultSchema,
   privacyOverviewSchema,
   profileSeedInputSchema,
@@ -166,6 +168,9 @@ const desktopApi: MentalLegosDesktopApi = Object.freeze({
   },
   async getTrainingState() {
     return invokeParsed(TRAINING_STATE_CHANNEL, trainingTurnStateSchema);
+  },
+  async parseMaterialFile() {
+    return invokeParsed(MATERIAL_PARSE_FILE_CHANNEL, parsedMaterialFileSchema.nullable());
   },
   async startTraining(input: TrainingStartInput) {
     return invokeParsed(TRAINING_START_CHANNEL, trainingTurnStateSchema, trainingStartInputSchema.parse(input));

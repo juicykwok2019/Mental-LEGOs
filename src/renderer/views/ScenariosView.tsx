@@ -38,6 +38,7 @@ export function ScenariosView(props: ScenariosViewProps) {
   });
   const [materialLabel, setMaterialLabel] = useState('');
   const [materialContent, setMaterialContent] = useState('');
+  const [materialNotice, setMaterialNotice] = useState<string | null>(null);
   const [reviewTranscript, setReviewTranscript] = useState('');
   const [reviewNote, setReviewNote] = useState('');
   const [deletePreview, setDeletePreview] = useState<ScenarioDeletePreview | null>(null);
@@ -162,25 +163,45 @@ export function ScenariosView(props: ScenariosViewProps) {
             onChange={(event) => setMaterialLabel(event.target.value)}
           />
           <textarea
-            placeholder="粘贴材料文本（支持任意长度文本；文件请先复制内容粘贴）"
+            placeholder="粘贴材料文本，或用下方按钮选择 PDF / Word / 文本文件"
             value={materialContent}
             onChange={(event) => setMaterialContent(event.target.value)}
           />
-          <button
-            type="button"
-            disabled={working !== '' || !materialLabel.trim() || !materialContent.trim()}
-            onClick={() => void step('导入材料…', async () => {
-              await window.mentalLegos.addScenarioMaterial({
-                scenarioId: selected.id,
-                label: materialLabel.trim(),
-                content: materialContent.trim(),
-              });
-              setMaterialLabel('');
-              setMaterialContent('');
-            })}
-          >
-            授权并导入这份材料
-          </button>
+          {materialNotice && <p className="material-notice">{materialNotice}</p>}
+          <div className="phase-actions">
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={working !== ''}
+              onClick={() => void step('解析文件…', async () => {
+                const parsed = await window.mentalLegos.parseMaterialFile();
+                if (!parsed) return;
+                setMaterialLabel((current) => (current.trim() ? current : parsed.fileName));
+                setMaterialContent(parsed.text);
+                setMaterialNotice(parsed.warnings.length > 0
+                  ? parsed.warnings.join(' ')
+                  : `已从「${parsed.fileName}」提取 ${parsed.text.length} 字符。确认内容无误后再授权导入。`);
+              })}
+            >
+              从文件导入（PDF / Word / 文本）
+            </button>
+            <button
+              type="button"
+              disabled={working !== '' || !materialLabel.trim() || !materialContent.trim()}
+              onClick={() => void step('导入材料…', async () => {
+                await window.mentalLegos.addScenarioMaterial({
+                  scenarioId: selected.id,
+                  label: materialLabel.trim(),
+                  content: materialContent.trim(),
+                });
+                setMaterialLabel('');
+                setMaterialContent('');
+                setMaterialNotice(null);
+              })}
+            >
+              授权并导入这份材料
+            </button>
+          </div>
         </section>
 
         <section className="scenario-block">
