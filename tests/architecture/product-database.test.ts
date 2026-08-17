@@ -207,6 +207,18 @@ describe('formal product database', () => {
     expect(() => database.deleteSource(source.id)).toThrow('Source');
   });
 
+  it('hard-deletes a module with versions and mastery cascading', () => {
+    const ids = seedScenarioTraining();
+    database.confirmLegoVersion(ids.moduleId, 1, NOW);
+    database.deleteLegoModule(ids.moduleId, LATER);
+    expect(database.getLegoModule(ids.moduleId)).toBeNull();
+    expect(database.getLegoVersion(ids.moduleId, 1)).toBeNull();
+    expect(database.getMasteryState(ids.moduleId)).toBeNull();
+    expect(database.listConsentEvents(`lego:${ids.moduleId}`)
+      .some((event) => event.action === 'deletion')).toBe(true);
+    expect(database.search('壁垒').some((hit) => hit.entityId === ids.moduleId)).toBe(false);
+  });
+
   it('restores an archived module back to confirmed', () => {
     const ids = seedScenarioTraining();
     database.confirmLegoVersion(ids.moduleId, 1, NOW);

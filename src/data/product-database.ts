@@ -798,6 +798,26 @@ export class ProductDatabase {
     ).run('archived', now, moduleId);
   }
 
+  // Hard deletion of a whole module (layered-deletion family). Versions,
+  // links, and mastery state cascade; practice events keep their rows with a
+  // nulled module reference, and a deletion consent event is recorded.
+  deleteLegoModule(moduleId: string, now = nowIso()): void {
+    this.#transaction(() => {
+      const module = this.getLegoModule(moduleId);
+      if (!module) throw new Error('Module does not exist.');
+      this.#dropSearchText('lego-module', moduleId);
+      this.#database.prepare('DELETE FROM lego_modules WHERE id = ?').run(moduleId);
+      this.#recordConsent({
+        id: randomUUID(),
+        action: 'deletion',
+        objectRef: `lego:${moduleId}`,
+        scope: module.scope,
+        decision: 'granted',
+        occurredAt: now,
+      });
+    });
+  }
+
   restoreLegoModule(moduleId: string, now = nowIso()): void {
     const module = this.getLegoModule(moduleId);
     if (!module) throw new Error('Module does not exist.');

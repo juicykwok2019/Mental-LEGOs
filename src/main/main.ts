@@ -41,6 +41,7 @@ import {
   PROVIDER_SETUP_SAVE_CHANNEL,
   RENDERER_READY_CHANNEL,
   LIBRARY_ARCHIVE_CHANNEL,
+  LIBRARY_DELETE_MODULE_CHANNEL,
   LIBRARY_DELETE_VERSION_CHANNEL,
   LIBRARY_LIST_CHANNEL,
   LIBRARY_RESTORE_CHANNEL,
@@ -800,6 +801,11 @@ function registerIpcHandlers(): void {
     const database = await getProductDatabase();
     database.deleteLegoVersion(input.moduleId, input.version);
     return buildModuleDetail(database, input.moduleId);
+  });
+  withService(LIBRARY_DELETE_MODULE_CHANNEL, async (_service, value) => {
+    const moduleId = z.string().uuid().parse(value);
+    const database = await getProductDatabase();
+    database.deleteLegoModule(moduleId);
   });
   withService(LIBRARY_RESTORE_CHANNEL, async (_service, value) => {
     const moduleId = z.string().uuid().parse(value);

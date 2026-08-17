@@ -5,6 +5,7 @@ import {
   AGENT_READINESS_GET_CHANNEL,
   BASH_RUNTIME_INSTALL_CHANNEL,
   LIBRARY_ARCHIVE_CHANNEL,
+  LIBRARY_DELETE_MODULE_CHANNEL,
   LIBRARY_DELETE_VERSION_CHANNEL,
   LIBRARY_LIST_CHANNEL,
   LIBRARY_RESTORE_CHANNEL,
@@ -203,6 +204,9 @@ const desktopApi: MentalLegosDesktopApi = Object.freeze({
       scenarioSummarySchema,
       scenarioDeleteMaterialInputSchema.parse(input),
     );
+  },
+  async deleteLibraryModule(moduleId: string) {
+    await ipcRenderer.invoke(LIBRARY_DELETE_MODULE_CHANNEL, z.string().uuid().parse(moduleId));
   },
   async restoreLibraryModule(moduleId: string) {
     return invokeParsed(

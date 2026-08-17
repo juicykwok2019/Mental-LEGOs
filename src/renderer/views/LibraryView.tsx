@@ -22,6 +22,7 @@ export function LibraryView() {
   const [versionToDelete, setVersionToDelete] = useState<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [archiveConfirm, setArchiveConfirm] = useState(false);
+  const [moduleDeleteConfirm, setModuleDeleteConfirm] = useState(false);
   const [filter, setFilter] = useState('all');
 
   async function refresh(): Promise<void> {
@@ -253,18 +254,53 @@ export function LibraryView() {
               <h3>已归档</h3>
               <p className="block-hint">
                 这个模块处于归档状态：不参与复现调度，只出现在库首页的"已归档"分组里。
-                恢复后回到原分组，重新进入复现调度。
+                恢复后回到原分组，重新进入复现调度；确定再也不需要时，可在这里彻底删除。
               </p>
-              <button
-                type="button"
-                disabled={working}
-                onClick={() => void step(async () => {
-                  setDetail(await window.mentalLegos.restoreLibraryModule(detail.id));
-                  setNotice('✓ 已恢复——模块回到了库中的原分组，并重新进入复现调度。');
-                })}
-              >
-                恢复此模块
-              </button>
+              <div className="phase-actions">
+                <button
+                  type="button"
+                  disabled={working}
+                  onClick={() => void step(async () => {
+                    setDetail(await window.mentalLegos.restoreLibraryModule(detail.id));
+                    setNotice('✓ 已恢复——模块回到了库中的原分组，并重新进入复现调度。');
+                  })}
+                >
+                  恢复此模块
+                </button>
+                {moduleDeleteConfirm ? (
+                  <>
+                    <button
+                      type="button"
+                      className="quiet-button"
+                      disabled={working}
+                      onClick={() => void step(async () => {
+                        await window.mentalLegos.deleteLibraryModule(detail.id);
+                        setDetail(null);
+                        setModuleDeleteConfirm(false);
+                      })}
+                    >
+                      确认彻底删除（不可恢复）
+                    </button>
+                    <button type="button" className="quiet-button" onClick={() => setModuleDeleteConfirm(false)}>
+                      取消
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="quiet-button"
+                    disabled={working}
+                    onClick={() => setModuleDeleteConfirm(true)}
+                  >
+                    彻底删除此模块…
+                  </button>
+                )}
+              </div>
+              {moduleDeleteConfirm && (
+                <p className="block-hint">
+                  将删除全部 {detail.versions.length} 个版本与掌握记录，不可恢复；删除动作会记入确认事件。
+                </p>
+              )}
             </section>
           ) : (
           <section className="scenario-block">
@@ -359,6 +395,7 @@ export function LibraryView() {
                   setVersionToDelete(null);
                   setNotice(null);
                   setArchiveConfirm(false);
+                  setModuleDeleteConfirm(false);
                   window.mentalLegos.getLibraryModule(module.id)
                     .then(setDetail)
                     .catch((reason: unknown) => setError(messageFrom(reason)));
