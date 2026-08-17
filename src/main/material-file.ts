@@ -140,7 +140,44 @@ export function decodeTextBuffer(bytes: Buffer): { text: string; warnings: strin
   return { text: utf8, warnings: ['文件包含无法解码的字符，请核对内容。'] };
 }
 
+// pdfjs's legacy build references browser canvas geometry (e.g. a top-level
+// `new DOMMatrix()` in its rendering code) and normally polyfills it from
+// @napi-rs/canvas via createRequire(import.meta.url) — which is undefined in
+// the Vite-bundled CJS main process, and the canvas package is not shipped in
+// the packaged app at all. Text extraction never draws, so inert stand-ins
+// are sufficient; they must be installed before the module loads.
+function installPdfGeometryStubs(): void {
+  const globals = globalThis as Record<string, unknown>;
+  if (typeof globals.DOMMatrix === 'undefined') {
+    globals.DOMMatrix = class TextOnlyDOMMatrix {
+      a = 1; b = 0; c = 0; d = 1; e = 0; f = 0;
+
+      constructor(init?: unknown) {
+        if (Array.isArray(init) && init.length >= 6) {
+          const [a = 1, b = 0, c = 0, d = 1, e = 0, f = 0] = init as number[];
+          Object.assign(this, { a, b, c, d, e, f });
+        }
+      }
+
+      multiply(): TextOnlyDOMMatrix { return this; }
+      translate(): TextOnlyDOMMatrix { return this; }
+      scale(): TextOnlyDOMMatrix { return this; }
+      invertSelf(): TextOnlyDOMMatrix { return this; }
+      transformPoint(point?: unknown): unknown { return point ?? { x: 0, y: 0 }; }
+    };
+  }
+  if (typeof globals.Path2D === 'undefined') {
+    globals.Path2D = class TextOnlyPath2D {
+      addPath(): void { /* text extraction never draws */ }
+      moveTo(): void { /* text extraction never draws */ }
+      lineTo(): void { /* text extraction never draws */ }
+      closePath(): void { /* text extraction never draws */ }
+    };
+  }
+}
+
 async function extractPdfText(fileBytes: Buffer, warnings: string[]): Promise<string> {
+  installPdfGeometryStubs();
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
   const loadingTask = pdfjs.getDocument({
     // pdfjs mutates/transfers its input, so hand it a private copy.
