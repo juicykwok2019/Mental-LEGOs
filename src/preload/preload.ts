@@ -10,7 +10,9 @@ import {
   LIBRARY_ARCHIVE_CHANNEL,
   LIBRARY_DELETE_MODULE_CHANNEL,
   LIBRARY_DELETE_VERSION_CHANNEL,
+  LIBRARY_LINK_CHANNEL,
   LIBRARY_LIST_CHANNEL,
+  LIBRARY_UNLINK_CHANNEL,
   LIBRARY_RESTORE_CHANNEL,
   LIBRARY_MODULE_DETAIL_CHANNEL,
   LIBRARY_PROMOTE_CHANNEL,
@@ -61,7 +63,9 @@ import {
   foundationOverviewSchema,
   foundationResolveAssertionInputSchema,
   libraryDeleteVersionInputSchema,
+  libraryLinkInputSchema,
   libraryModuleDetailSchema,
+  libraryUnlinkInputSchema,
   libraryModuleSummarySchema,
   libraryPromoteInputSchema,
   libraryRealWorldInputSchema,
@@ -98,6 +102,8 @@ import {
   type MentalLegosDesktopApi,
   type FoundationResolveAssertionInput,
   type LibraryDeleteVersionInput,
+  type LibraryLinkInput,
+  type LibraryUnlinkInput,
   type LibraryPromoteInput,
   type LibraryRealWorldInput,
   type ProfileSeedInput,
@@ -209,6 +215,20 @@ const desktopApi: MentalLegosDesktopApi = Object.freeze({
       SCENARIO_DELETE_MATERIAL_CHANNEL,
       scenarioSummarySchema,
       scenarioDeleteMaterialInputSchema.parse(input),
+    );
+  },
+  async linkLibraryModules(input: LibraryLinkInput) {
+    return invokeParsed(
+      LIBRARY_LINK_CHANNEL,
+      libraryModuleDetailSchema,
+      libraryLinkInputSchema.parse(input),
+    );
+  },
+  async unlinkLibraryModules(input: LibraryUnlinkInput) {
+    return invokeParsed(
+      LIBRARY_UNLINK_CHANNEL,
+      libraryModuleDetailSchema,
+      libraryUnlinkInputSchema.parse(input),
     );
   },
   async getFoundationOverview() {

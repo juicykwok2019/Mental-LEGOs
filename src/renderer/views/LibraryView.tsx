@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import type { LibraryModuleDetail, LibraryModuleSummary } from '../../shared/contracts';
-import { categoryLabel, stageLabel } from '../labels';
+import { categoryLabel, relationLabel, stageLabel } from '../labels';
 
 function messageFrom(reason: unknown): string {
   return reason instanceof Error ? reason.message : '发生了未知错误。';
@@ -24,6 +24,8 @@ export function LibraryView() {
   const [archiveConfirm, setArchiveConfirm] = useState(false);
   const [moduleDeleteConfirm, setModuleDeleteConfirm] = useState(false);
   const [filter, setFilter] = useState('all');
+  const [linkTarget, setLinkTarget] = useState('');
+  const [linkRelation, setLinkRelation] = useState<'composes-with' | 'similar-to' | 'conflicts-with' | 'precedes'>('composes-with');
 
   async function refresh(): Promise<void> {
     try {
@@ -142,6 +144,73 @@ export function LibraryView() {
                   {result === 'success' ? '成功调用' : result === 'partial' ? '部分调用' : '没调用出来'}
                 </button>
               ))}
+            </div>
+          </section>
+
+          <section className="scenario-block">
+            <h3>
+              模块关系
+              {detail.links.length > 0 && <span className="count-pill">{detail.links.length}</span>}
+            </h3>
+            <p className="block-hint">
+              积木之间怎么拼：可组合=常一起使用；相似=表达相近的判断；互斥=立场冲突不宜同场；
+              先于=通常先说这块再说那块。关系会帮助将来把多块积木组装成完整表达。
+            </p>
+            {detail.links.length > 0 && (
+              <ul className="version-list">
+                {detail.links.map((link) => (
+                  <li key={link.id}>
+                    <span>
+                      <em className="scope-tag">{relationLabel(link.relation)}</em>
+                      {link.otherTitle}
+                    </span>
+                    <button
+                      type="button"
+                      className="quiet-button"
+                      disabled={working}
+                      onClick={() => void step(async () => {
+                        setDetail(await window.mentalLegos.unlinkLibraryModules({
+                          moduleId: detail.id, linkId: link.id,
+                        }));
+                      })}
+                    >
+                      解除
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="phase-actions link-form">
+              <select
+                value={linkRelation}
+                onChange={(event) => setLinkRelation(event.target.value as typeof linkRelation)}
+              >
+                <option value="composes-with">可组合</option>
+                <option value="similar-to">相似</option>
+                <option value="conflicts-with">互斥</option>
+                <option value="precedes">先于</option>
+              </select>
+              <select value={linkTarget} onChange={(event) => setLinkTarget(event.target.value)}>
+                <option value="">选择另一块积木…</option>
+                {modules
+                  .filter((module) => module.id !== detail.id && module.status !== 'archived')
+                  .map((module) => (
+                    <option key={module.id} value={module.id}>{module.title}</option>
+                  ))}
+              </select>
+              <button
+                type="button"
+                className="secondary-button"
+                disabled={working || !linkTarget}
+                onClick={() => void step(async () => {
+                  setDetail(await window.mentalLegos.linkLibraryModules({
+                    moduleId: detail.id, targetModuleId: linkTarget, relation: linkRelation,
+                  }));
+                  setLinkTarget('');
+                })}
+              >
+                建立关系
+              </button>
             </div>
           </section>
 

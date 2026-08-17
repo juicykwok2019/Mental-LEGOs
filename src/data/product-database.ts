@@ -980,11 +980,43 @@ export class ProductDatabase {
   linkModules(input: Omit<ModuleLink, 'createdAt'> & { now?: string }): ModuleLink {
     const now = input.now ?? nowIso();
     const link = moduleLinkSchema.parse({ ...input, createdAt: now });
+    if (link.fromModuleId === link.toModuleId) {
+      throw new Error('模块不能与自己建立关系。');
+    }
+    if (!this.getLegoModule(link.toModuleId)) throw new Error('Target module does not exist.');
     this.#database.prepare(`
-      INSERT INTO module_links (id, from_module_id, to_module_id, relation, created_at)
+      INSERT OR IGNORE INTO module_links (id, from_module_id, to_module_id, relation, created_at)
       VALUES (?, ?, ?, ?, ?)
     `).run(link.id, link.fromModuleId, link.toModuleId, link.relation, link.createdAt);
     return link;
+  }
+
+  listModuleLinks(moduleId: string): Array<{
+    id: string; otherModuleId: string; otherTitle: string;
+    relation: ModuleLink['relation']; direction: 'out' | 'in';
+  }> {
+    const rows = this.#database.prepare(`
+      SELECT ml.id, ml.relation, ml.from_module_id, ml.to_module_id, lm.title AS other_title
+      FROM module_links ml
+      JOIN lego_modules lm
+        ON lm.id = CASE WHEN ml.from_module_id = ? THEN ml.to_module_id ELSE ml.from_module_id END
+      WHERE ml.from_module_id = ? OR ml.to_module_id = ?
+      ORDER BY ml.created_at
+    `).all(moduleId, moduleId, moduleId) as Row[];
+    return rows.map((row) => ({
+      id: String(row.id),
+      otherModuleId: String(row.from_module_id) === moduleId
+        ? String(row.to_module_id)
+        : String(row.from_module_id),
+      otherTitle: String(row.other_title),
+      relation: row.relation as ModuleLink['relation'],
+      direction: String(row.from_module_id) === moduleId ? 'out' : 'in',
+    }));
+  }
+
+  unlinkModules(linkId: string): void {
+    const result = this.#database.prepare('DELETE FROM module_links WHERE id = ?').run(linkId);
+    if (Number(result.changes) === 0) throw new Error('Module link does not exist.');
   }
 
   // ─── Mastery and practice ────────────────────────────────────────────────

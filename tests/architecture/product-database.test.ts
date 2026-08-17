@@ -207,6 +207,39 @@ describe('formal product database', () => {
     expect(() => database.deleteSource(source.id)).toThrow('Source');
   });
 
+  it('links modules bidirectionally and unlinks by id', () => {
+    const ids = seedScenarioTraining();
+    const other = database.createLegoCandidate({
+      id: randomUUID(),
+      scope: 'global',
+      scenarioId: null,
+      category: 'evidence',
+      title: '证据支撑模块',
+      triggers: [],
+      payload,
+      authorship: 'user-native',
+      evidenceSegmentIds: [],
+      now: NOW,
+    });
+    const link = database.linkModules({
+      id: randomUUID(),
+      fromModuleId: ids.moduleId,
+      toModuleId: other.module.id,
+      relation: 'composes-with',
+    });
+    const fromSide = database.listModuleLinks(ids.moduleId);
+    expect(fromSide).toHaveLength(1);
+    expect(fromSide[0]?.otherTitle).toBe('证据支撑模块');
+    expect(fromSide[0]?.direction).toBe('out');
+    const toSide = database.listModuleLinks(other.module.id);
+    expect(toSide[0]?.direction).toBe('in');
+    expect(() => database.linkModules({
+      id: randomUUID(), fromModuleId: ids.moduleId, toModuleId: ids.moduleId, relation: 'similar-to',
+    })).toThrow('自己');
+    database.unlinkModules(link.id);
+    expect(database.listModuleLinks(ids.moduleId)).toHaveLength(0);
+  });
+
   it('hard-deletes a module with versions and mastery cascading', () => {
     const ids = seedScenarioTraining();
     database.confirmLegoVersion(ids.moduleId, 1, NOW);

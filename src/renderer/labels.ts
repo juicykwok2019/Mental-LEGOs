@@ -43,6 +43,17 @@ const KNOWLEDGE_KIND_LABELS: Record<string, string> = {
   'assumption': '待思考',
 };
 
+const RELATION_LABELS: Record<string, string> = {
+  'composes-with': '可组合',
+  'similar-to': '相似',
+  'conflicts-with': '互斥',
+  'precedes': '先于',
+};
+
+export function relationLabel(relation: string): string {
+  return RELATION_LABELS[relation] ?? relation;
+}
+
 export function tierLabel(tier: string): string {
   return TIER_LABELS[tier] ?? tier;
 }

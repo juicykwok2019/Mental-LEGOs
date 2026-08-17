@@ -190,6 +190,8 @@ export const LIBRARY_REAL_WORLD_CHANNEL = 'library:real-world-report' as const;
 export const LIBRARY_DELETE_VERSION_CHANNEL = 'library:delete-version' as const;
 export const LIBRARY_RESTORE_CHANNEL = 'library:restore-module' as const;
 export const LIBRARY_DELETE_MODULE_CHANNEL = 'library:delete-module' as const;
+export const LIBRARY_LINK_CHANNEL = 'library:link-modules' as const;
+export const LIBRARY_UNLINK_CHANNEL = 'library:unlink-modules' as const;
 export const RECORDING_LIST_CHANNEL = 'recording:list' as const;
 export const RECORDING_DELETE_CHANNEL = 'recording:delete' as const;
 export const FOUNDATION_OVERVIEW_CHANNEL = 'foundation:overview' as const;
@@ -483,8 +485,28 @@ export const libraryModuleDetailSchema = libraryModuleSummarySchema.extend({
     createdAt: z.string(),
     isCurrent: z.boolean(),
   })),
+  links: z.array(z.object({
+    id: z.string().uuid(),
+    otherModuleId: z.string().uuid(),
+    otherTitle: z.string().min(1),
+    relation: z.enum(['composes-with', 'similar-to', 'conflicts-with', 'precedes']),
+    direction: z.enum(['out', 'in']),
+  })),
 });
 export type LibraryModuleDetail = z.infer<typeof libraryModuleDetailSchema>;
+
+export const libraryLinkInputSchema = z.object({
+  moduleId: z.string().uuid(),
+  targetModuleId: z.string().uuid(),
+  relation: z.enum(['composes-with', 'similar-to', 'conflicts-with', 'precedes']),
+});
+export type LibraryLinkInput = z.infer<typeof libraryLinkInputSchema>;
+
+export const libraryUnlinkInputSchema = z.object({
+  moduleId: z.string().uuid(),
+  linkId: z.string().uuid(),
+});
+export type LibraryUnlinkInput = z.infer<typeof libraryUnlinkInputSchema>;
 
 export const libraryDeleteVersionInputSchema = z.object({
   moduleId: z.string().uuid(),
@@ -552,6 +574,8 @@ export interface MentalLegosDesktopApi {
   restoreLibraryModule(moduleId: string): Promise<LibraryModuleDetail>;
   deleteLibraryModule(moduleId: string): Promise<void>;
   getFoundationOverview(): Promise<FoundationOverview>;
+  linkLibraryModules(input: LibraryLinkInput): Promise<LibraryModuleDetail>;
+  unlinkLibraryModules(input: LibraryUnlinkInput): Promise<LibraryModuleDetail>;
   resolveFoundationAssertion(input: FoundationResolveAssertionInput): Promise<FoundationOverview>;
   deleteFoundationKnowledge(knowledgeId: string): Promise<FoundationOverview>;
   deleteScenarioMaterial(input: ScenarioDeleteMaterialInput): Promise<ScenarioSummary>;

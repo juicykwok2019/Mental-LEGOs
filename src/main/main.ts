@@ -46,7 +46,9 @@ import {
   LIBRARY_ARCHIVE_CHANNEL,
   LIBRARY_DELETE_MODULE_CHANNEL,
   LIBRARY_DELETE_VERSION_CHANNEL,
+  LIBRARY_LINK_CHANNEL,
   LIBRARY_LIST_CHANNEL,
+  LIBRARY_UNLINK_CHANNEL,
   LIBRARY_RESTORE_CHANNEL,
   LIBRARY_MODULE_DETAIL_CHANNEL,
   LIBRARY_PROMOTE_CHANNEL,
@@ -90,7 +92,9 @@ import {
   foundationOverviewSchema,
   foundationResolveAssertionInputSchema,
   libraryDeleteVersionInputSchema,
+  libraryLinkInputSchema,
   libraryModuleDetailSchema,
+  libraryUnlinkInputSchema,
   libraryModuleSummarySchema,
   libraryPromoteInputSchema,
   libraryRealWorldInputSchema,
@@ -796,6 +800,7 @@ function registerIpcHandlers(): void {
         createdAt: entry.createdAt,
         isCurrent: entry.version === module.currentVersion,
       })),
+      links: database.listModuleLinks(moduleId),
     });
   };
   withService(LIBRARY_MODULE_DETAIL_CHANNEL, async (_service, value) => (
@@ -805,6 +810,23 @@ function registerIpcHandlers(): void {
     const input = libraryDeleteVersionInputSchema.parse(value);
     const database = await getProductDatabase();
     database.deleteLegoVersion(input.moduleId, input.version);
+    return buildModuleDetail(database, input.moduleId);
+  });
+  withService(LIBRARY_LINK_CHANNEL, async (_service, value) => {
+    const input = libraryLinkInputSchema.parse(value);
+    const database = await getProductDatabase();
+    database.linkModules({
+      id: randomUUID(),
+      fromModuleId: input.moduleId,
+      toModuleId: input.targetModuleId,
+      relation: input.relation,
+    });
+    return buildModuleDetail(database, input.moduleId);
+  });
+  withService(LIBRARY_UNLINK_CHANNEL, async (_service, value) => {
+    const input = libraryUnlinkInputSchema.parse(value);
+    const database = await getProductDatabase();
+    database.unlinkModules(input.linkId);
     return buildModuleDetail(database, input.moduleId);
   });
   withService(LIBRARY_DELETE_MODULE_CHANNEL, async (_service, value) => {
