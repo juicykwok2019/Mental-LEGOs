@@ -9,6 +9,7 @@ import { GovernanceRepository } from '../../src/agent/governance';
 import { StaticDataKeyProvider } from '../../src/data/crypto';
 import {
   FormalMaterializer,
+  normalizeLegoMaterial,
   validateCandidatePayload,
 } from '../../src/data/formal-materializer';
 import { ProductDatabase } from '../../src/data/product-database';
@@ -23,6 +24,34 @@ const legoPayload = {
   logic_skeleton: ['重述问题', '确认范围', '给出路线'],
   language_shells: ['这是一个好问题，我先确认一下您问的是哪个层面……'],
 };
+
+describe('provider payload normalization', () => {
+  it('repairs camelCase keys, scalar arrays, and off-enum categories', () => {
+    const normalized = normalizeLegoMaterial({
+      title: '争取思考时间',
+      category: 'Reasoning',
+      semanticKernel: '先确认边界换取时间',
+      logic_skeleton: '重述问题',
+      languageShells: '我先确认一下范围……',
+    }) as Record<string, unknown>;
+    expect(normalized.semantic_kernel).toBe('先确认边界换取时间');
+    expect(normalized.logic_skeleton).toEqual(['重述问题']);
+    expect(normalized.language_shells).toEqual(['我先确认一下范围……']);
+    expect(normalized.category).toBe('reasoning');
+    expect(() => validateCandidatePayload('language_module', normalized)).not.toThrow();
+  });
+
+  it('derives a kernel and title when the provider omits them', () => {
+    const normalized = normalizeLegoMaterial({
+      category: 'made-up-category',
+      language_shells: ['真正的壁垒是业务闭环能不能跑起来。'],
+    }) as Record<string, unknown>;
+    expect(normalized.semantic_kernel).toBe('真正的壁垒是业务闭环能不能跑起来。');
+    expect(normalized.title).toBeTruthy();
+    expect(normalized.category).toBe('viewpoint');
+    expect(() => validateCandidatePayload('language_module', normalized)).not.toThrow();
+  });
+});
 
 describe('governance-to-formal materialization bridge', () => {
   let directory: string;

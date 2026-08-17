@@ -55,9 +55,53 @@ function productScope(scope: GovernanceScope): ProductScope {
   throw new Error('Session-scoped candidates cannot become formal assets.');
 }
 
+// Providers drift from the requested snake_case payload shape (camelCase keys,
+// scalar-instead-of-array, missing derivable fields). Normalize before every
+// strict parse — the same function serves the extraction preview and the
+// formal materialization, so what the user confirms is what gets committed.
+export function normalizeLegoMaterial(payload: unknown): unknown {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return payload;
+  const record = { ...(payload as Record<string, unknown>) };
+  const pick = (keys: string[]): unknown => keys
+    .map((key) => record[key])
+    .find((value) => value !== undefined && value !== null);
+  const asArray = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.filter((entry) => typeof entry === 'string' && entry.trim());
+    if (typeof value === 'string' && value.trim()) return [value];
+    return value;
+  };
+
+  record.semantic_kernel ??= pick(['semanticKernel', 'kernel', 'semantic_core', 'core', 'core_meaning']);
+  record.logic_skeleton = asArray(record.logic_skeleton ?? pick(['logicSkeleton', 'skeleton', 'logic', 'structure']));
+  record.language_shells = asArray(record.language_shells ?? pick(['languageShells', 'shells', 'phrases', 'expressions']));
+  record.anchor_phrase ??= pick(['anchorPhrase', 'anchor']);
+  record.triggers = asArray(record.triggers ?? pick(['trigger', 'cues'])) ?? [];
+
+  if (typeof record.semantic_kernel !== 'string' || record.semantic_kernel.trim().length === 0) {
+    const fallback = [record.title, ...(Array.isArray(record.language_shells) ? record.language_shells : [])]
+      .find((value) => typeof value === 'string' && value.trim().length > 0);
+    if (fallback) record.semantic_kernel = fallback;
+  }
+  if (typeof record.title !== 'string' || record.title.trim().length === 0) {
+    if (typeof record.semantic_kernel === 'string') {
+      record.title = record.semantic_kernel.trim().slice(0, 60);
+    }
+  } else {
+    record.title = record.title.trim().slice(0, 200);
+  }
+  if (!Array.isArray(record.logic_skeleton) || record.logic_skeleton.length === 0) {
+    if (typeof record.semantic_kernel === 'string') record.logic_skeleton = [record.semantic_kernel];
+  }
+  const category = typeof record.category === 'string' ? record.category.trim().toLowerCase() : '';
+  record.category = legoCategorySchema.safeParse(category).success ? category : 'viewpoint';
+  if (record.domain !== 'generic' && record.domain !== 'professional') delete record.domain;
+
+  return record;
+}
+
 export function validateCandidatePayload(kind: CandidateKind, payload: unknown): void {
   if (kind === 'language_module') {
-    legoMaterialSchema.parse(payload);
+    legoMaterialSchema.parse(normalizeLegoMaterial(payload));
   } else if (kind === 'profile_observation') {
     profileMaterialSchema.parse(payload);
   } else {
@@ -112,7 +156,7 @@ export class FormalMaterializer {
 
     if (asset.kind === 'language_module') {
       if (this.#product.getLegoModule(asset.id)) return null;
-      const material = legoMaterialSchema.parse(asset.payload);
+      const material = legoMaterialSchema.parse(normalizeLegoMaterial(asset.payload));
       this.#product.createLegoCandidate({
         id: asset.id,
         scope,

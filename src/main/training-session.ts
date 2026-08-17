@@ -15,7 +15,11 @@ import {
   type QuestionType,
   type Scenario,
 } from '../data/contracts';
-import { FormalMaterializer, validateCandidatePayload } from '../data/formal-materializer';
+import {
+  FormalMaterializer,
+  normalizeLegoMaterial,
+  validateCandidatePayload,
+} from '../data/formal-materializer';
 import type { ProductDatabase } from '../data/product-database';
 import { TrainingEngine, type HintLevel } from '../training/engine';
 import { usageFromAgentMessages } from './usage-ledger';
@@ -147,6 +151,31 @@ const candidatePayloadSchema = z.object({
   logic_skeleton: z.array(z.string()),
   language_shells: z.array(z.string()),
 });
+
+function candidatesFromPending(
+  pending: Array<{ id: string; payload: unknown }>,
+): TrainingCandidate[] {
+  return pending.flatMap((candidate) => {
+    try {
+      const normalized = normalizeLegoMaterial(candidate.payload);
+      validateCandidatePayload('language_module', normalized);
+      const payload = candidatePayloadSchema.parse(normalized);
+      return [{
+        id: candidate.id,
+        title: payload.title,
+        category: payload.category,
+        domain: payload.domain ?? null,
+        semanticKernel: payload.semantic_kernel,
+        logicSkeleton: payload.logic_skeleton,
+        languageShells: payload.language_shells,
+      }];
+    } catch {
+      // Drop one malformed candidate instead of voiding the whole extraction;
+      // the shape is provider output, not user data.
+      return [];
+    }
+  });
+}
 
 export function extractFinalText(messages: unknown[]): string {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -518,6 +547,8 @@ export class TrainingSessionService {
         '"semantic_kernel":"...","logic_skeleton":["..."],"language_shells":["..."]},',
         'provenance {"source_refs":[],"method":"practice-extraction","generated_by":"mental-legos-agent"},',
         `and idempotency_key "extract-${session.id.slice(0, 8)}-<n>".`,
+        'Use EXACTLY these snake_case keys; semantic_kernel, logic_skeleton and',
+        'language_shells are required and logic_skeleton/language_shells are string arrays.',
         'language_shells MUST reuse the user\'s own second-attempt wording wherever possible.',
         'Granularity bar: one communication task, reusable across questions, speakable in 5-30 seconds.',
         'After submitting, reply in Chinese with a one-line summary per candidate.',
@@ -527,19 +558,7 @@ export class TrainingSessionService {
       const repository = new GovernanceRepository(session.governanceDatabasePath);
       try {
         const pending = repository.listPendingCandidates(session.workspaceSessionId);
-        session.candidates = pending.map((candidate) => {
-          const payload = candidatePayloadSchema.parse(candidate.payload);
-          validateCandidatePayload('language_module', candidate.payload);
-          return {
-            id: candidate.id,
-            title: payload.title,
-            category: payload.category,
-            domain: payload.domain ?? null,
-            semanticKernel: payload.semantic_kernel,
-            logicSkeleton: payload.logic_skeleton,
-            languageShells: payload.language_shells,
-          };
-        });
+        session.candidates = candidatesFromPending(pending);
       } finally {
         repository.close();
       }
@@ -957,19 +976,7 @@ export class TrainingSessionService {
       const repository = new GovernanceRepository(session.governanceDatabasePath);
       try {
         const pending = repository.listPendingCandidates(session.workspaceSessionId);
-        session.candidates = pending.map((candidate) => {
-          const payload = candidatePayloadSchema.parse(candidate.payload);
-          validateCandidatePayload('language_module', candidate.payload);
-          return {
-            id: candidate.id,
-            title: payload.title,
-            category: payload.category,
-            domain: payload.domain ?? null,
-            semanticKernel: payload.semantic_kernel,
-            logicSkeleton: payload.logic_skeleton,
-            languageShells: payload.language_shells,
-          };
-        });
+        session.candidates = candidatesFromPending(pending);
       } finally {
         repository.close();
       }
