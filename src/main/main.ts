@@ -33,6 +33,9 @@ import {
   APP_INFO_CHANNEL,
   AGENT_READINESS_GET_CHANNEL,
   BASH_RUNTIME_INSTALL_CHANNEL,
+  FOUNDATION_DELETE_KNOWLEDGE_CHANNEL,
+  FOUNDATION_OVERVIEW_CHANNEL,
+  FOUNDATION_RESOLVE_ASSERTION_CHANNEL,
   PROVIDER_SETUP_CLEAR_CHANNEL,
   PROVIDER_CERTIFICATION_CANCEL_CHANNEL,
   PROVIDER_CERTIFICATION_CONFIRM_CHANNEL,
@@ -84,6 +87,8 @@ import {
   USAGE_OVERVIEW_CHANNEL,
   appInfoSchema,
   agentReadinessStateSchema,
+  foundationOverviewSchema,
+  foundationResolveAssertionInputSchema,
   libraryDeleteVersionInputSchema,
   libraryModuleDetailSchema,
   libraryModuleSummarySchema,
@@ -900,6 +905,53 @@ function registerIpcHandlers(): void {
     const [selectedPath] = dialogResult.filePaths;
     if (dialogResult.canceled || !selectedPath) return null;
     return parsedMaterialFileSchema.parse(await parseMaterialFile(selectedPath));
+  });
+
+  const buildFoundationOverview = async (
+    service: TrainingSessionService,
+  ): Promise<unknown> => {
+    const database = await getProductDatabase();
+    const assertions = [
+      ...database.listProfileAssertions('candidate'),
+      ...database.listProfileAssertions('confirmed'),
+    ].map((assertion) => ({
+      id: assertion.id,
+      tier: assertion.tier,
+      statement: assertion.statement,
+      status: assertion.status as 'candidate' | 'confirmed',
+      createdAt: assertion.createdAt,
+    }));
+    const knowledge = [
+      ...database.listKnowledge({ status: 'confirmed' }),
+      ...database.listKnowledge({ status: 'candidate' }),
+    ].map((item) => ({
+      id: item.id,
+      kind: item.kind,
+      title: item.title,
+      content: item.content,
+      scenarioId: item.scenarioId,
+      createdAt: item.createdAt,
+    }));
+    return foundationOverviewSchema.parse({
+      seed: service.profileState().seed,
+      assertions,
+      knowledge,
+      knowledgeGapCount: database.countKnowledgeGaps(),
+      recentGaps: database.listRecentKnowledgeGaps(5),
+    });
+  };
+  withService(FOUNDATION_OVERVIEW_CHANNEL, async (service) => buildFoundationOverview(service));
+  withService(FOUNDATION_RESOLVE_ASSERTION_CHANNEL, async (service, value) => {
+    const input = foundationResolveAssertionInputSchema.parse(value);
+    const database = await getProductDatabase();
+    database.resolveProfileAssertion(input.assertionId, input.resolution);
+    return buildFoundationOverview(service);
+  });
+  withService(FOUNDATION_DELETE_KNOWLEDGE_CHANNEL, async (service, value) => {
+    const knowledgeId = z.string().uuid().parse(value);
+    const database = await getProductDatabase();
+    database.deleteKnowledgeItem(knowledgeId);
+    return buildFoundationOverview(service);
   });
 
   withService(PRIVACY_OVERVIEW_CHANNEL, async () => {

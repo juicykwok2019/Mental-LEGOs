@@ -4,6 +4,9 @@ import {
   APP_INFO_CHANNEL,
   AGENT_READINESS_GET_CHANNEL,
   BASH_RUNTIME_INSTALL_CHANNEL,
+  FOUNDATION_DELETE_KNOWLEDGE_CHANNEL,
+  FOUNDATION_OVERVIEW_CHANNEL,
+  FOUNDATION_RESOLVE_ASSERTION_CHANNEL,
   LIBRARY_ARCHIVE_CHANNEL,
   LIBRARY_DELETE_MODULE_CHANNEL,
   LIBRARY_DELETE_VERSION_CHANNEL,
@@ -55,6 +58,8 @@ import {
   USAGE_OVERVIEW_CHANNEL,
   appInfoSchema,
   agentReadinessStateSchema,
+  foundationOverviewSchema,
+  foundationResolveAssertionInputSchema,
   libraryDeleteVersionInputSchema,
   libraryModuleDetailSchema,
   libraryModuleSummarySchema,
@@ -91,6 +96,7 @@ import {
   trainingVariationAnswerInputSchema,
   usageOverviewSchema,
   type MentalLegosDesktopApi,
+  type FoundationResolveAssertionInput,
   type LibraryDeleteVersionInput,
   type LibraryPromoteInput,
   type LibraryRealWorldInput,
@@ -203,6 +209,23 @@ const desktopApi: MentalLegosDesktopApi = Object.freeze({
       SCENARIO_DELETE_MATERIAL_CHANNEL,
       scenarioSummarySchema,
       scenarioDeleteMaterialInputSchema.parse(input),
+    );
+  },
+  async getFoundationOverview() {
+    return invokeParsed(FOUNDATION_OVERVIEW_CHANNEL, foundationOverviewSchema);
+  },
+  async resolveFoundationAssertion(input: FoundationResolveAssertionInput) {
+    return invokeParsed(
+      FOUNDATION_RESOLVE_ASSERTION_CHANNEL,
+      foundationOverviewSchema,
+      foundationResolveAssertionInputSchema.parse(input),
+    );
+  },
+  async deleteFoundationKnowledge(knowledgeId: string) {
+    return invokeParsed(
+      FOUNDATION_DELETE_KNOWLEDGE_CHANNEL,
+      foundationOverviewSchema,
+      z.string().uuid().parse(knowledgeId),
     );
   },
   async deleteLibraryModule(moduleId: string) {

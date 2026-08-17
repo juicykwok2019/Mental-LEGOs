@@ -10,6 +10,7 @@ import type {
 import { AboutView } from './views/AboutView';
 import { BusyIndicator } from './components/BusyIndicator';
 import { ChatView } from './views/ChatView';
+import { FoundationView } from './views/FoundationView';
 import { HomeView } from './views/HomeView';
 import { LibraryView } from './views/LibraryView';
 import { ScenariosView } from './views/ScenariosView';
@@ -18,7 +19,7 @@ import { SettingsView } from './views/SettingsView';
 // Application shell: two primary actions (open practice / scenarios), the
 // module library, and settings. Training itself always runs in the chat view.
 
-type View = 'home' | 'chat' | 'scenarios' | 'library' | 'settings' | 'about';
+type View = 'home' | 'chat' | 'scenarios' | 'library' | 'foundation' | 'settings' | 'about';
 
 function messageFrom(reason: unknown): string {
   return reason instanceof Error ? reason.message : '发生了未知错误。';
@@ -203,6 +204,7 @@ export function App() {
             ['home', '今天练'],
             ['scenarios', '场景'],
             ['library', '积木库'],
+            ['foundation', '个人底座'],
             ['settings', '设置'],
           ] as Array<[View, string]>).map(([target, label]) => (
             <button
@@ -280,6 +282,8 @@ export function App() {
         />
       ) : view === 'library' ? (
         <LibraryView />
+      ) : view === 'foundation' ? (
+        <FoundationView onEditProfile={() => setEditingProfile(true)} />
       ) : view === 'settings' ? (
         <SettingsView />
       ) : view === 'about' ? (

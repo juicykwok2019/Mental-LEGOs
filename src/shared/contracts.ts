@@ -192,6 +192,10 @@ export const LIBRARY_RESTORE_CHANNEL = 'library:restore-module' as const;
 export const LIBRARY_DELETE_MODULE_CHANNEL = 'library:delete-module' as const;
 export const RECORDING_LIST_CHANNEL = 'recording:list' as const;
 export const RECORDING_DELETE_CHANNEL = 'recording:delete' as const;
+export const FOUNDATION_OVERVIEW_CHANNEL = 'foundation:overview' as const;
+export const FOUNDATION_RESOLVE_ASSERTION_CHANNEL = 'foundation:resolve-assertion' as const;
+export const FOUNDATION_DELETE_KNOWLEDGE_CHANNEL = 'foundation:delete-knowledge' as const;
+
 export const PRIVACY_OVERVIEW_CHANNEL = 'privacy:overview' as const;
 export const PRIVACY_EXPORT_CHANNEL = 'privacy:export' as const;
 export const USAGE_OVERVIEW_CHANNEL = 'usage:overview' as const;
@@ -214,6 +218,40 @@ export const profileSeedInputSchema = z.object({
   material: z.string().max(200_000).default(''),
 });
 export type ProfileSeedInput = z.infer<typeof profileSeedInputSchema>;
+
+export const foundationAssertionSchema = z.object({
+  id: z.string().uuid(),
+  tier: z.enum(['confirmed-fact', 'evidenced-observation', 'pending-hypothesis']),
+  statement: z.string().min(1),
+  status: z.enum(['candidate', 'confirmed']),
+  createdAt: z.string(),
+});
+export type FoundationAssertion = z.infer<typeof foundationAssertionSchema>;
+
+export const foundationKnowledgeSchema = z.object({
+  id: z.string().uuid(),
+  kind: z.string().min(1),
+  title: z.string().min(1),
+  content: z.string(),
+  scenarioId: z.string().uuid().nullable(),
+  createdAt: z.string(),
+});
+export type FoundationKnowledgeItem = z.infer<typeof foundationKnowledgeSchema>;
+
+export const foundationOverviewSchema = z.object({
+  seed: profileSeedInputSchema.nullable(),
+  assertions: z.array(foundationAssertionSchema),
+  knowledge: z.array(foundationKnowledgeSchema),
+  knowledgeGapCount: z.number().int().nonnegative(),
+  recentGaps: z.array(z.string()),
+});
+export type FoundationOverview = z.infer<typeof foundationOverviewSchema>;
+
+export const foundationResolveAssertionInputSchema = z.object({
+  assertionId: z.string().uuid(),
+  resolution: z.enum(['confirmed', 'rejected']),
+});
+export type FoundationResolveAssertionInput = z.infer<typeof foundationResolveAssertionInputSchema>;
 
 export const profileStateSchema = z.object({
   seed: profileSeedInputSchema.nullable(),
@@ -513,6 +551,9 @@ export interface MentalLegosDesktopApi {
   deleteModuleVersion(input: LibraryDeleteVersionInput): Promise<LibraryModuleDetail>;
   restoreLibraryModule(moduleId: string): Promise<LibraryModuleDetail>;
   deleteLibraryModule(moduleId: string): Promise<void>;
+  getFoundationOverview(): Promise<FoundationOverview>;
+  resolveFoundationAssertion(input: FoundationResolveAssertionInput): Promise<FoundationOverview>;
+  deleteFoundationKnowledge(knowledgeId: string): Promise<FoundationOverview>;
   deleteScenarioMaterial(input: ScenarioDeleteMaterialInput): Promise<ScenarioSummary>;
   updateScenarioMaterialIntent(input: ScenarioMaterialIntentInput): Promise<ScenarioSummary>;
   listRecordings(): Promise<RecordingItem[]>;

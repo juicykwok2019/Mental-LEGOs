@@ -147,7 +147,10 @@ export function LibraryView() {
 
           {detail.versions.length > 0 && (
             <section className="scenario-block">
-              <h3>版本历史<span className="count-pill">{detail.versions.length}</span></h3>
+              <h3>
+                版本历史
+                {detail.versions.length > 1 && <span className="count-pill">{detail.versions.length}</span>}
+              </h3>
               <p className="block-hint">
                 同一块积木的措辞演进史：以后再训练或复盘同一主题、提炼出更好的说法时，
                 会存为新版本而不覆盖旧的——训练时调用的始终是"当前版"。

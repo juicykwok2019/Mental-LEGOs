@@ -28,6 +28,29 @@ const STAGE_LABELS: Record<string, string> = {
   'real-world': '现实验证',
 };
 
+const TIER_LABELS: Record<string, string> = {
+  'confirmed-fact': '已确认事实',
+  'evidenced-observation': '有据观察',
+  'pending-hypothesis': '待验假设',
+};
+
+const KNOWLEDGE_KIND_LABELS: Record<string, string> = {
+  'fact': '事实',
+  'case': '案例',
+  'viewpoint': '观点',
+  'method': '方法',
+  'preference': '偏好',
+  'assumption': '待思考',
+};
+
+export function tierLabel(tier: string): string {
+  return TIER_LABELS[tier] ?? tier;
+}
+
+export function knowledgeKindLabel(kind: string): string {
+  return KNOWLEDGE_KIND_LABELS[kind] ?? kind;
+}
+
 export function categoryLabel(category: string): string {
   return CATEGORY_LABELS[category] ?? category;
 }

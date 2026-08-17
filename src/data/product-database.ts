@@ -434,6 +434,23 @@ export class ProductDatabase {
     });
   }
 
+  deleteKnowledgeItem(id: string, now = nowIso()): void {
+    this.#transaction(() => {
+      const item = this.getKnowledgeItem(id);
+      if (!item) throw new Error('Knowledge item does not exist.');
+      this.#dropSearchText('knowledge', id);
+      this.#database.prepare('DELETE FROM knowledge_items WHERE id = ?').run(id);
+      this.#recordConsent({
+        id: randomUUID(),
+        action: 'deletion',
+        objectRef: `knowledge:${id}`,
+        scope: item.scope,
+        decision: 'granted',
+        occurredAt: now,
+      });
+    });
+  }
+
   getKnowledgeItem(id: string): KnowledgeItem | null {
     const row = this.#database.prepare('SELECT * FROM knowledge_items WHERE id = ?').get(id) as
       | Row

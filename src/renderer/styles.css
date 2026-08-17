@@ -424,6 +424,9 @@ button:disabled { cursor: not-allowed; opacity: 0.58; }
 .version-list li > span:first-child { color: #4c5548; }
 .material-intent { display: block; color: #8a7a52; font-style: normal; font-size: 0.8rem; }
 .intent-edit-button { color: #57814e; }
+.knowledge-row { align-items: flex-start; }
+.knowledge-main { cursor: pointer; }
+.knowledge-content { white-space: pre-wrap; margin-top: 4px; }
 .intent-edit-row { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
 .intent-edit-row input {
   flex: 1; min-width: 240px; min-height: 32px;
