@@ -8,6 +8,10 @@ export default defineConfig({
     // ::1 first, so Vite otherwise listens on IPv6 only while Electron
     // connects to 127.0.0.1 and gets ERR_CONNECTION_REFUSED.
     host: '127.0.0.1',
+    watch: {
+      // Packaging output and private data must not trigger dev reloads.
+      ignored: ['**/out/**', '**/.private/**', '**/.generated/**'],
+    },
   },
   build: {
     sourcemap: false,

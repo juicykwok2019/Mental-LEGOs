@@ -129,6 +129,7 @@ let productDatabase: ProductDatabase | null = null;
 let trainingService: TrainingSessionService | null = null;
 let trainingServicePromise: Promise<TrainingSessionService> | null = null;
 let speechService: SpeechService | null = null;
+let verifiedBashRuntimeDirectory: string | null = null;
 let agentRuntimeDiagnostic: 'checking' | 'ready' | 'error' = 'checking';
 let agentRuntimeDiagnosticDetail: string | null = null;
 let bashInstallPromise: Promise<unknown> | null = null;
@@ -262,11 +263,15 @@ async function getTrainingService(): Promise<TrainingSessionService> {
           paths: () => runtimePaths,
           manifestPath: getBashRuntimeManifestPath,
           resolveBashRuntimeDirectory: async () => {
+            // Deep hash verification of the ~310MB runtime once per app run;
+            // later steps trust the cached result to keep chat latency low.
+            if (verifiedBashRuntimeDirectory) return verifiedBashRuntimeDirectory;
             const manifest = await loadBashRuntimeManifest(getBashRuntimeManifestPath());
             const status = await bashManager.inspect(manifest, true);
             if (status.state !== 'installed') {
               throw new Error('先在设置中下载并校验离线 Bash 运行时，再开始训练。');
             }
+            verifiedBashRuntimeDirectory = status.runtimeDirectory;
             return status.runtimeDirectory;
           },
         },
@@ -899,7 +904,8 @@ app.whenReady().then(async () => {
 
   agentWorkerHost = new AgentWorkerHost(
     path.join(__dirname, 'worker.mjs'),
-    isPackagedSmokeTest,
+    // Surface worker logs in dev so a stalled step is visible in the console.
+    isPackagedSmokeTest || !app.isPackaged,
     isAgentE2eSmokeTest,
   );
   providerCertification = new ProviderCertificationService({

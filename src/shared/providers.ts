@@ -59,11 +59,11 @@ export const providerRegistry = Object.freeze([
     baseUrl: 'https://api.moonshot.cn/anthropic',
     protocol: 'anthropic-messages',
     recommendedModels: [
+      'kimi-k2.5',
       'kimi-k3',
       'kimi-k2.7-code',
       'kimi-k2.7-code-highspeed',
       'kimi-k2.6',
-      'kimi-k2.5',
     ],
     certification: 'official-compatible-pending-app-certification',
     officialSource: 'https://platform.kimi.com/docs/guide/claude-code-kimi',
