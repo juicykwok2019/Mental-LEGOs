@@ -7,6 +7,7 @@ import type {
   SpeechReadinessState,
   TrainingTurnState,
 } from '../shared/contracts';
+import { BusyIndicator } from './components/BusyIndicator';
 import { ChatView } from './views/ChatView';
 import { HomeView } from './views/HomeView';
 import { LibraryView } from './views/LibraryView';
@@ -299,7 +300,9 @@ export function App() {
         <p className="section-copy">加载中…</p>
       )}
 
-      {busy && view !== 'chat' && <p className="training-busy shell-busy">{busyLabel}</p>}
+      {busy && view !== 'chat' && (
+        <div className="shell-busy"><BusyIndicator label={busyLabel || '处理中…'} /></div>
+      )}
     </main>
   );
 }

@@ -6,6 +6,7 @@ import type {
   TrainingTurnState,
 } from '../../shared/contracts';
 import { VoiceRecorder } from '../recorder';
+import { BusyIndicator } from '../components/BusyIndicator';
 
 // The training conversation: coach/user bubbles, phase-driven actions, and a
 // voice-first composer with text fallback. The renderer never decides state —
@@ -201,7 +202,9 @@ export function ChatView(props: ChatViewProps) {
 
         {busy && (
           <div className="bubble-row bubble-coach">
-            <div className="bubble bubble-busy">{props.busyLabel || '思考中…'}</div>
+            <div className="bubble candidate-bubble">
+              <BusyIndicator label={props.busyLabel || '思考中…'} />
+            </div>
           </div>
         )}
       </div>

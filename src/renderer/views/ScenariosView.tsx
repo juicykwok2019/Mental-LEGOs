@@ -7,6 +7,7 @@ import {
   type ScenarioDeletePreview,
   type ScenarioSummary,
 } from '../../shared/contracts';
+import { BusyIndicator } from '../components/BusyIndicator';
 
 function messageFrom(reason: unknown): string {
   return reason instanceof Error ? reason.message : '发生了未知错误。';
@@ -157,7 +158,7 @@ export function ScenariosView(props: ScenariosViewProps) {
           <span />
         </header>
         {error && <p className="form-error">{error}</p>}
-        {working && <p className="training-busy">{working}</p>}
+        {working && <BusyIndicator label={working} />}
 
         <section className="scenario-block">
           <h3>材料（{selected.materialCount}）</h3>
