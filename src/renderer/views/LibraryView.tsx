@@ -52,7 +52,7 @@ export function LibraryView() {
     return (
       <div className="library-view">
         <header className="chat-header">
-          <button type="button" className="quiet-button" onClick={() => setDetail(null)}>← 模块库</button>
+          <button type="button" className="quiet-button" onClick={() => setDetail(null)}>← 语言乐高库</button>
           <span>{detail.title}</span>
           <span />
         </header>
@@ -183,12 +183,13 @@ export function LibraryView() {
                           取消
                         </button>
                       </span>
+                    ) : detail.versions.length <= 1 ? (
+                      <span className="version-locked">唯一版本不可删；整块移除请用下方"归档"</span>
                     ) : (
                       <button
                         type="button"
                         className="quiet-button"
-                        disabled={working || detail.versions.length <= 1}
-                        title={detail.versions.length <= 1 ? '模块只剩这一个版本；要移除全部内容请归档模块' : ''}
+                        disabled={working}
                         onClick={() => setVersionToDelete(entry.version)}
                       >
                         删除此版本

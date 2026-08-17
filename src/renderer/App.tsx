@@ -202,7 +202,7 @@ export function App() {
           {([
             ['home', '今天练'],
             ['scenarios', '场景'],
-            ['library', '乐高库'],
+            ['library', '语言乐高库'],
             ['settings', '设置'],
           ] as Array<[View, string]>).map(([target, label]) => (
             <button
