@@ -12,6 +12,7 @@ import {
   LIBRARY_DELETE_VERSION_CHANNEL,
   LIBRARY_LINK_CHANNEL,
   LIBRARY_LIST_CHANNEL,
+  LIBRARY_RENAME_CHANNEL,
   LIBRARY_UNLINK_CHANNEL,
   LIBRARY_RESTORE_CHANNEL,
   LIBRARY_MODULE_DETAIL_CHANNEL,
@@ -69,6 +70,7 @@ import {
   libraryDeleteVersionInputSchema,
   libraryLinkInputSchema,
   libraryModuleDetailSchema,
+  libraryRenameInputSchema,
   libraryUnlinkInputSchema,
   libraryModuleSummarySchema,
   libraryPromoteInputSchema,
@@ -110,6 +112,7 @@ import {
   type FoundationResolveAssertionInput,
   type LibraryDeleteVersionInput,
   type LibraryLinkInput,
+  type LibraryRenameInput,
   type LibraryUnlinkInput,
   type LibraryPromoteInput,
   type LibraryRealWorldInput,
@@ -245,6 +248,13 @@ const desktopApi: MentalLegosDesktopApi = Object.freeze({
       SCENARIO_DELETE_MATERIAL_CHANNEL,
       scenarioSummarySchema,
       scenarioDeleteMaterialInputSchema.parse(input),
+    );
+  },
+  async renameLibraryModule(input: LibraryRenameInput) {
+    return invokeParsed(
+      LIBRARY_RENAME_CHANNEL,
+      libraryModuleDetailSchema,
+      libraryRenameInputSchema.parse(input),
     );
   },
   async linkLibraryModules(input: LibraryLinkInput) {

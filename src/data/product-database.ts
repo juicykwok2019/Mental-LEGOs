@@ -857,6 +857,17 @@ export class ProductDatabase {
     });
   }
 
+  renameLegoModule(moduleId: string, title: string, now = nowIso()): void {
+    this.#transaction(() => {
+      const module = this.getLegoModule(moduleId);
+      if (!module) throw new Error('Module does not exist.');
+      this.#database.prepare(
+        'UPDATE lego_modules SET title = ?, updated_at = ? WHERE id = ?',
+      ).run(title, now, moduleId);
+      this.#indexSearchText('lego-module', moduleId, `${title} ${module.triggers.join(' ')}`);
+    });
+  }
+
   restoreLegoModule(moduleId: string, now = nowIso()): void {
     const module = this.getLegoModule(moduleId);
     if (!module) throw new Error('Module does not exist.');

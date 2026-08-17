@@ -25,6 +25,8 @@ export function LibraryView() {
   const [moduleDeleteConfirm, setModuleDeleteConfirm] = useState(false);
   const [filter, setFilter] = useState('all');
   const [linkTarget, setLinkTarget] = useState('');
+  const [renaming, setRenaming] = useState(false);
+  const [renameDraft, setRenameDraft] = useState('');
   const [linkRelation, setLinkRelation] = useState<'composes-with' | 'similar-to' | 'conflicts-with' | 'precedes'>('composes-with');
 
   async function refresh(): Promise<void> {
@@ -57,7 +59,47 @@ export function LibraryView() {
       <div className="library-view">
         <header className="chat-header">
           <button type="button" className="quiet-button" onClick={() => setDetail(null)}>← 积木库</button>
-          <span>{detail.title}</span>
+          {renaming ? (
+            <span className="rename-row">
+              <input
+                value={renameDraft}
+                maxLength={200}
+                onChange={(event) => setRenameDraft(event.target.value)}
+              />
+              <button
+                type="button"
+                className="quiet-button intent-edit-button"
+                disabled={working || renameDraft.trim().length === 0}
+                onClick={() => void step(async () => {
+                  setDetail(await window.mentalLegos.renameLibraryModule({
+                    moduleId: detail.id, title: renameDraft.trim(),
+                  }));
+                  setRenaming(false);
+                  setNotice('✓ 已改名。');
+                })}
+              >
+                保存
+              </button>
+              <button type="button" className="quiet-button" onClick={() => setRenaming(false)}>
+                取消
+              </button>
+            </span>
+          ) : (
+            <span>
+              {detail.title}
+              <button
+                type="button"
+                className="quiet-button intent-edit-button"
+                disabled={working}
+                onClick={() => {
+                  setRenameDraft(detail.title);
+                  setRenaming(true);
+                }}
+              >
+                改名
+              </button>
+            </span>
+          )}
           <span />
         </header>
         {error && <p className="form-error">{error}</p>}
@@ -468,6 +510,7 @@ export function LibraryView() {
                   setNotice(null);
                   setArchiveConfirm(false);
                   setModuleDeleteConfirm(false);
+                  setRenaming(false);
                   window.mentalLegos.getLibraryModule(module.id)
                     .then(setDetail)
                     .catch((reason: unknown) => setError(messageFrom(reason)));

@@ -261,6 +261,14 @@ describe('formal product database', () => {
     expect(database.search('壁垒').some((hit) => hit.entityId === ids.moduleId)).toBe(false);
   });
 
+  it('renames a module and keeps search in sync', () => {
+    const ids = seedScenarioTraining();
+    database.renameLegoModule(ids.moduleId, '化解销量质疑', LATER);
+    expect(database.getLegoModule(ids.moduleId)?.title).toBe('化解销量质疑');
+    expect(database.search('化解销量').some((hit) => hit.entityId === ids.moduleId)).toBe(true);
+    expect(database.search('核心判断模块').some((hit) => hit.entityId === ids.moduleId)).toBe(false);
+  });
+
   it('restores an archived module back to confirmed', () => {
     const ids = seedScenarioTraining();
     database.confirmLegoVersion(ids.moduleId, 1, NOW);

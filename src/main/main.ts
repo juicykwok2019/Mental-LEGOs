@@ -48,6 +48,7 @@ import {
   LIBRARY_DELETE_VERSION_CHANNEL,
   LIBRARY_LINK_CHANNEL,
   LIBRARY_LIST_CHANNEL,
+  LIBRARY_RENAME_CHANNEL,
   LIBRARY_UNLINK_CHANNEL,
   LIBRARY_RESTORE_CHANNEL,
   LIBRARY_MODULE_DETAIL_CHANNEL,
@@ -98,6 +99,7 @@ import {
   libraryDeleteVersionInputSchema,
   libraryLinkInputSchema,
   libraryModuleDetailSchema,
+  libraryRenameInputSchema,
   libraryUnlinkInputSchema,
   libraryModuleSummarySchema,
   libraryPromoteInputSchema,
@@ -837,6 +839,12 @@ function registerIpcHandlers(): void {
       toModuleId: input.targetModuleId,
       relation: input.relation,
     });
+    return buildModuleDetail(database, input.moduleId);
+  });
+  withService(LIBRARY_RENAME_CHANNEL, async (_service, value) => {
+    const input = libraryRenameInputSchema.parse(value);
+    const database = await getProductDatabase();
+    database.renameLegoModule(input.moduleId, input.title);
     return buildModuleDetail(database, input.moduleId);
   });
   withService(LIBRARY_UNLINK_CHANNEL, async (_service, value) => {

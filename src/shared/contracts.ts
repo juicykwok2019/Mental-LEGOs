@@ -210,6 +210,13 @@ export const LIBRARY_DELETE_VERSION_CHANNEL = 'library:delete-version' as const;
 export const LIBRARY_RESTORE_CHANNEL = 'library:restore-module' as const;
 export const LIBRARY_DELETE_MODULE_CHANNEL = 'library:delete-module' as const;
 export const LIBRARY_LINK_CHANNEL = 'library:link-modules' as const;
+export const LIBRARY_RENAME_CHANNEL = 'library:rename-module' as const;
+
+export const libraryRenameInputSchema = z.object({
+  moduleId: z.string().uuid(),
+  title: z.string().trim().min(1).max(200),
+});
+export type LibraryRenameInput = z.infer<typeof libraryRenameInputSchema>;
 export const LIBRARY_UNLINK_CHANNEL = 'library:unlink-modules' as const;
 export const RECORDING_LIST_CHANNEL = 'recording:list' as const;
 export const RECORDING_DELETE_CHANNEL = 'recording:delete' as const;
@@ -606,6 +613,7 @@ export interface MentalLegosDesktopApi {
   deleteLibraryModule(moduleId: string): Promise<void>;
   getFoundationOverview(): Promise<FoundationOverview>;
   linkLibraryModules(input: LibraryLinkInput): Promise<LibraryModuleDetail>;
+  renameLibraryModule(input: LibraryRenameInput): Promise<LibraryModuleDetail>;
   unlinkLibraryModules(input: LibraryUnlinkInput): Promise<LibraryModuleDetail>;
   resolveFoundationAssertion(input: FoundationResolveAssertionInput): Promise<FoundationOverview>;
   deleteFoundationKnowledge(knowledgeId: string): Promise<FoundationOverview>;
