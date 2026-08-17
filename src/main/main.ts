@@ -26,7 +26,7 @@ import { SpeechService } from './speech-service';
 import { TrainingSessionService } from './training-session';
 import { UsageLedger } from './usage-ledger';
 import { loadVaultDataKeyProvider } from '../data/data-key';
-import { exportDatabase } from '../data/export';
+import { exportDatabase, restoreDatabase, type ExportEnvelope } from '../data/export';
 import { ProductDatabase } from '../data/product-database';
 
 import {
@@ -57,6 +57,7 @@ import {
   RECORDING_DELETE_CHANNEL,
   RECORDING_LIST_CHANNEL,
   PRIVACY_EXPORT_CHANNEL,
+  PRIVACY_IMPORT_CHANNEL,
   PRIVACY_OVERVIEW_CHANNEL,
   PROFILE_GET_CHANNEL,
   PROFILE_SAVE_CHANNEL,
@@ -103,6 +104,7 @@ import {
   parsedMaterialFileSchema,
   recordingItemSchema,
   privacyExportResultSchema,
+  privacyImportResultSchema,
   privacyOverviewSchema,
   profileSeedInputSchema,
   profileStateSchema,
@@ -1001,6 +1003,48 @@ function registerIpcHandlers(): void {
         + await directorySize(path.join(dataDirectory, 'training-sessions')),
       counts,
     });
+  });
+  withService(PRIVACY_IMPORT_CHANNEL, async (_service, value) => {
+    const password = z.string().min(8).max(200).parse(value);
+    const database = await getProductDatabase();
+    const window = mainWindow;
+    if (!window) throw new Error('Main window is unavailable.');
+    const dialogResult = await dialog.showOpenDialog(window, {
+      title: '选择加密备份文件',
+      properties: ['openFile'],
+      filters: [{ name: 'Mental LEGOs 加密导出', extensions: ['mlexport'] }],
+    });
+    const [selectedPath] = dialogResult.filePaths;
+    if (dialogResult.canceled || !selectedPath) {
+      return privacyImportResultSchema.parse({ restored: false, fileName: null, moduleCount: 0 });
+    }
+    let envelope: ExportEnvelope;
+    try {
+      envelope = JSON.parse(await readFile(selectedPath, 'utf8')) as ExportEnvelope;
+    } catch (reason) {
+      throw new Error('这不是有效的 .mlexport 备份文件。', { cause: reason });
+    }
+    try {
+      const manifest = restoreDatabase(database, envelope, password);
+      return privacyImportResultSchema.parse({
+        restored: true,
+        fileName: path.basename(selectedPath),
+        moduleCount: manifest.tableCounts['lego_modules'] ?? 0,
+      });
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : '';
+      if (message.includes('empty database')) {
+        throw new Error('恢复只能在全新安装（还没有任何数据）时进行，避免覆盖现有数据。', { cause: reason });
+      }
+      if (message.includes('newer schema')) {
+        throw new Error('这个备份来自更新版本的应用，请先升级应用再恢复。', { cause: reason });
+      }
+      if (message.toLowerCase().includes('auth') || message.includes('decrypt')
+        || message.includes('bad')) {
+        throw new Error('口令不正确，或备份文件已损坏。', { cause: reason });
+      }
+      throw reason;
+    }
   });
   withService(PRIVACY_EXPORT_CHANNEL, async (_service, value) => {
     const password = z.string().min(8).max(200).parse(value);

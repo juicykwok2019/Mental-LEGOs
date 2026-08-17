@@ -431,6 +431,8 @@ button:disabled { cursor: not-allowed; opacity: 0.58; }
 .outline-field input { min-height: 38px; }
 .outline-field:not(.outline-audience) input { width: 90px; }
 .outline-audience { flex: 1 1 240px; }
+.restore-block { border-top: 1px solid #e8e2d3; padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.restore-block input { max-width: 260px; }
 .knowledge-main { cursor: pointer; }
 .knowledge-content { white-space: pre-wrap; margin-top: 4px; }
 .intent-edit-row { display: flex; gap: 6px; align-items: center; margin-top: 6px; }

@@ -38,6 +38,8 @@ function ProfileOnboarding(props: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [showRestore, setShowRestore] = useState(false);
+  const [restorePassword, setRestorePassword] = useState('');
 
   return (
     <div className="onboarding">
@@ -124,6 +126,54 @@ function ProfileOnboarding(props: {
           <button type="button" className="quiet-button" onClick={props.onCancel}>取消</button>
         )}
       </div>
+
+      {!props.initial && (
+        <div className="restore-block">
+          {showRestore ? (
+            <>
+              <p className="block-hint">
+                换设备迁移：选择在旧设备上导出的 .mlexport 加密备份，输入当时设置的口令。
+                恢复只能在全新安装时进行（这台设备还没有任何训练数据）。
+              </p>
+              <div className="phase-actions">
+                <input
+                  type="password"
+                  placeholder="备份口令（至少 8 位）"
+                  value={restorePassword}
+                  minLength={8}
+                  maxLength={200}
+                  onChange={(event) => setRestorePassword(event.target.value)}
+                />
+                <button
+                  type="button"
+                  className="secondary-button"
+                  disabled={busy || restorePassword.length < 8}
+                  onClick={() => {
+                    setBusy(true);
+                    setError(null);
+                    window.mentalLegos.importBackup(restorePassword).then((result) => {
+                      if (!result.restored) return;
+                      setNotice(`✓ 已从「${result.fileName}」恢复 ${result.moduleCount} 个模块及全部训练数据。正在进入应用…`);
+                      return window.mentalLegos.getProfile().then(props.onSaved);
+                    }).catch((reason: unknown) => {
+                      setError(messageFrom(reason));
+                    }).finally(() => setBusy(false));
+                  }}
+                >
+                  选择备份文件并恢复
+                </button>
+                <button type="button" className="quiet-button" onClick={() => setShowRestore(false)}>
+                  取消
+                </button>
+              </div>
+            </>
+          ) : (
+            <button type="button" className="quiet-button" onClick={() => setShowRestore(true)}>
+              从旧设备的加密备份恢复 →
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

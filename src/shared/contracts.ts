@@ -572,6 +572,15 @@ export const privacyExportResultSchema = z.object({
 });
 export type PrivacyExportResult = z.infer<typeof privacyExportResultSchema>;
 
+export const PRIVACY_IMPORT_CHANNEL = 'privacy:import' as const;
+
+export const privacyImportResultSchema = z.object({
+  restored: z.boolean(),
+  fileName: z.string().nullable(),
+  moduleCount: z.number().int().nonnegative().default(0),
+});
+export type PrivacyImportResult = z.infer<typeof privacyImportResultSchema>;
+
 export interface MentalLegosDesktopApi {
   getAppInfo(): Promise<AppInfo>;
   reportReady(): Promise<void>;
@@ -602,6 +611,7 @@ export interface MentalLegosDesktopApi {
   deleteScenarioMaterial(input: ScenarioDeleteMaterialInput): Promise<ScenarioSummary>;
   updateScenarioMaterialIntent(input: ScenarioMaterialIntentInput): Promise<ScenarioSummary>;
   composeSpeechOutline(input: ScenarioComposeOutlineInput): Promise<ScenarioSummary>;
+  importBackup(password: string): Promise<PrivacyImportResult>;
   transformSpeechOutline(input: ScenarioTransformOutlineInput): Promise<ScenarioSummary>;
   listRecordings(): Promise<RecordingItem[]>;
   deleteRecording(recordingId: string): Promise<RecordingItem[]>;

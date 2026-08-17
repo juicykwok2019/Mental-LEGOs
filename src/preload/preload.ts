@@ -21,6 +21,7 @@ import {
   RECORDING_DELETE_CHANNEL,
   RECORDING_LIST_CHANNEL,
   PRIVACY_EXPORT_CHANNEL,
+  PRIVACY_IMPORT_CHANNEL,
   PRIVACY_OVERVIEW_CHANNEL,
   PROFILE_GET_CHANNEL,
   PROFILE_SAVE_CHANNEL,
@@ -74,6 +75,7 @@ import {
   parsedMaterialFileSchema,
   recordingItemSchema,
   privacyExportResultSchema,
+  privacyImportResultSchema,
   privacyOverviewSchema,
   profileSeedInputSchema,
   profileStateSchema,
@@ -208,6 +210,13 @@ const desktopApi: MentalLegosDesktopApi = Object.freeze({
   },
   async getUsageOverview() {
     return invokeParsed(USAGE_OVERVIEW_CHANNEL, usageOverviewSchema);
+  },
+  async importBackup(password: string) {
+    return invokeParsed(
+      PRIVACY_IMPORT_CHANNEL,
+      privacyImportResultSchema,
+      z.string().min(8).max(200).parse(password),
+    );
   },
   async composeSpeechOutline(input: ScenarioComposeOutlineInput) {
     return invokeParsed(

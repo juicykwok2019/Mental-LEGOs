@@ -698,6 +698,10 @@ export function SettingsView() {
           >
             导出全部数据
           </button>
+          <p className="block-hint wide-field">
+            导出的 .mlexport 也用于换设备迁移：在新设备全新安装后，
+            首次启动的引导页有"从旧设备的加密备份恢复"入口。
+          </p>
         </div>
       </section>
 
