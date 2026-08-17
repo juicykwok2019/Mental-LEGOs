@@ -676,9 +676,10 @@ function registerIpcHandlers(): void {
   withService(TRAINING_EXTRACT_CHANNEL, async (service) => trainingTurnStateSchema.parse(
     await service.extract(),
   ));
-  withService(TRAINING_CONFIRM_CHANNEL, async (service, value) => trainingTurnStateSchema.parse(
-    await service.confirm(trainingConfirmInputSchema.parse(value).candidateIds),
-  ));
+  withService(TRAINING_CONFIRM_CHANNEL, async (service, value) => {
+    const input = trainingConfirmInputSchema.parse(value);
+    return trainingTurnStateSchema.parse(await service.confirm(input.candidateIds, input.edits));
+  });
   withService(TRAINING_VARIATION_ANSWER_CHANNEL, async (service, value) => (
     trainingTurnStateSchema.parse(await service.answerVariation(
       trainingVariationAnswerInputSchema.parse(value).responseText,

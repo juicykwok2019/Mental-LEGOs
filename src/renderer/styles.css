@@ -641,6 +641,17 @@ button:disabled { cursor: not-allowed; opacity: 0.58; }
 
 .candidate-card p { margin: 4px 0 0; font-size: 0.86rem; color: #4c5548; }
 
+.candidate-hint { margin: 0; color: #6a7466; font-size: 0.82rem; }
+.candidate-edit-button { padding: 4px 0; font-size: 0.78rem; color: #57814e; }
+.candidate-editing { grid-template-columns: 1fr; cursor: default; }
+.candidate-edit-form { display: flex; flex-direction: column; gap: 10px; }
+.candidate-edit-form label { display: flex; flex-direction: column; gap: 4px; }
+.candidate-edit-form label span { font-size: 0.78rem; font-weight: 700; color: #41463f; }
+.candidate-edit-form input, .candidate-edit-form textarea {
+  padding: 8px 10px; border: 1px solid #cfc7b4; border-radius: 8px; font: inherit;
+}
+.candidate-edit-form textarea { min-height: 64px; resize: vertical; }
+
 .due-list {
   margin-top: 14px;
   padding: 12px;

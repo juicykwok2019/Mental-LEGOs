@@ -126,10 +126,19 @@ export interface ChatViewProps {
   onExit(): void;
 }
 
+interface CandidateDraft {
+  title: string;
+  kernel: string;
+  skeletonText: string;
+  shellsText: string;
+}
+
 export function ChatView(props: ChatViewProps) {
   const { turn, busy } = props;
   const logRef = useRef<HTMLDivElement | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, CandidateDraft>>({});
 
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' });
@@ -137,7 +146,45 @@ export function ChatView(props: ChatViewProps) {
 
   useEffect(() => {
     setSelected(turn.candidates.map((candidate) => candidate.id));
+    setEditingId(null);
+    setDrafts({});
   }, [turn.candidates]);
+
+  function draftFor(candidate: (typeof turn.candidates)[number]): CandidateDraft {
+    return drafts[candidate.id] ?? {
+      title: candidate.title,
+      kernel: candidate.semanticKernel,
+      skeletonText: candidate.logicSkeleton.join('\n'),
+      shellsText: candidate.languageShells.join('\n'),
+    };
+  }
+
+  function buildEdits(): Record<string, {
+    title?: string; semanticKernel?: string; logicSkeleton?: string[]; languageShells?: string[];
+  }> {
+    const edits: Record<string, {
+      title?: string; semanticKernel?: string; logicSkeleton?: string[]; languageShells?: string[];
+    }> = {};
+    for (const candidate of turn.candidates) {
+      const draft = drafts[candidate.id];
+      if (!draft) continue;
+      const patch: (typeof edits)[string] = {};
+      const title = draft.title.trim();
+      const kernel = draft.kernel.trim();
+      const skeleton = draft.skeletonText.split('\n').map((line) => line.trim()).filter(Boolean);
+      const shells = draft.shellsText.split('\n').map((line) => line.trim()).filter(Boolean);
+      if (title && title !== candidate.title) patch.title = title;
+      if (kernel && kernel !== candidate.semanticKernel) patch.semanticKernel = kernel;
+      if (skeleton.length > 0 && skeleton.join('\n') !== candidate.logicSkeleton.join('\n')) {
+        patch.logicSkeleton = skeleton;
+      }
+      if (shells.length > 0 && shells.join('\n') !== candidate.languageShells.join('\n')) {
+        patch.languageShells = shells;
+      }
+      if (Object.keys(patch).length > 0) edits[candidate.id] = patch;
+    }
+    return edits;
+  }
 
   const phase = turn.phase;
   const api = window.mentalLegos;
@@ -164,34 +211,112 @@ export function ChatView(props: ChatViewProps) {
         {phase === 'candidates-ready' && turn.candidates.length > 0 && (
           <div className="bubble-row bubble-coach">
             <div className="bubble candidate-bubble">
-              {turn.candidates.map((candidate) => (
-                <label key={candidate.id} className="candidate-card">
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(candidate.id)}
-                    onChange={(event) => setSelected(event.target.checked
-                      ? [...selected, candidate.id]
-                      : selected.filter((id) => id !== candidate.id))}
-                  />
-                  <div>
-                    <strong>
-                      {candidate.title}
-                      <em>
-                        {candidate.domain === 'generic' ? ' · 通用'
-                          : candidate.domain === 'professional' ? ' · 专业' : ' · 场景'}
-                      </em>
-                    </strong>
-                    <p>内核：{candidate.semanticKernel}</p>
-                    <p>骨架:{candidate.logicSkeleton.join(' → ')}</p>
-                    <p>外壳：{candidate.languageShells.join(' / ')}</p>
+              <p className="candidate-hint">
+                勾选你认领的表达；措辞不满意可先"修改"再确认——入库的以你改过的为准。
+              </p>
+              {turn.candidates.map((candidate) => {
+                const draft = draftFor(candidate);
+                const edited = Boolean(drafts[candidate.id]);
+                return editingId === candidate.id ? (
+                  <div key={candidate.id} className="candidate-card candidate-editing">
+                    <div className="candidate-edit-form">
+                      <label>
+                        <span>标题</span>
+                        <input
+                          value={draft.title}
+                          maxLength={200}
+                          onChange={(event) => setDrafts({
+                            ...drafts, [candidate.id]: { ...draft, title: event.target.value },
+                          })}
+                        />
+                      </label>
+                      <label>
+                        <span>语义内核（你想表达的核心判断）</span>
+                        <textarea
+                          value={draft.kernel}
+                          onChange={(event) => setDrafts({
+                            ...drafts, [candidate.id]: { ...draft, kernel: event.target.value },
+                          })}
+                        />
+                      </label>
+                      <label>
+                        <span>逻辑骨架（每行一步）</span>
+                        <textarea
+                          value={draft.skeletonText}
+                          onChange={(event) => setDrafts({
+                            ...drafts, [candidate.id]: { ...draft, skeletonText: event.target.value },
+                          })}
+                        />
+                      </label>
+                      <label>
+                        <span>语言外壳（每行一句你的原话）</span>
+                        <textarea
+                          value={draft.shellsText}
+                          onChange={(event) => setDrafts({
+                            ...drafts, [candidate.id]: { ...draft, shellsText: event.target.value },
+                          })}
+                        />
+                      </label>
+                      <div className="phase-actions">
+                        <button type="button" className="secondary-button" onClick={() => setEditingId(null)}>
+                          完成修改
+                        </button>
+                        <button
+                          type="button"
+                          className="quiet-button"
+                          onClick={() => {
+                            const { [candidate.id]: _dropped, ...rest } = drafts;
+                            setDrafts(rest);
+                            setEditingId(null);
+                          }}
+                        >
+                          还原为提炼结果
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </label>
-              ))}
+                ) : (
+                  <label key={candidate.id} className="candidate-card">
+                    <input
+                      type="checkbox"
+                      checked={selected.includes(candidate.id)}
+                      onChange={(event) => setSelected(event.target.checked
+                        ? [...selected, candidate.id]
+                        : selected.filter((id) => id !== candidate.id))}
+                    />
+                    <div>
+                      <strong>
+                        {edited ? draft.title : candidate.title}
+                        <em>
+                          {candidate.domain === 'generic' ? ' · 通用'
+                            : candidate.domain === 'professional' ? ' · 专业' : ' · 场景'}
+                          {edited && ' · 已修改'}
+                        </em>
+                      </strong>
+                      <p>内核：{edited ? draft.kernel : candidate.semanticKernel}</p>
+                      <p>骨架：{(edited ? draft.skeletonText.split('\n').filter(Boolean) : candidate.logicSkeleton).join(' → ')}</p>
+                      <p>外壳：{(edited ? draft.shellsText.split('\n').filter(Boolean) : candidate.languageShells).join(' / ')}</p>
+                      <button
+                        type="button"
+                        className="quiet-button candidate-edit-button"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          setDrafts({ ...drafts, [candidate.id]: draft });
+                          setEditingId(candidate.id);
+                        }}
+                      >
+                        修改措辞
+                      </button>
+                    </div>
+                  </label>
+                );
+              })}
               <button
                 type="button"
-                disabled={busy || selected.length === 0}
+                disabled={busy || selected.length === 0 || editingId !== null}
                 onClick={() => props.onAction('确认写入…', () => api.confirmCandidates({
                   candidateIds: selected,
+                  edits: buildEdits(),
                 }))}
               >
                 确认选中的 {selected.length} 个模块

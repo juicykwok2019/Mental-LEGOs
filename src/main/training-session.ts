@@ -574,19 +574,39 @@ export class TrainingSessionService {
     });
   }
 
-  async confirm(candidateIds: string[]): Promise<TrainingTurnState> {
+  async confirm(
+    candidateIds: string[],
+    edits: Record<string, {
+      title?: string | undefined;
+      semanticKernel?: string | undefined;
+      logicSkeleton?: string[] | undefined;
+      languageShells?: string[] | undefined;
+    }> = {},
+  ): Promise<TrainingTurnState> {
     return this.#exclusive(async () => {
       const session = this.#requireSession('candidates-ready');
       const known = new Set(session.candidates.map((candidate) => candidate.id));
       for (const id of candidateIds) {
         if (!known.has(id)) throw new Error('Unknown candidate id.');
       }
+      // The governance kernel merges these onto the stored payload at commit,
+      // so the user's final wording is exactly what materializes.
+      const userEdits: Record<string, Record<string, unknown>> = {};
+      for (const [candidateId, edit] of Object.entries(edits)) {
+        if (!known.has(candidateId)) continue;
+        const patch: Record<string, unknown> = {};
+        if (edit.title !== undefined) patch.title = edit.title;
+        if (edit.semanticKernel !== undefined) patch.semantic_kernel = edit.semanticKernel;
+        if (edit.logicSkeleton !== undefined) patch.logic_skeleton = edit.logicSkeleton;
+        if (edit.languageShells !== undefined) patch.language_shells = edit.languageShells;
+        if (Object.keys(patch).length > 0) userEdits[candidateId] = patch;
+      }
       const repository = new GovernanceRepository(session.governanceDatabasePath);
       let materializedIds: string[];
       try {
         const { previewId } = repository.prepareCommit(candidateIds);
         const token = repository.issueConfirmationToken({ action: 'commit', previewId });
-        repository.commitConfirmed({ token, previewId, userEdits: {} });
+        repository.commitConfirmed({ token, previewId, userEdits });
         const materializer = new FormalMaterializer(
           this.#product,
           session.scenarioId ? { scenarioId: session.scenarioId } : {},

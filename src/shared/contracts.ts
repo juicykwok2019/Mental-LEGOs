@@ -243,8 +243,19 @@ export const trainingSecondInputSchema = spokenInputSchema.extend({
 });
 export type TrainingSecondInput = z.infer<typeof trainingSecondInputSchema>;
 
+// Optional per-candidate edits applied at confirmation — the user owns the
+// final wording before anything enters the formal library.
+export const trainingCandidateEditSchema = z.object({
+  title: z.string().trim().min(1).max(200).optional(),
+  semanticKernel: z.string().trim().min(1).max(4000).optional(),
+  logicSkeleton: z.array(z.string().trim().min(1).max(500)).min(1).max(8).optional(),
+  languageShells: z.array(z.string().trim().min(1).max(1000)).min(1).max(10).optional(),
+});
+export type TrainingCandidateEdit = z.infer<typeof trainingCandidateEditSchema>;
+
 export const trainingConfirmInputSchema = z.object({
   candidateIds: z.array(z.string().min(1).max(100)).min(1).max(10),
+  edits: z.record(z.string(), trainingCandidateEditSchema).default({}),
 });
 export type TrainingConfirmInput = z.infer<typeof trainingConfirmInputSchema>;
 

@@ -249,9 +249,19 @@ describe('training session v2 orchestration', () => {
     const extracted = await service.extract();
     expect(extracted.candidates).toHaveLength(1);
 
-    const confirmed = await service.confirm([extracted.candidates[0]!.id]);
+    const candidateId = extracted.candidates[0]!.id;
+    const confirmed = await service.confirm([candidateId], {
+      [candidateId]: {
+        title: '用户改后的标题',
+        languageShells: ['这是我自己改过的原话。'],
+      },
+    });
     expect(confirmed.phase).toBe('variation');
     expect(confirmed.transcript.some((entry) => entry.text.includes('变体调用'))).toBe(true);
+    const committedModule = product.listLegoModules({ status: 'confirmed' })[0]!;
+    expect(committedModule.title).toBe('用户改后的标题');
+    const committedVersion = product.getLegoVersion(committedModule.id, committedModule.currentVersion ?? 1);
+    expect(committedVersion?.payload.languageShells).toEqual(['这是我自己改过的原话。']);
 
     const judged = await service.answerVariation('软不软要看结果：我先理解关切，是为了让方案能落地。');
     expect(judged.phase).toBe('round-complete');
