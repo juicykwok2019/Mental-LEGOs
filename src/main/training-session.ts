@@ -93,8 +93,11 @@ const resultMessageSchema = z.object({
   result: z.string().optional(),
 });
 
+// Providers routinely improvise type labels despite instructions, so accept
+// any string and normalize afterwards — a mislabeled type must never void an
+// otherwise good generation (questionType is nullable in the data model).
 const generatedQuestionSchema = z.object({
-  question_type: questionTypeSchema,
+  question_type: z.string().trim().min(1),
   exploratory: z.boolean().default(false),
   question: z.string().trim().min(8),
 });
@@ -102,10 +105,34 @@ const generatedQuestionSchema = z.object({
 const preparationSchema = z.object({
   analysis: z.string().trim().min(1),
   questions: z.array(z.object({
-    question_type: questionTypeSchema,
+    question_type: z.string().trim().min(1),
     question: z.string().trim().min(8),
   })).min(3).max(10),
 });
+
+const QUESTION_TYPE_SYNONYMS: Record<string, QuestionType> = {
+  opinion: 'viewpoint', view: 'viewpoint', judgment: 'viewpoint', stance: 'viewpoint',
+  观点: 'viewpoint', 观点判断: 'viewpoint',
+  explanation: 'mechanism', how: 'mechanism', principle: 'mechanism', why: 'mechanism',
+  technical: 'mechanism', 机制: 'mechanism', 机制解释: 'mechanism',
+  choice: 'decision', 'trade-off': 'decision', tradeoff: 'decision', strategy: 'decision',
+  决策: 'decision', 方案决策: 'decision',
+  experience: 'case-recall', case: 'case-recall', example: 'case-recall',
+  behavioral: 'case-recall', story: 'case-recall', project: 'case-recall',
+  经验: 'case-recall', 经验调用: 'case-recall',
+  pushback: 'challenge', objection: 'challenge', skeptical: 'challenge',
+  质疑: 'challenge', 质疑挑战: 'challenge',
+  'follow-up': 'pressure-probe', followup: 'pressure-probe', probe: 'pressure-probe',
+  stress: 'pressure-probe', pressure: 'pressure-probe',
+  追问: 'pressure-probe', 追问压力: 'pressure-probe',
+};
+
+export function normalizeQuestionType(value: string): QuestionType | null {
+  const key = value.trim().toLowerCase().replace(/[\s_]+/gu, '-');
+  const direct = questionTypeSchema.safeParse(key);
+  if (direct.success) return direct.data;
+  return QUESTION_TYPE_SYNONYMS[key] ?? QUESTION_TYPE_SYNONYMS[value.trim()] ?? null;
+}
 
 const variationJudgementSchema = z.object({
   result: z.enum(['success', 'partial', 'failure']),
@@ -264,7 +291,7 @@ export class TrainingSessionService {
         prompt: generated.question,
         scope: 'global',
         origin: 'scheduler',
-        questionType: generated.question_type,
+        questionType: normalizeQuestionType(generated.question_type),
         exploratory: generated.exploratory,
       });
       this.#beginGate(session, question);
@@ -597,7 +624,7 @@ export class TrainingSessionService {
         scope: session.mode === 'open' ? 'global' : 'scenario',
         scenarioId: session.scenarioId,
         origin: 'variation',
-        questionType: generated.question_type,
+        questionType: normalizeQuestionType(generated.question_type),
         parentQuestionId: session.questionId,
         targetModuleIds: [moduleId],
       });
@@ -826,7 +853,8 @@ export class TrainingSessionService {
             'counterpart would realistically ask, ordered by likelihood, mixing types.',
           ].join(' '),
         'Never include model answers.',
-        'Reply with ONLY this JSON: {"analysis":"Chinese text","questions":[{"question_type":"...","question":"..."}]}',
+        'question_type MUST be exactly one of: viewpoint, mechanism, decision, case-recall, challenge, pressure-probe.',
+        'Reply with ONLY this JSON: {"analysis":"Chinese text","questions":[{"question_type":"viewpoint","question":"..."}]}',
       ].filter(Boolean).join('\n');
       const output = await this.#runAgent(session, prompt, 8);
       const prepared = parseJsonReply(extractFinalText(output.messages), preparationSchema);
@@ -837,7 +865,7 @@ export class TrainingSessionService {
           scope: 'scenario',
           scenarioId,
           origin: 'scenario-analysis',
-          questionType: item.question_type,
+          questionType: normalizeQuestionType(item.question_type),
         });
       }
       return this.#scenarioSummary(this.#product.getScenario(scenarioId)!);

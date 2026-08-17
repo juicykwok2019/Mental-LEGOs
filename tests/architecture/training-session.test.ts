@@ -11,6 +11,7 @@ import { StaticDataKeyProvider } from '../../src/data/crypto';
 import { ProductDatabase } from '../../src/data/product-database';
 import {
   extractFinalText,
+  normalizeQuestionType,
   parseJsonReply,
   TrainingSessionService,
   type TrainingAgentRunner,
@@ -132,6 +133,21 @@ class FakeAgent implements TrainingAgentRunner {
     return { agentSessionId: this.#agentSessionId, messages: [resultMessage(reply)] };
   }
 }
+
+describe('question type normalization', () => {
+  it('accepts canonical values and maps common improvisations', () => {
+    expect(normalizeQuestionType('viewpoint')).toBe('viewpoint');
+    expect(normalizeQuestionType('Case Recall')).toBe('case-recall');
+    expect(normalizeQuestionType('Follow_Up')).toBe('pressure-probe');
+    expect(normalizeQuestionType('behavioral')).toBe('case-recall');
+    expect(normalizeQuestionType('经验调用')).toBe('case-recall');
+    expect(normalizeQuestionType('质疑')).toBe('challenge');
+  });
+
+  it('degrades unknown labels to null instead of failing the run', () => {
+    expect(normalizeQuestionType('completely-made-up')).toBeNull();
+  });
+});
 
 describe('training session v2 orchestration', () => {
   let directory: string;
