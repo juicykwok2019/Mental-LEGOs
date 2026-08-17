@@ -178,6 +178,11 @@ function installPdfGeometryStubs(): void {
 
 async function extractPdfText(fileBytes: Buffer, warnings: string[]): Promise<string> {
   installPdfGeometryStubs();
+  // Importing the worker entry assigns globalThis.pdfjsWorker, which the
+  // fake-worker path prefers over loading workerSrc from disk — required
+  // because Vite bundles this module and never emits pdf.worker.mjs as a
+  // standalone file next to the build output.
+  await import('pdfjs-dist/legacy/build/pdf.worker.mjs');
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
   const loadingTask = pdfjs.getDocument({
     // pdfjs mutates/transfers its input, so hand it a private copy.
