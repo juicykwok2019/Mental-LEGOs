@@ -86,6 +86,8 @@ export class TrainingEngine {
     scope: Question['scope'];
     scenarioId?: string | null;
     origin: Question['origin'];
+    questionType?: Question['questionType'];
+    exploratory?: boolean;
     parentQuestionId?: string | null;
     targetModuleIds?: string[];
     pressure?: Question['pressure'];
@@ -97,6 +99,8 @@ export class TrainingEngine {
       scenarioId: input.scenarioId ?? null,
       prompt: input.prompt,
       origin: input.origin,
+      questionType: input.questionType ?? null,
+      exploratory: input.exploratory ?? false,
       parentQuestionId: input.parentQuestionId ?? null,
       targetModuleIds: input.targetModuleIds ?? [],
       pressure: input.pressure ?? 'none',

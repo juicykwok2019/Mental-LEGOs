@@ -114,15 +114,28 @@ describe('live chat training loop', () => {
         sessionsRoot: path.join(directory, 'sessions'),
       });
 
+      service.saveProfile({
+        direction: 'AI 产品负责人，关注大模型在传统企业落地',
+        currentWork: '推进一个跨部门的智能客服项目',
+        targetScenarios: '高管汇报、客户方案沟通',
+        material: '',
+      });
+
       try {
-        const started = await service.start('跨团队沟通');
+        const started = await service.start({
+          topic: '跨团队沟通', scenarioId: null, questionId: null,
+        });
         expect(started.phase).toBe('first-attempt');
         expect(started.question?.prompt.length).toBeGreaterThan(10);
+        expect(started.question?.questionType).not.toBeNull();
         expect(started.gate?.assistanceAllowed).toBe(false);
 
         const closed = await service.closeFirst({
           outcome: 'answered',
           responseText: '呃，我觉得跨团队沟通主要就是多开会对齐吧，有分歧的话就往上升级，让老板拍板。',
+          recordingId: null,
+          openingDelayMs: 4000,
+          durationMs: 30_000,
         });
         expect(closed.phase).toBe('first-closed');
 
@@ -146,11 +159,19 @@ describe('live chat training loop', () => {
 
         if (extracted.candidates.length > 0) {
           const confirmed = await service.confirm([extracted.candidates[0]!.id]);
-          expect(confirmed.phase).toBe('committed');
           expect(confirmed.committedCount).toBeGreaterThanOrEqual(1);
           const modules = product.listLegoModules({ status: 'confirmed' });
           expect(modules.length).toBeGreaterThanOrEqual(1);
           expect(product.getMasteryState(modules[0]!.id)?.dueAt).not.toBeNull();
+
+          if (confirmed.phase === 'variation') {
+            const judged = await service.answerVariation(
+              '我的回应是：先理解对方关切不等于放弃立场，而是让分歧变成可验证的问题，'
+              + '这样才能推进而不是空转。',
+            );
+            expect(judged.phase).toBe('round-complete');
+            expect(judged.transcript.some((entry) => entry.kind === 'variation-result')).toBe(true);
+          }
         }
       } finally {
         product.close();

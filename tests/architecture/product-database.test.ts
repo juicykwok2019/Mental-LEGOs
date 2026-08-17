@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { LegoVersionPayload } from '../../src/data/contracts';
 import { FieldCodec, StaticDataKeyProvider } from '../../src/data/crypto';
 import { exportDatabase, restoreDatabase } from '../../src/data/export';
+import { MIGRATIONS } from '../../src/data/migrations';
 import { ProductDatabase } from '../../src/data/product-database';
 
 const NOW = '2026-08-17T10:00:00.000Z';
@@ -126,9 +127,9 @@ describe('formal product database', () => {
   }
 
   it('applies migrations exactly once and reports the schema version', () => {
-    expect(database.migratedVersion).toBe(2);
+    expect(database.migratedVersion).toBe(MIGRATIONS[MIGRATIONS.length - 1]!.version);
     const reopened = new ProductDatabase(path.join(directory, 'product.db'), keys);
-    expect(reopened.migratedVersion).toBe(2);
+    expect(reopened.migratedVersion).toBe(database.migratedVersion);
     reopened.close();
   });
 

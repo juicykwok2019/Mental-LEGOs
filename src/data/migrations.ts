@@ -234,4 +234,14 @@ export const MIGRATIONS: readonly Migration[] = [
       ALTER TABLE lego_modules ADD COLUMN domain TEXT;
     `,
   },
+  {
+    version: 3,
+    name: 'scenario-worries-and-analysis',
+    statements: `
+      -- What the user fears being asked, and the agent's preparation analysis.
+      -- Both are personal free text and stay encrypted at rest.
+      ALTER TABLE scenarios ADD COLUMN worries_enc TEXT NOT NULL DEFAULT '';
+      ALTER TABLE scenarios ADD COLUMN analysis_enc TEXT NOT NULL DEFAULT '';
+    `,
+  },
 ];

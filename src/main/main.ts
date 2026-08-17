@@ -1,15 +1,17 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, rm } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import {
   app,
   BrowserWindow,
+  dialog,
   ipcMain,
   net,
   protocol,
 } from 'electron';
+import { z } from 'zod';
 
 import { AgentWorkerHost } from './agent-worker-host';
 import { AsrWorkerHost } from './asr-worker-host';
@@ -19,8 +21,10 @@ import { CredentialVault } from './credential-vault';
 import { ProviderCertificationService } from './provider-certification';
 import { ProviderConfigurationService } from './provider-configuration';
 import { ProviderSettingsStore } from './provider-settings-store';
+import { SpeechService } from './speech-service';
 import { TrainingSessionService } from './training-session';
 import { loadVaultDataKeyProvider } from '../data/data-key';
+import { exportDatabase } from '../data/export';
 import { ProductDatabase } from '../data/product-database';
 
 import {
@@ -34,28 +38,69 @@ import {
   PROVIDER_SETUP_GET_CHANNEL,
   PROVIDER_SETUP_SAVE_CHANNEL,
   RENDERER_READY_CHANNEL,
+  LIBRARY_ARCHIVE_CHANNEL,
+  LIBRARY_LIST_CHANNEL,
+  LIBRARY_MODULE_DETAIL_CHANNEL,
+  LIBRARY_PROMOTE_CHANNEL,
+  LIBRARY_REAL_WORLD_CHANNEL,
+  PRIVACY_EXPORT_CHANNEL,
+  PRIVACY_OVERVIEW_CHANNEL,
+  PROFILE_GET_CHANNEL,
+  PROFILE_SAVE_CHANNEL,
+  SCENARIO_ADD_MATERIAL_CHANNEL,
+  SCENARIO_CREATE_CHANNEL,
+  SCENARIO_DELETE_CHANNEL,
+  SCENARIO_DELETE_PREVIEW_CHANNEL,
+  SCENARIO_LIST_CHANNEL,
+  SCENARIO_PREPARE_CHANNEL,
+  SCENARIO_REVIEW_CHANNEL,
+  SCENARIO_START_QUESTION_CHANNEL,
+  SPEECH_INSTALL_CHANNEL,
+  SPEECH_READINESS_CHANNEL,
+  SPEECH_TRANSCRIBE_CHANNEL,
   TRAINING_CLOSE_FIRST_CHANNEL,
   TRAINING_CONFIRM_CHANNEL,
   TRAINING_DIAGNOSE_CHANNEL,
   TRAINING_DUE_CHANNEL,
   TRAINING_EXTRACT_CHANNEL,
+  TRAINING_FOLLOW_UP_CHANNEL,
+  TRAINING_GAP_CHANNEL,
   TRAINING_HINT_CHANNEL,
   TRAINING_SECOND_CHANNEL,
   TRAINING_START_CHANNEL,
+  TRAINING_VARIATION_ANSWER_CHANNEL,
+  TRAINING_VARIATION_SKIP_CHANNEL,
   appInfoSchema,
   agentReadinessStateSchema,
+  libraryModuleDetailSchema,
+  libraryModuleSummarySchema,
+  libraryPromoteInputSchema,
+  libraryRealWorldInputSchema,
+  privacyExportResultSchema,
+  privacyOverviewSchema,
+  profileSeedInputSchema,
+  profileStateSchema,
   providerSetupInputSchema,
   providerSetupStateSchema,
   providerCertificationDraftSchema,
   providerCertificationIdSchema,
   providerCertificationResultSchema,
+  scenarioCreateInputSchema,
+  scenarioDeletePreviewSchema,
+  scenarioMaterialInputSchema,
+  scenarioReviewInputSchema,
+  scenarioSummarySchema,
+  speechReadinessSchema,
+  speechTranscriptionResultSchema,
   trainingCloseFirstInputSchema,
   trainingConfirmInputSchema,
   trainingDueListSchema,
+  trainingGapInputSchema,
   trainingHintLevelSchema,
   trainingSecondInputSchema,
   trainingStartInputSchema,
   trainingTurnStateSchema,
+  trainingVariationAnswerInputSchema,
 } from '../shared/contracts';
 import { providerRegistry } from '../shared/providers';
 import {
@@ -82,6 +127,7 @@ let providerCertification: ProviderCertificationService | null = null;
 let productDatabase: ProductDatabase | null = null;
 let trainingService: TrainingSessionService | null = null;
 let trainingServicePromise: Promise<TrainingSessionService> | null = null;
+let speechService: SpeechService | null = null;
 let agentRuntimeDiagnostic: 'checking' | 'ready' | 'error' = 'checking';
 let agentRuntimeDiagnosticDetail: string | null = null;
 let bashInstallPromise: Promise<unknown> | null = null;
@@ -233,6 +279,31 @@ async function getTrainingService(): Promise<TrainingSessionService> {
     });
   }
   return trainingServicePromise;
+}
+
+async function getProductDatabase(): Promise<ProductDatabase> {
+  await getTrainingService();
+  if (!productDatabase) throw new Error('The formal database is unavailable.');
+  return productDatabase;
+}
+
+async function getSpeechService(): Promise<SpeechService> {
+  if (speechService) return speechService;
+  if (!asrWorkerHost) throw new Error('The local speech runtime is not initialized yet.');
+  const resourcesRoot = app.isPackaged
+    ? process.resourcesPath
+    : path.join(app.getAppPath(), 'resources');
+  speechService = new SpeechService({
+    transcriber: asrWorkerHost,
+    modelsRoot: path.join(app.getPath('userData'), 'models'),
+    manifestPath: path.join(
+      resourcesRoot,
+      'asr-models',
+      'sensevoice-small-int8-2024-07-17.json',
+    ),
+    mediaRoot: path.join(app.getPath('userData'), 'media'),
+  });
+  return speechService;
 }
 
 async function runPackagedAgentE2eSmoke(): Promise<void> {
@@ -505,44 +576,256 @@ function registerIpcHandlers(): void {
     },
   );
 
-  const trainingHandler = (
+  const guarded = (
     channel: string,
-    work: (service: TrainingSessionService, value: unknown) => Promise<unknown>,
+    work: (value: unknown) => Promise<unknown>,
   ): void => {
     ipcMain.handle(channel, async (event, value: unknown) => {
       const senderUrl = event.senderFrame?.url;
       if (!senderUrl) throw new Error('IPC request rejected: missing sender frame.');
       assertTrustedIpcSender(event.sender.id, senderUrl);
-      return work(await getTrainingService(), value);
+      return work(value);
     });
   };
+  const withService = (
+    channel: string,
+    work: (service: TrainingSessionService, value: unknown) => Promise<unknown>,
+  ): void => {
+    guarded(channel, async (value) => work(await getTrainingService(), value));
+  };
 
-  trainingHandler(TRAINING_START_CHANNEL, async (service, value) => trainingTurnStateSchema.parse(
-    await service.start(trainingStartInputSchema.parse(value).topic),
+  withService(PROFILE_GET_CHANNEL, async (service) => profileStateSchema.parse(
+    service.profileState(),
   ));
-  trainingHandler(TRAINING_CLOSE_FIRST_CHANNEL, async (service, value) => (
-    trainingTurnStateSchema.parse(
-      await service.closeFirst(trainingCloseFirstInputSchema.parse(value)),
-    )
+  withService(PROFILE_SAVE_CHANNEL, async (service, value) => profileStateSchema.parse(
+    service.saveProfile(profileSeedInputSchema.parse(value)),
   ));
-  trainingHandler(TRAINING_DIAGNOSE_CHANNEL, async (service) => trainingTurnStateSchema.parse(
+
+  guarded(SPEECH_READINESS_CHANNEL, async () => speechReadinessSchema.parse(
+    await (await getSpeechService()).readiness(),
+  ));
+  guarded(SPEECH_INSTALL_CHANNEL, async () => speechReadinessSchema.parse(
+    await (await getSpeechService()).install(),
+  ));
+  guarded(SPEECH_TRANSCRIBE_CHANNEL, async (value) => {
+    if (!(value instanceof ArrayBuffer) && !ArrayBuffer.isView(value)) {
+      throw new Error('Recording payload must be binary.');
+    }
+    const bytes = value instanceof ArrayBuffer
+      ? new Uint8Array(value)
+      : new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+    const result = await (await getSpeechService()).transcribe(bytes);
+    return speechTranscriptionResultSchema.parse({
+      recordingId: result.recordingId,
+      text: result.text,
+      audioDurationSeconds: result.audioDurationSeconds,
+      realTimeFactor: result.realTimeFactor,
+    });
+  });
+
+  withService(TRAINING_START_CHANNEL, async (service, value) => trainingTurnStateSchema.parse(
+    await service.start(trainingStartInputSchema.parse(value)),
+  ));
+  withService(TRAINING_CLOSE_FIRST_CHANNEL, async (service, value) => trainingTurnStateSchema.parse(
+    await service.closeFirst(trainingCloseFirstInputSchema.parse(value)),
+  ));
+  withService(TRAINING_GAP_CHANNEL, async (service, value) => trainingTurnStateSchema.parse(
+    await service.resolveGap(trainingGapInputSchema.parse(value).gap),
+  ));
+  withService(TRAINING_DIAGNOSE_CHANNEL, async (service) => trainingTurnStateSchema.parse(
     await service.diagnose(),
   ));
-  trainingHandler(TRAINING_HINT_CHANNEL, async (service, value) => trainingTurnStateSchema.parse(
+  withService(TRAINING_HINT_CHANNEL, async (service, value) => trainingTurnStateSchema.parse(
     await service.hint(trainingHintLevelSchema.parse(value)),
   ));
-  trainingHandler(TRAINING_SECOND_CHANNEL, async (service, value) => trainingTurnStateSchema.parse(
+  withService(TRAINING_SECOND_CHANNEL, async (service, value) => trainingTurnStateSchema.parse(
     await service.second(trainingSecondInputSchema.parse(value).responseText),
   ));
-  trainingHandler(TRAINING_EXTRACT_CHANNEL, async (service) => trainingTurnStateSchema.parse(
+  withService(TRAINING_EXTRACT_CHANNEL, async (service) => trainingTurnStateSchema.parse(
     await service.extract(),
   ));
-  trainingHandler(TRAINING_CONFIRM_CHANNEL, async (service, value) => trainingTurnStateSchema.parse(
+  withService(TRAINING_CONFIRM_CHANNEL, async (service, value) => trainingTurnStateSchema.parse(
     await service.confirm(trainingConfirmInputSchema.parse(value).candidateIds),
   ));
-  trainingHandler(TRAINING_DUE_CHANNEL, async (service) => trainingDueListSchema.parse(
+  withService(TRAINING_VARIATION_ANSWER_CHANNEL, async (service, value) => (
+    trainingTurnStateSchema.parse(await service.answerVariation(
+      trainingVariationAnswerInputSchema.parse(value).responseText,
+    ))
+  ));
+  withService(TRAINING_VARIATION_SKIP_CHANNEL, async (service) => trainingTurnStateSchema.parse(
+    await service.skipVariation(),
+  ));
+  withService(TRAINING_FOLLOW_UP_CHANNEL, async (service) => trainingTurnStateSchema.parse(
+    await service.followUp(),
+  ));
+  withService(TRAINING_DUE_CHANNEL, async (service) => trainingDueListSchema.parse(
     service.dueQueue(),
   ));
+
+  withService(SCENARIO_LIST_CHANNEL, async (service) => (
+    z.array(scenarioSummarySchema).parse(service.listScenarios())
+  ));
+  withService(SCENARIO_CREATE_CHANNEL, async (service, value) => scenarioSummarySchema.parse(
+    service.createScenario(scenarioCreateInputSchema.parse(value)),
+  ));
+  withService(SCENARIO_ADD_MATERIAL_CHANNEL, async (service, value) => scenarioSummarySchema.parse(
+    service.addScenarioMaterial(scenarioMaterialInputSchema.parse(value)),
+  ));
+  withService(SCENARIO_PREPARE_CHANNEL, async (service, value) => scenarioSummarySchema.parse(
+    await service.prepareScenario(z.string().uuid().parse(value)),
+  ));
+  withService(SCENARIO_START_QUESTION_CHANNEL, async (service, value) => {
+    const input = z.object({
+      scenarioId: z.string().uuid(),
+      questionId: z.string().uuid(),
+    }).parse(value);
+    return trainingTurnStateSchema.parse(await service.start({
+      topic: '',
+      scenarioId: input.scenarioId,
+      questionId: input.questionId,
+    }));
+  });
+  withService(SCENARIO_REVIEW_CHANNEL, async (service, value) => trainingTurnStateSchema.parse(
+    await service.reviewScenario(scenarioReviewInputSchema.parse(value)),
+  ));
+  withService(SCENARIO_DELETE_PREVIEW_CHANNEL, async (_service, value) => {
+    const database = await getProductDatabase();
+    return scenarioDeletePreviewSchema.parse(
+      database.previewScenarioDeletion(z.string().uuid().parse(value)),
+    );
+  });
+  withService(SCENARIO_DELETE_CHANNEL, async (_service, value) => {
+    const database = await getProductDatabase();
+    return scenarioDeletePreviewSchema.parse(
+      database.deleteScenario(z.string().uuid().parse(value)),
+    );
+  });
+
+  withService(LIBRARY_LIST_CHANNEL, async () => {
+    const database = await getProductDatabase();
+    const modules = database.listLegoModules().filter((module) => module.status !== 'archived');
+    return z.array(libraryModuleSummarySchema).parse(modules.map((module) => {
+      const mastery = database.getMasteryState(module.id);
+      return {
+        id: module.id,
+        title: module.title,
+        category: module.category,
+        scope: module.scope,
+        domain: module.domain,
+        status: module.status,
+        stage: mastery?.stage ?? null,
+        dueAt: mastery?.dueAt ?? null,
+        triggers: module.triggers,
+      };
+    }));
+  });
+  withService(LIBRARY_MODULE_DETAIL_CHANNEL, async (_service, value) => {
+    const database = await getProductDatabase();
+    const moduleId = z.string().uuid().parse(value);
+    const module = database.getLegoModule(moduleId);
+    if (!module) throw new Error('Module does not exist.');
+    const version = module.currentVersion
+      ? database.getLegoVersion(moduleId, module.currentVersion)
+      : database.getLegoVersion(moduleId, 1);
+    const mastery = database.getMasteryState(moduleId);
+    return libraryModuleDetailSchema.parse({
+      id: module.id,
+      title: module.title,
+      category: module.category,
+      scope: module.scope,
+      domain: module.domain,
+      status: module.status,
+      stage: mastery?.stage ?? null,
+      dueAt: mastery?.dueAt ?? null,
+      triggers: module.triggers,
+      semanticKernel: version?.payload.semanticKernel ?? '',
+      logicSkeleton: version?.payload.logicSkeleton ?? [],
+      languageShells: version?.payload.languageShells ?? [],
+      anchorPhrase: version?.payload.anchorPhrase ?? '',
+      version: module.currentVersion,
+    });
+  });
+  withService(LIBRARY_ARCHIVE_CHANNEL, async (_service, value) => {
+    const database = await getProductDatabase();
+    database.archiveLegoModule(z.string().uuid().parse(value));
+  });
+  withService(LIBRARY_PROMOTE_CHANNEL, async (_service, value) => {
+    const database = await getProductDatabase();
+    const input = libraryPromoteInputSchema.parse(value);
+    const module = database.promoteModuleToGlobal(input.moduleId, input.domain);
+    const mastery = database.getMasteryState(module.id);
+    return libraryModuleSummarySchema.parse({
+      id: module.id,
+      title: module.title,
+      category: module.category,
+      scope: module.scope,
+      domain: module.domain,
+      status: module.status,
+      stage: mastery?.stage ?? null,
+      dueAt: mastery?.dueAt ?? null,
+      triggers: module.triggers,
+    });
+  });
+  withService(LIBRARY_REAL_WORLD_CHANNEL, async (service, value) => {
+    const input = libraryRealWorldInputSchema.parse(value);
+    service.recordRealWorldUse({
+      moduleId: input.moduleId,
+      result: input.result,
+      note: input.note,
+    });
+  });
+
+  withService(PRIVACY_OVERVIEW_CHANNEL, async () => {
+    const database = await getProductDatabase();
+    const dataDirectory = app.getPath('userData');
+    const counts: Record<string, number> = {};
+    for (const table of ['scenarios', 'sources', 'questions', 'attempts', 'lego_modules',
+      'knowledge_items', 'profile_assertions', 'practice_events', 'consent_events']) {
+      counts[table] = database.tableCount(table);
+    }
+    return privacyOverviewSchema.parse({
+      dataDirectory,
+      diskUsageBytes: await directorySize(path.join(dataDirectory, 'database'))
+        + await directorySize(path.join(dataDirectory, 'media'))
+        + await directorySize(path.join(dataDirectory, 'training-sessions')),
+      counts,
+    });
+  });
+  withService(PRIVACY_EXPORT_CHANNEL, async (_service, value) => {
+    const password = z.string().min(8).max(200).parse(value);
+    const database = await getProductDatabase();
+    const window = mainWindow;
+    if (!window) throw new Error('Main window is unavailable.');
+    const dialogResult = await dialog.showSaveDialog(window, {
+      title: '导出加密数据包',
+      defaultPath: `mental-legos-export-${new Date().toISOString().slice(0, 10)}.mlexport`,
+      filters: [{ name: 'Mental LEGOs 加密导出', extensions: ['mlexport'] }],
+    });
+    if (dialogResult.canceled || !dialogResult.filePath) {
+      return privacyExportResultSchema.parse({ saved: false, fileName: null });
+    }
+    const envelope = exportDatabase(database, password);
+    await writeFile(dialogResult.filePath, JSON.stringify(envelope), 'utf8');
+    return privacyExportResultSchema.parse({
+      saved: true,
+      fileName: path.basename(dialogResult.filePath),
+    });
+  });
+}
+
+async function directorySize(root: string): Promise<number> {
+  let total = 0;
+  try {
+    const entries = await readdir(root, { withFileTypes: true });
+    for (const entry of entries) {
+      const full = path.join(root, entry.name);
+      if (entry.isDirectory()) total += await directorySize(full);
+      else if (entry.isFile()) total += (await stat(full)).size;
+    }
+  } catch {
+    // missing directories count as zero
+  }
+  return total;
 }
 
 async function createMainWindow(): Promise<void> {

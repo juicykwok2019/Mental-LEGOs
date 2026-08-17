@@ -195,6 +195,89 @@ export class ProductDatabase {
     });
   }
 
+  setScenarioWorries(scenarioId: string, worries: string, now = nowIso()): void {
+    this.#database.prepare(
+      'UPDATE scenarios SET worries_enc = ?, updated_at = ? WHERE id = ?',
+    ).run(this.#codec.encrypt(worries), now, scenarioId);
+  }
+
+  setScenarioAnalysis(scenarioId: string, analysis: string, now = nowIso()): void {
+    this.#database.prepare(
+      'UPDATE scenarios SET analysis_enc = ?, updated_at = ? WHERE id = ?',
+    ).run(this.#codec.encrypt(analysis), now, scenarioId);
+  }
+
+  getScenarioExtras(scenarioId: string): { worries: string; analysis: string } | null {
+    const row = this.#database.prepare(
+      'SELECT worries_enc, analysis_enc FROM scenarios WHERE id = ?',
+    ).get(scenarioId) as Row | undefined;
+    if (!row) return null;
+    const decode = (value: unknown): string => {
+      const stored = String(value ?? '');
+      return stored.length > 0 ? this.#codec.decrypt(stored) : '';
+    };
+    return { worries: decode(row.worries_enc), analysis: decode(row.analysis_enc) };
+  }
+
+  listScenarioQuestions(scenarioId: string): Array<Question & { answered: boolean }> {
+    const rows = this.#database.prepare(
+      "SELECT id FROM questions WHERE scenario_id = ? AND origin != 'variation' ORDER BY created_at",
+    ).all(scenarioId) as Row[];
+    return rows.flatMap((row) => {
+      const question = this.getQuestion(String(row.id));
+      if (!question) return [];
+      const attempt = this.#database.prepare(
+        'SELECT id FROM attempts WHERE question_id = ? LIMIT 1',
+      ).get(question.id) as Row | undefined;
+      return [{ ...question, answered: Boolean(attempt) }];
+    });
+  }
+
+  countScenarioSources(scenarioId: string): number {
+    const row = this.#database.prepare(
+      'SELECT COUNT(*) AS n FROM sources WHERE scenario_id = ?',
+    ).get(scenarioId) as Row;
+    return Number(row.n ?? 0);
+  }
+
+  listScenarioSegments(scenarioId: string): SourceSegment[] {
+    const rows = this.#database.prepare(`
+      SELECT ss.id FROM source_segments ss
+      JOIN sources s ON s.id = ss.source_id
+      WHERE s.scenario_id = ? ORDER BY ss.rowid
+    `).all(scenarioId) as Row[];
+    return rows.flatMap((row) => {
+      const segment = this.getSourceSegment(String(row.id));
+      return segment ? [segment] : [];
+    });
+  }
+
+  listRecentKnowledgeGaps(limit = 5): string[] {
+    const rows = this.#database.prepare(`
+      SELECT question_id FROM attempts WHERE gap = 'knowledge'
+      ORDER BY updated_at DESC LIMIT ?
+    `).all(limit) as Row[];
+    const prompts: string[] = [];
+    for (const row of rows) {
+      const question = this.getQuestion(String(row.question_id));
+      if (question) prompts.push(question.prompt);
+    }
+    return prompts;
+  }
+
+  countKnowledgeGaps(): number {
+    const row = this.#database.prepare(
+      "SELECT COUNT(*) AS n FROM attempts WHERE gap = 'knowledge'",
+    ).get() as Row;
+    return Number(row.n ?? 0);
+  }
+
+  tableCount(table: string): number {
+    if (!/^[a-z_]+$/u.test(table)) throw new Error('Invalid table name.');
+    const row = this.#database.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as Row;
+    return Number(row.n ?? 0);
+  }
+
   // ─── Sources and segments ────────────────────────────────────────────────
 
   registerSource(input: Omit<SourceRecord, 'createdAt'> & { now?: string }): SourceRecord {
