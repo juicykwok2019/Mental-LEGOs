@@ -40,6 +40,38 @@ export interface SpeechTranscriptionResult {
   realTimeFactor: number;
 }
 
+// ─── Cloud speech seam (FR-006) ─────────────────────────────────────────────
+// Cloud transcription may only ever run with per-scenario opt-in and an
+// explicit pre-upload disclosure of exactly what will be sent. This interface
+// is the integration seam for that contract; a real Volcano Engine client
+// plugs in once the account and terms registration (PRD §12.3) exist. Until
+// then the placeholder refuses every call, and local transcription remains
+// the only path — audio never leaves the device.
+
+export interface CloudTranscriptionConsent {
+  scenarioId: string;
+  disclosureShown: true;
+  grantedAt: string;
+}
+
+export interface CloudTranscriber {
+  readonly providerLabel: string;
+  transcribe(
+    wavBytes: Uint8Array,
+    consent: CloudTranscriptionConsent,
+  ): Promise<{ text: string }>;
+}
+
+export class VolcanoCloudSpeechPlaceholder implements CloudTranscriber {
+  readonly providerLabel = '火山引擎语音';
+
+  transcribe(): Promise<{ text: string }> {
+    return Promise.reject(new Error(
+      '云端语音尚未接入：需要火山引擎账户与条款登记后才会启用，且启用后仅按场景逐次授权。本地语音不受影响。',
+    ));
+  }
+}
+
 function assertWavBytes(bytes: Uint8Array): void {
   if (bytes.byteLength < 44 || bytes.byteLength > MAX_RECORDING_BYTES) {
     throw new Error('Recording size is out of range.');

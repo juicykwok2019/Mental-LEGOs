@@ -309,6 +309,20 @@ export function SettingsView() {
         </div>
       </section>
 
+      <section className="runtime-card" aria-labelledby="cloud-speech-heading">
+        <div>
+          <p className="step-label">云端语音（可选）</p>
+          <h2 id="cloud-speech-heading">火山引擎语音识别</h2>
+          <p>
+            尚未接入：需要火山引擎账户与条款登记。接入后也只按场景逐次选择启用，
+            且每次上传前都会明确披露将要发送的内容；默认转写始终在本机完成。
+          </p>
+        </div>
+        <div className="runtime-actions">
+          <span className="badge">未接入</span>
+        </div>
+      </section>
+
       <section className="workspace" aria-labelledby="provider-heading">
         <div className="section-heading">
           <div>
