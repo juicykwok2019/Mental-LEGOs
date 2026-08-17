@@ -7,6 +7,7 @@ import type {
   ProviderCertificationResult,
   ProviderSetupInput,
   ProviderSetupState,
+  RecordingItem,
   SpeechReadinessState,
   UsageOverview,
 } from '../../shared/contracts';
@@ -28,6 +29,8 @@ export function SettingsView() {
   const [speechBusy, setSpeechBusy] = useState(false);
   const [privacy, setPrivacy] = useState<PrivacyOverview | null>(null);
   const [usage, setUsage] = useState<UsageOverview | null>(null);
+  const [recordings, setRecordings] = useState<RecordingItem[]>([]);
+  const [recordingToDelete, setRecordingToDelete] = useState<string | null>(null);
   const [exportPassword, setExportPassword] = useState('');
   const [providerId, setProviderId] = useState<ProviderSetupInput['providerId']>('anthropic');
   const [displayName, setDisplayName] = useState('Anthropic');
@@ -50,12 +53,15 @@ export function SettingsView() {
       window.mentalLegos.getSpeechReadiness(),
       window.mentalLegos.getPrivacyOverview(),
       window.mentalLegos.getUsageOverview().catch(() => null),
-    ]).then(([providerSetup, agentReadiness, speechReadiness, privacyOverview, usageOverview]) => {
+      window.mentalLegos.listRecordings().catch(() => []),
+    ]).then(([providerSetup, agentReadiness, speechReadiness, privacyOverview, usageOverview,
+      recordingItems]) => {
       setSetup(providerSetup);
       setReadiness(agentReadiness);
       setSpeech(speechReadiness);
       setPrivacy(privacyOverview);
       setUsage(usageOverview);
+      setRecordings(recordingItems);
     }).catch((reason: unknown) => {
       setError(messageFrom(reason));
     });
@@ -601,6 +607,58 @@ export function SettingsView() {
             调用 {usage.today.runs} 次；累计 输入 {usage.total.inputTokens.toLocaleString()} · 输出{' '}
             {usage.total.outputTokens.toLocaleString()} · 调用 {usage.total.runs} 次
           </p>
+        )}
+        {recordings.length > 0 && (
+          <div className="recording-manager">
+            <p className="section-copy">
+              本机录音（{recordings.length} 条，共{' '}
+              {(recordings.reduce((total, item) => total + item.sizeBytes, 0) / 1024 / 1024).toFixed(1)} MB）
+              ——转写文字保留在训练记录里，删除只移除音频文件：
+            </p>
+            <ul className="version-list">
+              {recordings.map((item) => (
+                <li key={item.recordingId}>
+                  <span>
+                    {item.recordedAt.slice(0, 16).replace('T', ' ')} ·{' '}
+                    {(item.sizeBytes / 1024).toFixed(0)} KB
+                  </span>
+                  {recordingToDelete === item.recordingId ? (
+                    <span className="phase-actions">
+                      <button
+                        type="button"
+                        className="quiet-button"
+                        disabled={busy}
+                        onClick={() => {
+                          setRecordingToDelete(null);
+                          window.mentalLegos.deleteRecording(item.recordingId)
+                            .then(setRecordings)
+                            .catch((reason: unknown) => setError(messageFrom(reason)));
+                        }}
+                      >
+                        确认删除
+                      </button>
+                      <button
+                        type="button"
+                        className="quiet-button"
+                        onClick={() => setRecordingToDelete(null)}
+                      >
+                        取消
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="quiet-button"
+                      disabled={busy}
+                      onClick={() => setRecordingToDelete(item.recordingId)}
+                    >
+                      删除录音
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
         <div className="provider-form">
           <label className="wide-field">

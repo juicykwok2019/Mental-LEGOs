@@ -811,7 +811,17 @@ export class ProductDatabase {
     const row = this.#database.prepare(
       'SELECT * FROM lego_versions WHERE module_id = ? AND version = ?',
     ).get(moduleId, version) as Row | undefined;
-    if (!row) return null;
+    return row ? this.#versionFromRow(row) : null;
+  }
+
+  listLegoVersions(moduleId: string): LegoVersion[] {
+    const rows = this.#database.prepare(
+      'SELECT * FROM lego_versions WHERE module_id = ? ORDER BY version DESC',
+    ).all(moduleId) as Row[];
+    return rows.map((row) => this.#versionFromRow(row));
+  }
+
+  #versionFromRow(row: Row): LegoVersion {
     return legoVersionSchema.parse({
       moduleId: row.module_id,
       version: row.version,
@@ -822,6 +832,45 @@ export class ProductDatabase {
       evidenceSegmentIds: parseStringArray(row.evidence_segment_ids_json),
       attemptIds: parseStringArray(row.attempt_ids_json),
       createdAt: row.created_at,
+    });
+  }
+
+  // Version-level deletion (PRD layered deletion): a single version may hold
+  // phrasing the user wants gone without losing the module or its history.
+  deleteLegoVersion(moduleId: string, version: number, now = nowIso()): LegoModule {
+    return this.#transaction(() => {
+      const module = this.getLegoModule(moduleId);
+      if (!module) throw new Error('Module does not exist.');
+      const stored = this.getLegoVersion(moduleId, version);
+      if (!stored) throw new Error('Module version does not exist.');
+      const countRow = this.#database.prepare(
+        'SELECT COUNT(*) AS count FROM lego_versions WHERE module_id = ?',
+      ).get(moduleId) as Row;
+      if (Number(countRow.count) <= 1) {
+        throw new Error('模块只剩这一个版本，不能再删。要移除全部内容请归档整个模块。');
+      }
+      this.#database.prepare(
+        'DELETE FROM lego_versions WHERE module_id = ? AND version = ?',
+      ).run(moduleId, version);
+      let currentVersion = module.currentVersion;
+      if (module.currentVersion === version) {
+        const latest = this.#database.prepare(
+          'SELECT MAX(version) AS version FROM lego_versions WHERE module_id = ?',
+        ).get(moduleId) as Row;
+        currentVersion = Number(latest.version);
+      }
+      this.#database.prepare(
+        'UPDATE lego_modules SET current_version = ?, updated_at = ? WHERE id = ?',
+      ).run(currentVersion, now, moduleId);
+      this.#recordConsent({
+        id: randomUUID(),
+        action: 'deletion',
+        objectRef: `lego:${moduleId}@${version}`,
+        scope: module.scope,
+        decision: 'granted',
+        occurredAt: now,
+      });
+      return { ...module, currentVersion, updatedAt: now };
     });
   }
 

@@ -17,6 +17,7 @@ export function LibraryView() {
   const [error, setError] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
   const [note, setNote] = useState('');
+  const [versionToDelete, setVersionToDelete] = useState<number | null>(null);
 
   async function refresh(): Promise<void> {
     try {
@@ -94,6 +95,58 @@ export function LibraryView() {
             </div>
           </section>
 
+          {detail.versions.length > 0 && (
+            <section className="scenario-block">
+              <h3>版本历史（{detail.versions.length}）</h3>
+              <ul className="version-list">
+                {detail.versions.map((entry) => (
+                  <li key={entry.version}>
+                    <span>
+                      v{entry.version}
+                      {entry.isCurrent && '（当前）'}
+                      {' · '}{entry.createdAt.slice(0, 10)}
+                      {' · '}{entry.authorship === 'user' ? '本人表达' : entry.authorship}
+                    </span>
+                    {versionToDelete === entry.version ? (
+                      <span className="phase-actions">
+                        <button
+                          type="button"
+                          className="quiet-button"
+                          disabled={working}
+                          onClick={() => void step(async () => {
+                            setDetail(await window.mentalLegos.deleteModuleVersion({
+                              moduleId: detail.id, version: entry.version,
+                            }));
+                            setVersionToDelete(null);
+                          })}
+                        >
+                          确认删除
+                        </button>
+                        <button
+                          type="button"
+                          className="quiet-button"
+                          onClick={() => setVersionToDelete(null)}
+                        >
+                          取消
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="quiet-button"
+                        disabled={working || detail.versions.length <= 1}
+                        title={detail.versions.length <= 1 ? '模块只剩这一个版本；要移除全部内容请归档模块' : ''}
+                        onClick={() => setVersionToDelete(entry.version)}
+                      >
+                        删除此版本
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           {detail.scope === 'scenario' && (
             <section className="scenario-block">
               <h3>提升为长期模块</h3>
@@ -167,6 +220,7 @@ export function LibraryView() {
                   type="button"
                   className="scenario-item"
                   onClick={() => {
+                    setVersionToDelete(null);
                     window.mentalLegos.getLibraryModule(module.id)
                       .then(setDetail)
                       .catch((reason: unknown) => setError(messageFrom(reason)));

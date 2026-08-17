@@ -41,11 +41,14 @@ import {
   PROVIDER_SETUP_SAVE_CHANNEL,
   RENDERER_READY_CHANNEL,
   LIBRARY_ARCHIVE_CHANNEL,
+  LIBRARY_DELETE_VERSION_CHANNEL,
   LIBRARY_LIST_CHANNEL,
   LIBRARY_MODULE_DETAIL_CHANNEL,
   LIBRARY_PROMOTE_CHANNEL,
   LIBRARY_REAL_WORLD_CHANNEL,
   MATERIAL_PARSE_FILE_CHANNEL,
+  RECORDING_DELETE_CHANNEL,
+  RECORDING_LIST_CHANNEL,
   PRIVACY_EXPORT_CHANNEL,
   PRIVACY_OVERVIEW_CHANNEL,
   PROFILE_GET_CHANNEL,
@@ -77,11 +80,13 @@ import {
   USAGE_OVERVIEW_CHANNEL,
   appInfoSchema,
   agentReadinessStateSchema,
+  libraryDeleteVersionInputSchema,
   libraryModuleDetailSchema,
   libraryModuleSummarySchema,
   libraryPromoteInputSchema,
   libraryRealWorldInputSchema,
   parsedMaterialFileSchema,
+  recordingItemSchema,
   privacyExportResultSchema,
   privacyOverviewSchema,
   profileSeedInputSchema,
@@ -743,9 +748,7 @@ function registerIpcHandlers(): void {
       };
     }));
   });
-  withService(LIBRARY_MODULE_DETAIL_CHANNEL, async (_service, value) => {
-    const database = await getProductDatabase();
-    const moduleId = z.string().uuid().parse(value);
+  const buildModuleDetail = (database: ProductDatabase, moduleId: string): unknown => {
     const module = database.getLegoModule(moduleId);
     if (!module) throw new Error('Module does not exist.');
     const version = module.currentVersion
@@ -767,7 +770,22 @@ function registerIpcHandlers(): void {
       languageShells: version?.payload.languageShells ?? [],
       anchorPhrase: version?.payload.anchorPhrase ?? '',
       version: module.currentVersion,
+      versions: database.listLegoVersions(moduleId).map((entry) => ({
+        version: entry.version,
+        authorship: entry.authorship,
+        createdAt: entry.createdAt,
+        isCurrent: entry.version === module.currentVersion,
+      })),
     });
+  };
+  withService(LIBRARY_MODULE_DETAIL_CHANNEL, async (_service, value) => (
+    buildModuleDetail(await getProductDatabase(), z.string().uuid().parse(value))
+  ));
+  withService(LIBRARY_DELETE_VERSION_CHANNEL, async (_service, value) => {
+    const input = libraryDeleteVersionInputSchema.parse(value);
+    const database = await getProductDatabase();
+    database.deleteLegoVersion(input.moduleId, input.version);
+    return buildModuleDetail(database, input.moduleId);
   });
   withService(LIBRARY_ARCHIVE_CHANNEL, async (_service, value) => {
     const database = await getProductDatabase();
@@ -802,6 +820,36 @@ function registerIpcHandlers(): void {
   guarded(USAGE_OVERVIEW_CHANNEL, async () => usageOverviewSchema.parse(
     (await getUsageLedger()).overview(),
   ));
+
+  const RECORDING_FILE_PATTERN
+    = /^recording-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.wav$/u;
+  const mediaRootPath = (): string => path.join(app.getPath('userData'), 'media');
+  const listRecordingItems = async (): Promise<unknown> => {
+    const items: { recordingId: string; fileName: string; sizeBytes: number; recordedAt: string }[] = [];
+    try {
+      for (const entry of await readdir(mediaRootPath())) {
+        const recordingId = RECORDING_FILE_PATTERN.exec(entry)?.[1];
+        if (!recordingId) continue;
+        const fileStat = await stat(path.join(mediaRootPath(), entry));
+        items.push({
+          recordingId,
+          fileName: entry,
+          sizeBytes: fileStat.size,
+          recordedAt: fileStat.mtime.toISOString(),
+        });
+      }
+    } catch {
+      // A missing media directory simply means no recordings yet.
+    }
+    items.sort((a, b) => b.recordedAt.localeCompare(a.recordedAt));
+    return z.array(recordingItemSchema).parse(items);
+  };
+  guarded(RECORDING_LIST_CHANNEL, async () => listRecordingItems());
+  guarded(RECORDING_DELETE_CHANNEL, async (value) => {
+    const recordingId = z.string().uuid().parse(value);
+    await rm(path.join(mediaRootPath(), `recording-${recordingId}.wav`), { force: true });
+    return listRecordingItems();
+  });
 
   guarded(MATERIAL_PARSE_FILE_CHANNEL, async () => {
     const window = mainWindow;

@@ -173,6 +173,21 @@ describe('formal product database', () => {
     expect(database.getMasteryState(ids.moduleId)?.stage).toBe('confirmed');
   });
 
+  it('deletes a single module version and repoints the current pointer', () => {
+    const ids = seedScenarioTraining();
+    database.confirmLegoVersion(ids.moduleId, 1, NOW);
+    database.addLegoVersion(ids.moduleId, payload, 'co-extracted', { now: LATER });
+    database.confirmLegoVersion(ids.moduleId, 2, LATER);
+
+    const afterDelete = database.deleteLegoVersion(ids.moduleId, 2, LATER);
+    expect(afterDelete.currentVersion).toBe(1);
+    expect(database.getLegoVersion(ids.moduleId, 2)).toBeNull();
+    expect(database.listLegoVersions(ids.moduleId)).toHaveLength(1);
+    expect(database.listConsentEvents(`lego:${ids.moduleId}@2`)
+      .some((event) => event.action === 'deletion')).toBe(true);
+    expect(() => database.deleteLegoVersion(ids.moduleId, 1)).toThrow('归档');
+  });
+
   it('blocks new profile assertions from starting as confirmed facts', () => {
     expect(() => database.createProfileAssertion({
       id: randomUUID(),

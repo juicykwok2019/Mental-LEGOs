@@ -5,11 +5,14 @@ import {
   AGENT_READINESS_GET_CHANNEL,
   BASH_RUNTIME_INSTALL_CHANNEL,
   LIBRARY_ARCHIVE_CHANNEL,
+  LIBRARY_DELETE_VERSION_CHANNEL,
   LIBRARY_LIST_CHANNEL,
   LIBRARY_MODULE_DETAIL_CHANNEL,
   LIBRARY_PROMOTE_CHANNEL,
   LIBRARY_REAL_WORLD_CHANNEL,
   MATERIAL_PARSE_FILE_CHANNEL,
+  RECORDING_DELETE_CHANNEL,
+  RECORDING_LIST_CHANNEL,
   PRIVACY_EXPORT_CHANNEL,
   PRIVACY_OVERVIEW_CHANNEL,
   PROFILE_GET_CHANNEL,
@@ -48,11 +51,13 @@ import {
   USAGE_OVERVIEW_CHANNEL,
   appInfoSchema,
   agentReadinessStateSchema,
+  libraryDeleteVersionInputSchema,
   libraryModuleDetailSchema,
   libraryModuleSummarySchema,
   libraryPromoteInputSchema,
   libraryRealWorldInputSchema,
   parsedMaterialFileSchema,
+  recordingItemSchema,
   privacyExportResultSchema,
   privacyOverviewSchema,
   profileSeedInputSchema,
@@ -80,6 +85,7 @@ import {
   trainingVariationAnswerInputSchema,
   usageOverviewSchema,
   type MentalLegosDesktopApi,
+  type LibraryDeleteVersionInput,
   type LibraryPromoteInput,
   type LibraryRealWorldInput,
   type ProfileSeedInput,
@@ -176,6 +182,23 @@ const desktopApi: MentalLegosDesktopApi = Object.freeze({
   },
   async getUsageOverview() {
     return invokeParsed(USAGE_OVERVIEW_CHANNEL, usageOverviewSchema);
+  },
+  async deleteModuleVersion(input: LibraryDeleteVersionInput) {
+    return invokeParsed(
+      LIBRARY_DELETE_VERSION_CHANNEL,
+      libraryModuleDetailSchema,
+      libraryDeleteVersionInputSchema.parse(input),
+    );
+  },
+  async listRecordings() {
+    return invokeParsed(RECORDING_LIST_CHANNEL, z.array(recordingItemSchema));
+  },
+  async deleteRecording(recordingId: string) {
+    return invokeParsed(
+      RECORDING_DELETE_CHANNEL,
+      z.array(recordingItemSchema),
+      z.string().uuid().parse(recordingId),
+    );
   },
   async startTraining(input: TrainingStartInput) {
     return invokeParsed(TRAINING_START_CHANNEL, trainingTurnStateSchema, trainingStartInputSchema.parse(input));

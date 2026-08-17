@@ -347,6 +347,21 @@ button:disabled { cursor: wait; opacity: 0.58; }
   font-size: 0.86rem;
 }
 
+.version-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.version-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 0.86rem;
+}
+
 .material-notice {
   margin: 4px 0 0;
   padding: 8px 12px;
