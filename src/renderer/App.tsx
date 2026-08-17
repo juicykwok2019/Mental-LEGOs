@@ -200,7 +200,7 @@ export function App() {
         </div>
         <nav className="main-nav">
           {([
-            ['home', '今天'],
+            ['home', '今天练'],
             ['scenarios', '场景'],
             ['library', '乐高库'],
             ['settings', '设置'],
