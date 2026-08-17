@@ -18,6 +18,9 @@ export function LibraryView() {
   const [working, setWorking] = useState(false);
   const [note, setNote] = useState('');
   const [versionToDelete, setVersionToDelete] = useState<number | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
+  const [archiveConfirm, setArchiveConfirm] = useState(false);
 
   async function refresh(): Promise<void> {
     try {
@@ -50,9 +53,27 @@ export function LibraryView() {
         <header className="chat-header">
           <button type="button" className="quiet-button" onClick={() => setDetail(null)}>← 模块库</button>
           <span>{detail.title}</span>
-          <span />
+          <button type="button" className="quiet-button" onClick={() => setShowHelp((current) => !current)}>
+            {showHelp ? '收起说明' : '❓ 这些词是什么意思'}
+          </button>
         </header>
         {error && <p className="form-error">{error}</p>}
+        {notice && <p className="material-notice">{notice}</p>}
+        {showHelp && (
+          <div className="module-detail">
+            <p className="block-hint">
+              一个语言乐高模块由四部分组成——
+              <strong>语义内核</strong>：这块积木要表达的核心判断，一句话说清"你想说什么"；
+              <strong>逻辑骨架</strong>：把内核展开成几步推理的顺序，回答时照这个骨架走；
+              <strong>语言外壳</strong>：你自己的原话措辞（提炼时优先保留你回答里的用词，开口时直接可说）；
+              <strong>触发线索</strong>：听到什么样的问题，应该想起并调用这个模块。
+            </p>
+            <p className="block-hint">
+              <strong>掌握阶段</strong>会随训练与现实使用升降，决定<strong>下次复现</strong>的时间——
+              到期的模块会出现在首页提示条里，提醒你换个问法再练一次。
+            </p>
+          </div>
+        )}
         <div className="module-detail">
           <p><strong>作用域</strong> {scopeLabel(detail)} · {detail.category}
             {detail.stage && ` · 掌握阶段 ${detail.stage}`}
@@ -68,6 +89,11 @@ export function LibraryView() {
 
           <section className="scenario-block">
             <h3>现实使用了这个模块？</h3>
+            <p className="block-hint">
+              在真实会议、面试或沟通里用过它之后，回来点一下：成功=当场如期调用出来；
+              部分=想起来了但没说完整；没调用出来=当场没想起。
+              上报会直接影响这个模块的掌握阶段和下次复现时间。
+            </p>
             <input
               placeholder="一句话备注（可选）"
               value={note}
@@ -150,7 +176,11 @@ export function LibraryView() {
           {detail.scope === 'scenario' && (
             <section className="scenario-block">
               <h3>提升为长期模块</h3>
-              <p>场景模块默认不进入长期库；确认它可跨场景复用后再提升。</p>
+              <p className="block-hint">
+                场景模块默认只属于它的场景，场景删除时会一并删除；
+                确认这块积木可以跨场景复用后，提升为长期模块——
+                通用=任何行业沟通都能用，专业=绑定你的专业领域。
+              </p>
               <div className="phase-actions">
                 <button
                   type="button"
@@ -160,6 +190,7 @@ export function LibraryView() {
                       moduleId: detail.id, domain: 'generic',
                     });
                     setDetail(await window.mentalLegos.getLibraryModule(detail.id));
+                    setNotice('✓ 已提升为通用模块——它已从"场景模块"移入库首页的"通用模块"分组，进入长期复现调度，之后删除原场景也不会影响它。');
                   })}
                 >
                   提升为通用模块
@@ -172,6 +203,7 @@ export function LibraryView() {
                       moduleId: detail.id, domain: 'professional',
                     });
                     setDetail(await window.mentalLegos.getLibraryModule(detail.id));
+                    setNotice('✓ 已提升为专业模块——它已从"场景模块"移入库首页的"专业模块"分组，进入长期复现调度，之后删除原场景也不会影响它。');
                   })}
                 >
                   提升为专业模块
@@ -180,17 +212,41 @@ export function LibraryView() {
             </section>
           )}
 
-          <button
-            type="button"
-            className="quiet-button"
-            disabled={working}
-            onClick={() => void step(async () => {
-              await window.mentalLegos.archiveLibraryModule(detail.id);
-              setDetail(null);
-            })}
-          >
-            归档此模块
-          </button>
+          <section className="scenario-block">
+            <h3>归档此模块</h3>
+            <p className="block-hint">
+              归档=把模块从库和复现安排中移出：不再出现在列表里，也不再提醒复现，
+              但数据保留（不同于删除）。适合已经过时、或不想再练的表达。
+            </p>
+            {archiveConfirm ? (
+              <div className="phase-actions">
+                <button
+                  type="button"
+                  className="quiet-button"
+                  disabled={working}
+                  onClick={() => void step(async () => {
+                    await window.mentalLegos.archiveLibraryModule(detail.id);
+                    setDetail(null);
+                    setArchiveConfirm(false);
+                  })}
+                >
+                  确认归档
+                </button>
+                <button type="button" className="quiet-button" onClick={() => setArchiveConfirm(false)}>
+                  取消
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="quiet-button"
+                disabled={working}
+                onClick={() => setArchiveConfirm(true)}
+              >
+                归档此模块…
+              </button>
+            )}
+          </section>
         </div>
       </div>
     );
@@ -221,6 +277,8 @@ export function LibraryView() {
                   className="scenario-item"
                   onClick={() => {
                     setVersionToDelete(null);
+                    setNotice(null);
+                    setArchiveConfirm(false);
                     window.mentalLegos.getLibraryModule(module.id)
                       .then(setDetail)
                       .catch((reason: unknown) => setError(messageFrom(reason)));
