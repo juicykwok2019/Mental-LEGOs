@@ -1,41 +1,40 @@
-# Mental LEGOs
+# Mental LEGOs · 心智乐高
 
 [中文](#中文) | [English](#english)
 
 ## 中文
 
-Mental LEGOs 是一个本地优先的训练系统，帮助用户把个人知识、经验和专业判断转化为可复用的口头表达模块，并在有时间压力或评价压力时快速调用和重新组合。
+心智乐高（Mental LEGOs）是一个本地优先的训练系统，帮助用户把个人知识、经验和专业判断转化为可复用的口头表达模块（语言乐高），并在有时间压力或评价压力时快速调用和重新组合。
 
-产品目标不是让 AI 代替用户回答，而是帮助用户建立真正属于自己的语言，使其能够在面试、会议、谈判、客户沟通、专业演讲和现场问答中自然调用。
+产品目标不是让 AI 代替用户回答，而是帮助用户建立真正属于自己的语言——**不再从零思考表达，拼装你的认知积木**——使其能够在面试、会议、谈判、客户沟通、专业演讲和现场问答中自然调用。
 
 ### 项目状态
 
-项目目前处于 **Phase 0 架构验证阶段**，尚无公开版本，也还不是可用于正式训练的 P0 产品。
+截至 2026-08-18，PRD 规划的四个阶段在单机可行范围内**已全部交付**，验收版本以 `v0.1.0-phase1` 标签定档，Windows 安装包（Squirrel Setup.exe + 便携 zip）可通过 `npm run make` 构建。完整训练闭环已在真实 Provider（Kimi 开放平台官方 Anthropic 端点）上端到端验证。
 
-当前仓库已经实现并自动验证：
+**已交付功能**（五个导航区：今天练 / 场景 / 积木库 / 个人底座 / 设置）：
 
-- 安全加固的 Electron Windows 桌面壳与受限 IPC；
-- 以 Claude Agent SDK / Claude Code 为唯一核心 Agent Runtime 的单 Agent 循环；
-- 隔离的原生 Read、Write、Edit、Bash、Python、Skill、MCP、Hooks 与会话恢复；
-- 10 个可执行的产品 Skills 与最小 MCP 治理内核；
-- 会话级或 Windows 凭据管理器保存的 BYOK Provider 配置，Renderer 不可回读密钥；
-- 预置服务全部使用官方 Anthropic 兼容端点直连，并保留 OpenAI Chat Completions 本地适配通道作为备用；
-- 两阶段真实 Provider 能力认证：先生成合成候选预览，用户确认后才签发一次性 token、恢复会话并写入，最后清除全部测试数据；
-- 可下载、逐文件校验的离线 Bash / Coreutils / Python 运行时；
-- 基于 SenseVoice / sherpa-onnx 的本地 ASR 运行时和模型管理基础设施；
-- Windows 打包、安装、合成全链路、架构边界和隐私扫描测试。
+- **核心训练闭环**：画像接地出题（六题型轮换、探索题标注）→ 第一遍无辅助回答（含"答不出来"的知识缺口/表达缺口分流）→ 引用原话的证据化诊断 → L1-L4 提示阶梯 → 第二遍回答 → 共同提炼候选模块（**确认前可编辑措辞**，入库以用户版本为准）→ 变体调用判定迁移 → 九阶掌握度与到期复现调度；
+- **真实场景模式**：场景创建 → 材料导入（**PDF / DOCX / 文本文件本地解析**或粘贴，逐项授权，可附使用意图）→ 针对性问题生成（高成本操作需确认）→ 逐题门禁训练 → 事后转写复盘 → 场景模块提炼与手动提升（通用/专业）；
+- **演讲专业化**：试讲实测反馈（时长、语速对照 180-220 字/分舒适区、基于 SenseVoice token 时间戳的真实停顿检测）、演讲结构诊断透镜、**演讲骨架组装**（用用户自己的模块拼装：开场钩子 → 模块引用要点 + 时间预算 → 收尾，缺口标注【缺积木】而非编造）、压缩 / 扩展 / 换听众三种变换；
+- **积木库**：模块四件套展示（语义内核 / 逻辑骨架 / 语言外壳 / 触发线索，均有白话说明）、版本历史、模块关系（可组合 / 相似 / 互斥 / 先于）、现实使用上报驱动调度、归档-恢复-彻底删除；
+- **个人底座**：画像种子、三层画像观察（待验假设 / 有据观察 / 已确认事实，候选观察可"确认属实 / 不是我"复核）、知识底座（含知识缺口汇总，逐条可删）；
+- **本地语音**：SenseVoice / sherpa-onnx 本地转写，模型逐文件校验下载，音频不出设备，单条录音可删；
+- **隐私与数据主权**：字段级 AES-256-GCM 加密落盘（主密钥存 Windows 凭据管理器）、分层删除（录音 / 材料 / 模块版本 / 整模块 / 场景级联）、口令加密导出、**换设备加密备份恢复**（全新安装引导页入口）、原始 token 用量展示（不折算金额）；
+- **多 Provider**：Anthropic / Kimi 开放平台 / DeepSeek / 智谱官方 Anthropic 兼容端点预置 + 自定义端点，两阶段真实能力认证；Provider 输出漂移（字段名、枚举值）统一归一化，单条异常不废整次调用。
 
-2026-08-17 起项目进入 **Phase 1 开发**：完整 Agent 能力认证已在 Kimi 开放平台官方 Anthropic 端点（`kimi-k3` 与 `kimi-k2.5`）真实通过；加密正式数据层、治理资产物化桥、第一遍门禁训练引擎和 Chat 形态的完整训练闭环（真实端点端到端验证）已经落地。干净 Windows 环境验收、录音与本地 ASR 产品化、场景与演讲模式仍在进行中。
+**剩余事项**：干净 Windows 环境安装验收（需真实测试设备）；火山引擎云端语音为接口就绪 + 界面占位（等待账户与条款确认）。视频分析、Web/移动伴随端、可信评审者与组织版属后续阶段，未开发。
 
-首个产品目标是使用 Electron 构建一款单用户 Windows 桌面应用。Web 和移动端可能在后续阶段扩展，但不属于第一版范围。
+评测体系设计见 [`docs/evaluation-plan.md`](docs/evaluation-plan.md)（按产品失效模式组织的八个评测套件）；开发约定见 [`docs/dev-workflow-notes.md`](docs/dev-workflow-notes.md)。
 
 ### 核心理念
 
-一块语言乐高比完整背稿更小，又比孤立句子更有意义。每块模块包含三层：
+一块语言乐高比完整背稿更小，又比孤立句子更有意义。每块模块包含：
 
-1. **语义内核**——需要保持稳定的判断、事实或观点。
-2. **逻辑骨架**——解释这一观点时可以复用的展开顺序。
-3. **语言外壳**——用户愿意并能够自然说出口的一种或多种表达方式。
+1. **语义内核**——需要保持稳定的判断、事实或观点；
+2. **逻辑骨架**——解释这一观点时可以复用的展开顺序；
+3. **语言外壳**——用户愿意并能够自然说出口的一种或多种表达方式（提炼时强制复用用户原话）；
+4. **触发线索**——听到什么样的问题应该唤起这块积木。
 
 完整回答由多块模块组合而成，例如：
 
@@ -49,58 +48,45 @@ Mental LEGOs 是一个本地优先的训练系统，帮助用户把个人知识�
 = 一次可灵活调整的口头回答
 ```
 
-系统以问题为驱动，而不是以句子为驱动：它训练的是新问题与相应知识、结构和语言之间的调用关系。
+系统以问题为驱动，而不是以句子为驱动：它训练的是新问题与相应知识、结构和语言之间的调用关系。北极星指标是**无提示调用成功率**——换一种问法之后，用户还能不能把自己的积木说出来。
 
 ### 训练闭环
 
 ```text
 开放式问题
-  → 第一次无辅助语音回答（包括“暂时答不出来”）
+  → 第一次无辅助语音回答（包括"暂时答不出来"）
   → 基于回答证据的诊断
   → 最小必要提示
   → 第二次回答
-  → 提炼并由用户确认语言乐高
-  → 改变问法与组合训练
+  → 提炼并由用户编辑、确认语言乐高
+  → 改变问法检验迁移
   → 间隔复现与现实场景复盘
 ```
 
-用户永远先完成第一次尝试，随后才会看到答案、完整提纲或可直接照读的表达。辅助会逐级提供，并随着调用能力提高逐步撤除。
+用户永远先完成第一次尝试，随后才会看到诊断与提示；系统在任何环节都不提供答案、完整提纲或可直接照读的表达。辅助逐级提供，并随调用能力提高逐步撤除。
 
-### 产品模式
+### 技术形态
 
-同一套训练引擎支持三种首版模式：
-
-- **日常开放训练**——系统根据已经确认的知识、现有模块和训练历史提出专业问题。
-- **真实场景准备与复盘**——用户创建有明确边界的场景，加入经过授权的材料，训练可能出现的问题，并可在事后复盘经过授权的录音或转写。
-- **专业公开演讲**——用户进行音频试讲，提炼可复用的开场、论点、故事、过渡、总结和问答模块，再改变时长与听众条件进行训练。
-
-第一版聚焦专业口头交流，不覆盖日常闲聊、情绪支持、长篇写作、娱乐表演，也不提供真实面试或会议中的隐蔽实时答案提示。
-
-### P0 产品方向
-
-- Windows 优先的 Electron 桌面应用。
-- 单用户、本地优先；P0 不需要多租户 SaaS 后端。
-- 使用本地 SQLite 和文件系统保存结构化数据、材料、录音和派生产物。
-- 用户自备模型密钥（BYOK）；P0 同时支持 Anthropic Messages 直连和经本地主机适配的 OpenAI Chat Completions。
-- 默认使用本地语音识别，也可以由用户主动选择云端语音服务。
-- P0 分析公开演讲音频；视频分析延后。
-- 由用户控制数据导出、保留和删除。
+- Windows 优先的 Electron 桌面应用，单用户、本地优先，无 SaaS 后端；
+- 本地 SQLite（字段级加密）与文件系统保存结构化数据、材料、录音和派生产物；
+- 用户自备模型密钥（BYOK）；本地语音识别默认，云端语音需逐场景显式选择（未接入）；
+- 数据导出、保留和删除完全由用户控制。
 
 ### Agent 架构
 
-核心 Agent Runtime 必须使用完整 Agent Loop 形态的 [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk/overview)，而不是把它包装成单次文本生成请求。
+核心 Agent Runtime 使用完整 Agent Loop 形态的 [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk/overview)，而不是把它包装成单次文本生成请求。
 
 架构遵循以下约束：
 
-- 日常训练、材料分析、场景准备、事后复盘和演讲训练由一个主 Agent 处理。
-- 文件读写与编辑、Bash、代码执行、Skills、MCP、Hooks、权限和会话恢复等原生能力保留在隔离工作区内。
-- Deep Research 是唯一计划允许显式启用临时子 Agent 的模式。
-- 产品方法、评价量表、参考实现和可调整脚本存放在 Skills 中。
-- 最小 MCP 治理内核保护数据作用域、来源、用户确认、正式持久化、训练事件、媒体访问、导出和删除。
-- Agent 可以在当前会话工作区复制并调整 Skill 参考代码，但不能在运行时改写共享生产 Skills、MCP 服务、正式数据库或凭证存储。
+- 日常训练、材料分析、场景准备、事后复盘和演讲训练由一个主 Agent 处理；宿主持有全部状态转换，Agent 只通过受治理的运行产出内容；
+- 文件读写与编辑、Bash、代码执行、Skills、MCP、Hooks、权限和会话恢复等原生能力保留在隔离工作区内；
+- Deep Research 是唯一计划允许显式启用临时子 Agent 的模式；
+- 产品方法、评价量表、参考实现和可调整脚本存放在 Skills 中；
+- 最小 MCP 治理内核保护数据作用域、来源、用户确认（含确认时的用户编辑合并）、正式持久化、训练事件、媒体访问、导出和删除；
+- Agent 可以在当前会话工作区复制并调整 Skill 参考代码，但不能在运行时改写共享生产 Skills、MCP 服务、正式数据库或凭证存储；
 - 不使用 LangGraph、LangChain、Dify 或手写状态图作为核心推理架构。
 
-桌面架构会分离 Electron Renderer、Preload Bridge、Main Process、Agent Runtime Worker、本地策略与数据 Broker 以及语音 Worker。Renderer 不能直接访问 Node.js、数据库、凭证、Shell 或不受限制的文件系统。
+桌面架构分离 Electron Renderer、Preload Bridge、Main Process、Agent Runtime Worker、本地策略与数据 Broker 以及语音 Worker。Renderer 不能直接访问 Node.js、数据库、凭证、Shell 或不受限制的文件系统。
 
 #### Provider 接入策略
 
@@ -118,59 +104,67 @@ flowchart LR
 
 OpenAI Chat Completions 本地转换器保留为备用通道，面向未来只有 OpenAI 协议的服务；协议转换只存在于受信任的 Provider 边界，转换器不是第二个 Agent。任何通道都必须通过相同的完整 Provider 能力认证，不能降级成普通聊天调用。应用始终如实发送自身客户端标识，不伪装成其他工具。
 
-### 隐私与安全方向
+### 隐私与安全
 
 专业材料、录音、转写、个人画像和 API 凭证默认都属于敏感数据。
 
-- 产品数据保留在用户设备上，除非用户主动调用外部模型、语音供应商或研究服务。
-- 使用云端处理前，必须清楚披露供应商信息并由用户主动选择。
-- API Key 必须保存在操作系统安全凭证存储或会话内存中，绝不进入 Agent 工作区、日志、导出文件或 Git。
-- Agent 只接收当前会话经过授权的材料副本或片段；它不会扫描用户电脑，也不能直接打开正式数据库。
-- 候选事实、画像观察和语言模块必须经过用户确认，才能成为正式资产。
-- 破坏性操作必须先展示影响范围，再获得用户明确确认。
+- 产品数据保留在用户设备上，除非用户主动调用外部模型、语音供应商或研究服务；
+- 使用云端处理前，必须清楚披露供应商信息并由用户主动选择；
+- API Key 保存在操作系统安全凭证存储或会话内存中，绝不进入 Agent 工作区、日志、导出文件或 Git；
+- Agent 只接收当前会话经过授权的材料副本或片段（长材料按摘录窗口截断并向用户披露）；它不会扫描用户电脑，也不能直接打开正式数据库；
+- 候选事实、画像观察和语言模块必须经过用户确认（可先编辑），才能成为正式资产；
+- 破坏性操作必须先展示影响范围，再获得用户明确确认；每次删除记入确认事件，可审计。
+
+### 开发与验证
+
+```bash
+npm start                      # 开发运行（主进程改动需手动重启 Electron）
+npm run check                  # typecheck + lint + 测试 + 架构守卫 + Skill 校验 + 隐私扫描
+npm run package && npm run probe:packaged:windows   # 打包 + 冒烟
+npm run make                   # 生成 Windows 安装包（out/make/）
+```
 
 ### 仓库隐私
 
-本仓库始终按照“每个提交未来都可能公开”的标准维护。个人材料、录音、转写、凭证、真实客户数据、私密产品研究和其他机密输入绝不能进入 Git。
+本仓库始终按照"每个提交未来都可能公开"的标准维护。个人材料、录音、转写、凭证、真实客户数据、私密产品研究和其他机密输入绝不能进入 Git。
 
-示例和未来测试数据必须使用合成数据或明确公开的数据。私密产品文档与本地用户材料仅保存在 Git 忽略的目录中。
+示例和测试数据必须使用合成数据或明确公开的数据。私密产品文档与本地用户材料仅保存在 Git 忽略的目录中。
 
 ---
 
 ## English
 
-Mental LEGOs is a local-first training system for turning personal knowledge, experience, and professional judgment into reusable spoken-language modules that can be recalled and recombined under time or evaluation pressure.
+Mental LEGOs (心智乐高) is a local-first training system for turning personal knowledge, experience, and professional judgment into reusable spoken-language modules that can be recalled and recombined under time or evaluation pressure.
 
-The goal is not to let AI answer on the user's behalf. It is to help the user build language that becomes genuinely available in interviews, meetings, negotiations, client conversations, professional presentations, and live Q&A.
+The goal is not to let AI answer on the user's behalf. It is to help the user build language that becomes genuinely available in interviews, meetings, negotiations, client conversations, professional presentations, and live Q&A — never thinking from zero again, assembling your own cognitive bricks instead.
 
 ### Status
 
-The project is currently in **Phase 0 architecture verification**. There is no public release, and it is not yet a usable P0 training product.
+As of 2026-08-18 all four PRD phases are **delivered within single-machine scope**. The acceptance build is tagged `v0.1.0-phase1`, a Windows installer (Squirrel Setup.exe plus a portable zip) builds via `npm run make`, and the full training loop is verified end to end against a real provider (the Kimi Open Platform official Anthropic endpoint).
 
-The repository now implements and automatically verifies:
+**Shipped features** (five navigation areas — Today / Scenarios / Brick Library / Personal Foundation / Settings):
 
-- a hardened Electron Windows shell with constrained IPC;
-- a single-agent loop whose only core Agent Runtime is Claude Agent SDK / Claude Code;
-- isolated native Read, Write, Edit, Bash, Python, Skill, MCP, hook, and session-resume capabilities;
-- ten executable product Skills and a minimal MCP governance kernel;
-- BYOK provider setup backed by session memory or Windows Credential Manager, without renderer key readback;
-- official Anthropic-compatible endpoints for every preset provider, with a local OpenAI Chat Completions adapter kept as a fallback route;
-- two-stage real-provider certification: create a synthetic preview first, issue a one-time token and resume only after user confirmation, then purge all certification data;
-- a downloadable and per-file-verified offline Bash / Coreutils / Python runtime;
-- local SenseVoice / sherpa-onnx ASR runtime and model-management foundations; and
-- Windows packaging, installation, synthetic end-to-end, architecture-boundary, and privacy-scan tests.
+- **Core training loop**: profile-grounded question generation (six rotating types, exploratory marking) → unaided first attempt (with a knowledge-gap vs expression-gap fork for "I cannot answer") → evidence-based diagnosis that must quote the user's own words → an L1-L4 hint ladder → second attempt → co-extracted candidate modules that are **user-editable before confirmation** → a changed-question transfer check → nine-stage mastery with spaced-recall scheduling;
+- **Real-scenario mode**: scenario creation → material import (**local PDF / DOCX / text parsing** or paste, per-item authorization, optional usage intent) → targeted question generation (high-cost confirmation) → per-question gated training → post-event transcript review → scenario modules with manual promotion;
+- **Speech professionalization**: measured rehearsal feedback (duration, pace against the 180-220 chars/min comfort band, real pause detection from SenseVoice token timestamps), a delivery-structure diagnosis lens, **speech skeleton composition** from the user's own modules (hook → module-referenced points with time budgets → close; missing bricks are marked, never invented), and compress / expand / re-audience transformations;
+- **Brick library**: four-part module anatomy with plain-language explanations, version history, module relations (composes / similar / conflicts / precedes), real-world usage reporting that drives scheduling, and archive-restore-hard-delete;
+- **Personal foundation**: profile seed, three-tier profile observations (hypothesis / evidenced observation / confirmed fact, with confirm-or-reject review), and the knowledge base including gap summaries;
+- **Local speech**: SenseVoice / sherpa-onnx on-device transcription with per-file-verified model download; audio never leaves the device; per-recording deletion;
+- **Privacy and data sovereignty**: field-level AES-256-GCM encryption at rest (master key in Windows Credential Manager), layered deletion (recording / material / module version / whole module / scenario cascade), password-sealed export, **cross-device encrypted backup restore** on a fresh install, and raw token usage display (never currency estimates);
+- **Multi-provider**: Anthropic / Kimi Open Platform / DeepSeek / Zhipu official Anthropic-compatible presets plus custom endpoints, two-stage real capability certification, and normalization of provider output drift so one malformed element never voids a run.
 
-As of 2026-08-17 the project is in **Phase 1 development**: full Agent capability certification passed for real against the Kimi Open Platform official Anthropic endpoint (`kimi-k3` and `kimi-k2.5`), and the encrypted formal data layer, governance-asset materializer, first-attempt-gate training engine, and the complete chat-form training loop (verified end to end on the live endpoint) are in place. Clean-Windows acceptance, recording and local ASR productization, and the scenario and speaking modes are still in progress.
+**Remaining**: clean-Windows installation acceptance (needs a real test device); Volcano cloud speech is interface-ready with a UI placeholder pending account and terms. Video analysis, web/mobile companions, trusted reviewers, and an organization edition belong to later phases and are not built.
 
-The initial product target is a single-user Windows desktop application built with Electron. Web and mobile clients are possible later extensions, not part of the first release.
+The evaluation design lives in [`docs/evaluation-plan.md`](docs/evaluation-plan.md) (eight suites organized around product failure modes); development conventions in [`docs/dev-workflow-notes.md`](docs/dev-workflow-notes.md).
 
 ### The core idea
 
-A language LEGO is smaller than a memorized answer and more meaningful than an isolated sentence. Each module has three layers:
+A language LEGO is smaller than a memorized answer and more meaningful than an isolated sentence. Each module has:
 
-1. **Semantic kernel** — the judgment, fact, or idea that should remain stable.
-2. **Logical skeleton** — the reusable order in which the idea is explained.
-3. **Language shell** — one or more natural ways the user is comfortable saying it aloud.
+1. **Semantic kernel** — the judgment, fact, or idea that should remain stable;
+2. **Logical skeleton** — the reusable order in which the idea is explained;
+3. **Language shell** — one or more natural ways the user is comfortable saying it aloud (extraction is required to reuse the user's own wording);
+4. **Triggers** — the kinds of questions that should recall this brick.
 
 Complete answers are assembled from multiple modules, for example:
 
@@ -184,7 +178,7 @@ thinking-time module
 = one adaptable spoken response
 ```
 
-The system is question-driven rather than sentence-driven: it trains the connection between a new prompt and the knowledge, structure, and language that should be recalled.
+The system is question-driven rather than sentence-driven: it trains the connection between a new prompt and the knowledge, structure, and language that should be recalled. The north-star metric is **unprompted recall** — after the question changes, can the user still say their own bricks aloud?
 
 ### Training loop
 
@@ -194,45 +188,32 @@ open question
   → evidence-based diagnosis
   → minimum necessary hint
   → second response
-  → user-confirmed language LEGO extraction
-  → changed-question and composition practice
+  → user-edited, user-confirmed language LEGO extraction
+  → changed-question transfer check
   → spaced recall and real-world review
 ```
 
-The user always attempts the first response before receiving an answer, full outline, or ready-to-read wording. Assistance is introduced gradually and withdrawn as recall improves.
+The user always attempts the first response before receiving diagnosis or hints; the system never provides an answer, a full outline, or ready-to-read wording at any step. Assistance is introduced gradually and withdrawn as recall improves.
 
-### Product modes
+### Technical shape
 
-The same training engine supports three initial modes:
-
-- **Daily open practice** — the system asks professional questions based on confirmed knowledge, existing modules, and training history.
-- **Real-scenario preparation and review** — the user creates a bounded scenario, adds authorized materials, practices likely questions, and can later review an authorized recording or transcript.
-- **Professional public speaking** — the user practices an audio presentation, extracts reusable opening, argument, story, transition, conclusion, and Q&A modules, then rehearses them under changed time and audience constraints.
-
-The first release is intended for professional spoken communication. It does not target casual chat, emotional support, long-form writing, entertainment performance, or covert real-time answer prompting during actual interviews and meetings.
-
-### P0 product direction
-
-- Windows-first Electron desktop application.
-- Single-user and local-first; no multi-tenant SaaS backend is required for P0.
-- Local SQLite and filesystem storage for structured data, materials, recordings, and derived artifacts.
-- Bring your own key (BYOK); P0 supports both direct Anthropic Messages providers and OpenAI Chat Completions through a local host adapter.
-- Local speech recognition by default, with optional user-selected cloud speech services.
-- Audio-based public-speaking analysis in P0; video analysis is deferred.
+- Windows-first Electron desktop application; single-user, local-first, no SaaS backend;
+- Local SQLite (field-level encryption) and filesystem storage for structured data, materials, recordings, and derived artifacts;
+- Bring your own key (BYOK); local speech recognition by default, cloud speech only by explicit per-scenario choice (not yet integrated);
 - User-controlled export, retention, and deletion.
 
 ### Agent architecture
 
-The core agent runtime is required to use the [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk/overview) as a complete agent loop, not as a wrapper around a single text-generation request.
+The core agent runtime uses the [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk/overview) as a complete agent loop, not as a wrapper around a single text-generation request.
 
 The architecture follows these constraints:
 
-- One primary agent handles normal training, material analysis, scenario preparation, retrospective review, and public-speaking practice.
-- Native capabilities such as file reading and editing, Bash, code execution, Skills, MCP, hooks, permissions, and session recovery remain available inside an isolated workspace.
-- Deep Research is the only planned mode that may explicitly enable temporary sub-agents.
-- Product methods, rubrics, reference implementations, and adaptable scripts live in Skills.
-- A small MCP governance kernel protects scoped data access, provenance, user confirmation, formal persistence, practice events, media access, export, and deletion.
-- The agent may copy and adapt Skill reference code inside a session workspace, but it cannot rewrite shared production Skills, MCP services, the formal database, or credential storage at runtime.
+- One primary agent handles normal training, material analysis, scenario preparation, retrospective review, and public-speaking practice; the host owns every state transition, and the agent produces content only through governed runs;
+- Native capabilities such as file reading and editing, Bash, code execution, Skills, MCP, hooks, permissions, and session recovery remain available inside an isolated workspace;
+- Deep Research is the only planned mode that may explicitly enable temporary sub-agents;
+- Product methods, rubrics, reference implementations, and adaptable scripts live in Skills;
+- A small MCP governance kernel protects scoped data access, provenance, user confirmation (including user edits merged at commit), formal persistence, practice events, media access, export, and deletion;
+- The agent may copy and adapt Skill reference code inside a session workspace, but it cannot rewrite shared production Skills, MCP services, the formal database, or credential storage at runtime;
 - LangGraph, LangChain, Dify, and hand-written state graphs are not used as the core reasoning architecture.
 
 The desktop architecture separates the Electron renderer, preload bridge, main process, agent runtime worker, local policy/data broker, and speech worker. The renderer has no direct Node.js, database, credential, Shell, or unrestricted filesystem access.
@@ -253,19 +234,28 @@ flowchart LR
 
 The local OpenAI Chat Completions adapter remains a fallback for future providers that only speak the OpenAI protocol. Translation exists only at the trusted provider boundary and the adapter is not a second Agent. Every route must pass the same full provider capability certification and may not degrade into ordinary chat-only API use. The application always sends its own client identity and never impersonates another tool.
 
-### Privacy and security direction
+### Privacy and security
 
 Professional materials, recordings, transcripts, personal profiles, and API credentials are sensitive by default.
 
-- Product data remains on the user's device unless the user deliberately invokes an external model, speech provider, or research service.
-- Cloud processing requires a clear provider disclosure and explicit user choice.
-- API keys must be kept in operating-system-backed credential storage or session memory, never in the agent workspace, logs, exports, or Git.
-- The agent only receives authorized copies or excerpts in a per-session workspace; it does not scan the user's computer or directly open the formal database.
-- User confirmation is required before candidate facts, profile observations, or language modules become formal assets.
-- Destructive actions require a preview and explicit confirmation.
+- Product data remains on the user's device unless the user deliberately invokes an external model, speech provider, or research service;
+- Cloud processing requires a clear provider disclosure and explicit user choice;
+- API keys are kept in operating-system-backed credential storage or session memory, never in the agent workspace, logs, exports, or Git;
+- The agent only receives authorized copies or excerpts in a per-session workspace (long materials are excerpted with the window disclosed to the user); it does not scan the user's computer or directly open the formal database;
+- User confirmation (with optional editing) is required before candidate facts, profile observations, or language modules become formal assets;
+- Destructive actions require a preview and explicit confirmation; every deletion is recorded as an auditable consent event.
+
+### Develop and verify
+
+```bash
+npm start                      # dev run (main-process changes need a manual Electron restart)
+npm run check                  # typecheck + lint + tests + architecture guard + skill manifest + privacy scan
+npm run package && npm run probe:packaged:windows   # package + smoke
+npm run make                   # Windows installer (out/make/)
+```
 
 ### Repository privacy
 
 This repository is maintained as if every commit may eventually become public. Personal materials, recordings, transcripts, credentials, real client data, private product research, and other confidential inputs must never be committed.
 
-Examples and future test fixtures must use synthetic or explicitly public data. Private product documents and local user materials are kept outside Git through ignored directories.
+Examples and test fixtures must use synthetic or explicitly public data. Private product documents and local user materials are kept outside Git through ignored directories.
