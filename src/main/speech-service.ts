@@ -38,6 +38,29 @@ export interface SpeechTranscriptionResult {
   text: string;
   audioDurationSeconds: number;
   realTimeFactor: number;
+  pauseCount: number;
+  longestPauseMs: number;
+}
+
+// SenseVoice emits token-level timestamps, so pauses are measurable for real:
+// a gap between one token's end and the next token's start beyond the
+// threshold counts as a noticeable pause (filler-free silence).
+export function computePauseStats(
+  timestamps: number[],
+  durations: number[],
+  minGapSeconds = 1.2,
+): { pauseCount: number; longestPauseMs: number } {
+  let pauseCount = 0;
+  let longestPauseMs = 0;
+  for (let index = 1; index < timestamps.length; index += 1) {
+    const previousEnd = (timestamps[index - 1] ?? 0) + (durations[index - 1] ?? 0);
+    const gap = (timestamps[index] ?? 0) - previousEnd;
+    if (gap >= minGapSeconds) {
+      pauseCount += 1;
+      longestPauseMs = Math.max(longestPauseMs, Math.round(gap * 1000));
+    }
+  }
+  return { pauseCount, longestPauseMs };
 }
 
 // ─── Cloud speech seam (FR-006) ─────────────────────────────────────────────
@@ -151,12 +174,15 @@ export class SpeechService {
       audioPath: mediaPath,
       language: 'auto',
     });
+    const pauses = computePauseStats(transcription.timestamps, transcription.durations);
     return {
       recordingId,
       mediaPath,
       text: transcription.text,
       audioDurationSeconds: transcription.audioDurationSeconds,
       realTimeFactor: transcription.realTimeFactor,
+      pauseCount: pauses.pauseCount,
+      longestPauseMs: pauses.longestPauseMs,
     };
   }
 }

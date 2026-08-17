@@ -207,6 +207,15 @@ describe('formal product database', () => {
     expect(() => database.deleteSource(source.id)).toThrow('Source');
   });
 
+  it('stores and returns the speech outline encrypted at rest', () => {
+    const ids = seedScenarioTraining();
+    database.setScenarioSpeechOutline(ids.scenarioId, '开场钩子：从壁垒问题切入……', LATER);
+    expect(database.getScenarioExtras(ids.scenarioId)?.speechOutline)
+      .toBe('开场钩子：从壁垒问题切入……');
+    const raw = database.dumpTable('scenarios')[0];
+    expect(String(raw?.speech_outline_enc)).not.toContain('壁垒');
+  });
+
   it('links modules bidirectionally and unlinks by id', () => {
     const ids = seedScenarioTraining();
     const other = database.createLegoCandidate({

@@ -254,4 +254,13 @@ export const MIGRATIONS: readonly Migration[] = [
       ALTER TABLE sources ADD COLUMN intent_enc TEXT NOT NULL DEFAULT '';
     `,
   },
+  {
+    version: 5,
+    name: 'speech-outline',
+    statements: `
+      -- Phase 3: the composed speech skeleton for speech-type scenarios,
+      -- assembled from the user's own modules. Personal content, encrypted.
+      ALTER TABLE scenarios ADD COLUMN speech_outline_enc TEXT NOT NULL DEFAULT '';
+    `,
+  },
 ];

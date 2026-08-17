@@ -6,7 +6,8 @@ import { useEffect, useState } from 'react';
 export function expectationFor(label: string): string {
   if (label.includes('分析') || label.includes('复盘') || label.includes('生成')
     || label.includes('诊断') || label.includes('提炼') || label.includes('判定')
-    || label.includes('出题') || label.includes('追问')) {
+    || label.includes('出题') || label.includes('追问') || label.includes('骨架')
+    || label.includes('组装') || label.includes('重构')) {
     return '正在调用 AI，一般需要 30 秒 ~ 2 分钟，取决于服务商当时的速度';
   }
   if (label.includes('解析文件')) {

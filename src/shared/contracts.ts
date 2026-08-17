@@ -140,6 +140,8 @@ export const speechTranscriptionResultSchema = z.object({
   text: z.string(),
   audioDurationSeconds: z.number().nonnegative(),
   realTimeFactor: z.number().nonnegative(),
+  pauseCount: z.number().int().nonnegative().default(0),
+  longestPauseMs: z.number().int().nonnegative().default(0),
 });
 export type SpeechTranscriptionResult = z.infer<typeof speechTranscriptionResultSchema>;
 
@@ -164,6 +166,22 @@ export const SCENARIO_ADD_MATERIAL_CHANNEL = 'scenario:add-material' as const;
 export const MATERIAL_PARSE_FILE_CHANNEL = 'material:parse-file' as const;
 export const SCENARIO_DELETE_MATERIAL_CHANNEL = 'scenario:delete-material' as const;
 export const SCENARIO_MATERIAL_INTENT_CHANNEL = 'scenario:update-material-intent' as const;
+export const SCENARIO_COMPOSE_OUTLINE_CHANNEL = 'scenario:compose-outline' as const;
+export const SCENARIO_TRANSFORM_OUTLINE_CHANNEL = 'scenario:transform-outline' as const;
+
+export const scenarioComposeOutlineInputSchema = z.object({
+  scenarioId: z.string().uuid(),
+  durationMinutes: z.number().int().min(1).max(120),
+  audience: z.string().trim().max(400).default(''),
+});
+export type ScenarioComposeOutlineInput = z.infer<typeof scenarioComposeOutlineInputSchema>;
+
+export const scenarioTransformOutlineInputSchema = z.object({
+  scenarioId: z.string().uuid(),
+  transform: z.enum(['compress', 'expand', 'audience']),
+  audience: z.string().trim().max(400).default(''),
+});
+export type ScenarioTransformOutlineInput = z.infer<typeof scenarioTransformOutlineInputSchema>;
 
 export const scenarioDeleteMaterialInputSchema = z.object({
   scenarioId: z.string().uuid(),
@@ -274,6 +292,8 @@ export const spokenInputSchema = z.object({
   responseText: z.string().max(30_000).default(''),
   recordingId: z.string().uuid().nullable().default(null),
   durationMs: z.number().int().nonnegative().nullable().default(null),
+  pauseCount: z.number().int().nonnegative().nullable().default(null),
+  longestPauseMs: z.number().int().nonnegative().nullable().default(null),
 });
 
 export const trainingCloseFirstInputSchema = spokenInputSchema.extend({
@@ -430,6 +450,7 @@ export const scenarioSummarySchema = z.object({
   moduleCount: z.number().int().nonnegative(),
   preparedQuestions: z.array(scenarioQuestionSummarySchema),
   analysis: z.string().nullable(),
+  speechOutline: z.string().nullable(),
 });
 export type ScenarioSummary = z.infer<typeof scenarioSummarySchema>;
 
@@ -580,6 +601,8 @@ export interface MentalLegosDesktopApi {
   deleteFoundationKnowledge(knowledgeId: string): Promise<FoundationOverview>;
   deleteScenarioMaterial(input: ScenarioDeleteMaterialInput): Promise<ScenarioSummary>;
   updateScenarioMaterialIntent(input: ScenarioMaterialIntentInput): Promise<ScenarioSummary>;
+  composeSpeechOutline(input: ScenarioComposeOutlineInput): Promise<ScenarioSummary>;
+  transformSpeechOutline(input: ScenarioTransformOutlineInput): Promise<ScenarioSummary>;
   listRecordings(): Promise<RecordingItem[]>;
   deleteRecording(recordingId: string): Promise<RecordingItem[]>;
   startTraining(input: TrainingStartInput): Promise<TrainingTurnState>;

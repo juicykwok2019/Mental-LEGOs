@@ -20,6 +20,8 @@ export interface SpokenDraft {
   responseText: string;
   recordingId: string | null;
   durationMs: number | null;
+  pauseCount: number | null;
+  longestPauseMs: number | null;
 }
 
 interface ComposerProps {
@@ -35,6 +37,8 @@ function Composer(props: ComposerProps) {
   const [text, setText] = useState('');
   const [recordingId, setRecordingId] = useState<string | null>(null);
   const [durationMs, setDurationMs] = useState<number | null>(null);
+  const [pauseCount, setPauseCount] = useState<number | null>(null);
+  const [longestPauseMs, setLongestPauseMs] = useState<number | null>(null);
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,6 +60,8 @@ function Composer(props: ComposerProps) {
       setText((current) => (current ? `${current}\n${result.text}` : result.text));
       setRecordingId(result.recordingId);
       setDurationMs(finished.durationMs);
+      setPauseCount(result.pauseCount);
+      setLongestPauseMs(result.longestPauseMs);
     } catch (reason) {
       setRecording(false);
       setError(messageFrom(reason));
@@ -102,10 +108,12 @@ function Composer(props: ComposerProps) {
           type="button"
           disabled={props.disabled || transcribing || text.trim().length === 0}
           onClick={() => {
-            props.onSubmit({ responseText: text.trim(), recordingId, durationMs });
+            props.onSubmit({ responseText: text.trim(), recordingId, durationMs, pauseCount, longestPauseMs });
             setText('');
             setRecordingId(null);
             setDurationMs(null);
+            setPauseCount(null);
+            setLongestPauseMs(null);
           }}
         >
           {props.submitLabel}
@@ -350,6 +358,8 @@ export function ChatView(props: ChatViewProps) {
                 responseText: draft.responseText,
                 recordingId: draft.recordingId,
                 durationMs: draft.durationMs,
+                pauseCount: draft.pauseCount,
+                longestPauseMs: draft.longestPauseMs,
                 openingDelayMs: null,
               }))}
             />
@@ -360,7 +370,7 @@ export function ChatView(props: ChatViewProps) {
                 disabled={busy}
                 onClick={() => props.onAction('记录答不出来…', () => api.closeFirstAttempt({
                   outcome: 'cannot-answer', responseText: '', recordingId: null,
-                  durationMs: null, openingDelayMs: null,
+                  durationMs: null, pauseCount: null, longestPauseMs: null, openingDelayMs: null,
                 }))}
               >
                 暂时答不出来
@@ -409,9 +419,7 @@ export function ChatView(props: ChatViewProps) {
               speech={props.speech}
               onSpeechInstall={props.onSpeechInstall}
               onSubmit={(draft) => props.onAction('记录第二遍…', () => api.submitSecondAttempt({
-                responseText: draft.responseText,
-                recordingId: draft.recordingId,
-                durationMs: draft.durationMs,
+                ...draft,
               }))}
             />
             {turn.gate?.nextHintLevel && (
@@ -462,9 +470,7 @@ export function ChatView(props: ChatViewProps) {
               speech={props.speech}
               onSpeechInstall={props.onSpeechInstall}
               onSubmit={(draft) => props.onAction('判定迁移…', () => api.answerVariation({
-                responseText: draft.responseText,
-                recordingId: draft.recordingId,
-                durationMs: draft.durationMs,
+                ...draft,
               }))}
             />
             <div className="phase-actions">

@@ -47,6 +47,8 @@ export function ScenariosView(props: ScenariosViewProps) {
   const [materialToDelete, setMaterialToDelete] = useState<string | null>(null);
   const [intentEditId, setIntentEditId] = useState<string | null>(null);
   const [intentDraft, setIntentDraft] = useState('');
+  const [outlineMinutes, setOutlineMinutes] = useState(10);
+  const [outlineAudience, setOutlineAudience] = useState('');
   const [reviewTranscript, setReviewTranscript] = useState('');
   const [reviewNote, setReviewNote] = useState('');
   const [deletePreview, setDeletePreview] = useState<ScenarioDeletePreview | null>(null);
@@ -379,6 +381,90 @@ export function ScenariosView(props: ScenariosViewProps) {
             </ol>
           )}
         </section>
+
+        {selected.type === 'speech' && (
+          <section className="scenario-block">
+            <h3>演讲骨架</h3>
+            <p className="block-hint">
+              把你积木库里的模块组装成这次演讲的骨架：开场钩子 → 要点（每个要点标注引用的模块）→
+              收尾落点，并分配时间预算。核心观点只用你确认过的积木，缺的会标注【缺积木】提醒你先去训练。
+            </p>
+            <div className="phase-actions">
+              <label className="outline-field">
+                <span>时长（分钟）</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={120}
+                  value={outlineMinutes}
+                  onChange={(event) => setOutlineMinutes(Math.max(1, Math.min(120, Number(event.target.value) || 1)))}
+                />
+              </label>
+              <label className="outline-field outline-audience">
+                <span>听众（可选）</span>
+                <input
+                  value={outlineAudience}
+                  maxLength={400}
+                  placeholder="例如：公司高管 / 技术团队 / 行业大会观众"
+                  onChange={(event) => setOutlineAudience(event.target.value)}
+                />
+              </label>
+              <button
+                type="button"
+                disabled={working !== '' || props.busy}
+                onClick={() => void step('组装演讲骨架…', () => window.mentalLegos.composeSpeechOutline({
+                  scenarioId: selected.id,
+                  durationMinutes: outlineMinutes,
+                  audience: outlineAudience.trim(),
+                }))}
+              >
+                {selected.speechOutline ? '重新组装骨架' : '组装演讲骨架'}
+              </button>
+            </div>
+            {selected.speechOutline && (
+              <>
+                <p className="scenario-analysis">{selected.speechOutline}</p>
+                <div className="phase-actions">
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={working !== '' || props.busy}
+                    onClick={() => void step('压缩骨架到一半时长…', () => window.mentalLegos.transformSpeechOutline({
+                      scenarioId: selected.id, transform: 'compress', audience: '',
+                    }))}
+                  >
+                    压缩到一半时长
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={working !== '' || props.busy}
+                    onClick={() => void step('扩展骨架细节…', () => window.mentalLegos.transformSpeechOutline({
+                      scenarioId: selected.id, transform: 'expand', audience: '',
+                    }))}
+                  >
+                    扩展更多细节
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={working !== '' || props.busy || !outlineAudience.trim()}
+                    title={outlineAudience.trim() ? '' : '先在上方"听众"里填写新的听众描述'}
+                    onClick={() => void step('按新听众重构骨架…', () => window.mentalLegos.transformSpeechOutline({
+                      scenarioId: selected.id, transform: 'audience', audience: outlineAudience.trim(),
+                    }))}
+                  >
+                    换听众重构
+                  </button>
+                </div>
+                <p className="block-hint">
+                  变换会覆盖当前骨架（模块引用保持不变）。练习入口：上方"事前准备"生成的试讲任务，
+                  试讲后会给出时长、语速和停顿的实测反馈。
+                </p>
+              </>
+            )}
+          </section>
+        )}
 
         <section className="scenario-block">
           <h3>事后复盘</h3>

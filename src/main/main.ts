@@ -65,7 +65,9 @@ import {
   SCENARIO_DELETE_CHANNEL,
   SCENARIO_DELETE_MATERIAL_CHANNEL,
   SCENARIO_DELETE_PREVIEW_CHANNEL,
+  SCENARIO_COMPOSE_OUTLINE_CHANNEL,
   SCENARIO_MATERIAL_INTENT_CHANNEL,
+  SCENARIO_TRANSFORM_OUTLINE_CHANNEL,
   SCENARIO_LIST_CHANNEL,
   SCENARIO_PREPARE_CHANNEL,
   SCENARIO_REVIEW_CHANNEL,
@@ -112,7 +114,9 @@ import {
   scenarioCreateInputSchema,
   scenarioDeleteMaterialInputSchema,
   scenarioDeletePreviewSchema,
+  scenarioComposeOutlineInputSchema,
   scenarioMaterialIntentInputSchema,
+  scenarioTransformOutlineInputSchema,
   scenarioMaterialInputSchema,
   scenarioReviewInputSchema,
   scenarioSummarySchema,
@@ -721,6 +725,12 @@ function registerIpcHandlers(): void {
   ));
   withService(SCENARIO_MATERIAL_INTENT_CHANNEL, async (service, value) => scenarioSummarySchema.parse(
     service.updateScenarioMaterialIntent(scenarioMaterialIntentInputSchema.parse(value)),
+  ));
+  withService(SCENARIO_COMPOSE_OUTLINE_CHANNEL, async (service, value) => scenarioSummarySchema.parse(
+    await service.composeSpeechOutline(scenarioComposeOutlineInputSchema.parse(value)),
+  ));
+  withService(SCENARIO_TRANSFORM_OUTLINE_CHANNEL, async (service, value) => scenarioSummarySchema.parse(
+    await service.transformSpeechOutline(scenarioTransformOutlineInputSchema.parse(value)),
   ));
   withService(SCENARIO_PREPARE_CHANNEL, async (service, value) => scenarioSummarySchema.parse(
     await service.prepareScenario(z.string().uuid().parse(value)),

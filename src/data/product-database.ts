@@ -207,16 +207,28 @@ export class ProductDatabase {
     ).run(this.#codec.encrypt(analysis), now, scenarioId);
   }
 
-  getScenarioExtras(scenarioId: string): { worries: string; analysis: string } | null {
+  setScenarioSpeechOutline(scenarioId: string, outline: string, now = nowIso()): void {
+    this.#database.prepare(
+      'UPDATE scenarios SET speech_outline_enc = ?, updated_at = ? WHERE id = ?',
+    ).run(this.#codec.encrypt(outline), now, scenarioId);
+  }
+
+  getScenarioExtras(scenarioId: string): {
+    worries: string; analysis: string; speechOutline: string;
+  } | null {
     const row = this.#database.prepare(
-      'SELECT worries_enc, analysis_enc FROM scenarios WHERE id = ?',
+      'SELECT worries_enc, analysis_enc, speech_outline_enc FROM scenarios WHERE id = ?',
     ).get(scenarioId) as Row | undefined;
     if (!row) return null;
     const decode = (value: unknown): string => {
       const stored = String(value ?? '');
       return stored.length > 0 ? this.#codec.decrypt(stored) : '';
     };
-    return { worries: decode(row.worries_enc), analysis: decode(row.analysis_enc) };
+    return {
+      worries: decode(row.worries_enc),
+      analysis: decode(row.analysis_enc),
+      speechOutline: decode(row.speech_outline_enc),
+    };
   }
 
   listScenarioQuestions(scenarioId: string): Array<Question & { answered: boolean }> {

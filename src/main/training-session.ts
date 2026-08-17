@@ -90,6 +90,7 @@ interface ActiveSession {
   transcript: TrainingTurnState['transcript'];
   candidates: TrainingCandidate[];
   committedCount: number;
+  speechStats?: string;
 }
 
 const resultMessageSchema = z.object({
@@ -363,6 +364,8 @@ export class TrainingSessionService {
     recordingId: string | null;
     openingDelayMs: number | null;
     durationMs: number | null;
+    pauseCount?: number | null;
+    longestPauseMs?: number | null;
   }): Promise<TrainingTurnState> {
     return this.#exclusive(async () => {
       const session = this.#requireSession('first-attempt');
@@ -375,6 +378,22 @@ export class TrainingSessionService {
       });
       if (input.outcome === 'answered') {
         session.transcript.push({ role: 'user', kind: 'response', text: input.responseText });
+        // Speech rehearsal gets measurable delivery stats from the recording:
+        // duration, pace, and real (timestamp-derived) pauses.
+        if (session.mode === 'speech' && input.durationMs && input.durationMs > 0) {
+          const minutes = input.durationMs / 60_000;
+          const characters = input.responseText.replace(/\s/gu, '').length;
+          const pace = Math.round(characters / minutes);
+          const stats = [
+            `试讲用时 ${Math.floor(input.durationMs / 60_000)} 分 ${Math.round((input.durationMs % 60_000) / 1000)} 秒`,
+            `约 ${characters} 字 · 语速 ~${pace} 字/分（汉语演讲舒适区约 180-220 字/分）`,
+            typeof input.pauseCount === 'number' && input.pauseCount > 0
+              ? `明显停顿 ${input.pauseCount} 次，最长 ${((input.longestPauseMs ?? 0) / 1000).toFixed(1)} 秒`
+              : '没有超过 1.2 秒的明显停顿',
+          ].join(' · ');
+          session.speechStats = stats;
+          session.transcript.push({ role: 'system', kind: 'status', text: stats });
+        }
         session.phase = 'first-closed';
         session.transcript.push({
           role: 'system',
@@ -458,6 +477,14 @@ export class TrainingSessionService {
         `and note "按你的意思理解为…" where needed): ${attempt?.responseText || '(expression gap: no first wording)'}`,
         'Diagnose evidence-based sticking points across: question scoping, explicit viewpoint,',
         'reusable structure, concrete evidence, natural spoken language.',
+        ...(session.mode === 'speech'
+          ? [
+            'This was a SPEECH rehearsal — also diagnose delivery structure: does it have a',
+            'clear opening hook, distinct points, and a deliberate close? Comment on pacing',
+            'and pauses using these measured stats:',
+            session.speechStats ?? '(no delivery stats were captured)',
+          ]
+          : []),
         'Every finding MUST quote the user\'s own words as evidence.',
         'Do NOT provide a better answer, an outline, or model wording. Diagnosis only.',
         'Reply in Chinese with at most five short findings.',
@@ -1027,6 +1054,88 @@ export class TrainingSessionService {
     return this.#scenarioSummary(scenario);
   }
 
+  // ─── Phase 3: speech composition ─────────────────────────────────────────
+
+  #speechModuleContext(scenarioId: string): string {
+    const modules = this.#product.listLegoModules({ status: 'confirmed' })
+      .filter((module) => module.scope === 'global' || module.scenarioId === scenarioId)
+      .slice(0, 20);
+    if (modules.length === 0) return '(the user has no confirmed modules yet)';
+    return modules.map((module) => {
+      const version = module.currentVersion
+        ? this.#product.getLegoVersion(module.id, module.currentVersion)
+        : null;
+      return [
+        `- 【${module.title}】`,
+        version ? `内核：${truncate(version.payload.semanticKernel, 200)}` : '',
+        version && version.payload.languageShells[0]
+          ? `原话：${truncate(version.payload.languageShells[0], 200)}`
+          : '',
+      ].filter(Boolean).join(' ');
+    }).join('\n');
+  }
+
+  async composeSpeechOutline(input: {
+    scenarioId: string; durationMinutes: number; audience: string;
+  }): Promise<ScenarioSummary> {
+    return this.#exclusive(async () => {
+      const scenario = this.#product.getScenario(input.scenarioId);
+      if (!scenario) throw new Error('Scenario does not exist.');
+      if (scenario.type !== 'speech') throw new Error('只有演讲类型的场景可以组装讲稿骨架。');
+      const session = await this.#createSession('speech', input.scenarioId);
+      const prompt = [
+        'Compose a speech skeleton (NOT a full script) from the user\'s own language modules.',
+        `Speech: ${scenario.title} | objective: ${scenario.objective}`,
+        `Duration budget: ${input.durationMinutes} minutes.`,
+        input.audience ? `Audience: ${input.audience}` : `Audience: ${scenario.counterpart || '(unspecified)'}`,
+        'The user\'s confirmed modules (bricks). Core claims MUST come from these:',
+        this.#speechModuleContext(input.scenarioId),
+        'Structure: 开场钩子 → 2-4 个要点（每个要点标注引用的模块【标题】和它的原话开头）→ 收尾落点。',
+        'Give each section a time budget summing to the duration.',
+        'Where a needed claim has no module, mark it 【缺积木：主题】 instead of inventing content.',
+        'Reply in Chinese as a plain outline. No JSON, no full paragraphs of new prose.',
+      ].join('\n');
+      const output = await this.#runAgent(session, prompt, 6);
+      const outline = extractFinalText(output.messages).trim();
+      if (!outline) throw new Error('骨架生成为空，请重试。');
+      this.#product.setScenarioSpeechOutline(input.scenarioId, outline);
+      return this.#scenarioSummary(scenario);
+    });
+  }
+
+  async transformSpeechOutline(input: {
+    scenarioId: string; transform: 'compress' | 'expand' | 'audience'; audience: string;
+  }): Promise<ScenarioSummary> {
+    return this.#exclusive(async () => {
+      const scenario = this.#product.getScenario(input.scenarioId);
+      if (!scenario) throw new Error('Scenario does not exist.');
+      const extras = this.#product.getScenarioExtras(input.scenarioId);
+      if (!extras?.speechOutline) throw new Error('先生成演讲骨架，再做压缩/扩展/换听众。');
+      if (input.transform === 'audience' && !input.audience) {
+        throw new Error('换听众需要先填写新的听众描述。');
+      }
+      const session = await this.#createSession('speech', input.scenarioId);
+      const instruction = input.transform === 'compress'
+        ? 'COMPRESS this outline to roughly half its time budget: keep the strongest points, merge or drop the rest, tighten every section budget.'
+        : input.transform === 'expand'
+          ? 'EXPAND this outline: add depth to each point (sub-beats, where evidence or a case from the referenced module fits), increasing the time budget by roughly half.'
+          : `RE-FRAME this outline for a different audience: ${input.audience}. Adjust emphasis, examples and register for them; keep the same modules as the backbone.`;
+      const prompt = [
+        'Transform the user\'s speech skeleton. Keep the 模块【标题】 references intact —',
+        'the modules are the user\'s own confirmed language and must stay the backbone.',
+        instruction,
+        'Current outline:',
+        extras.speechOutline,
+        'Reply in Chinese with the full transformed outline only.',
+      ].join('\n');
+      const output = await this.#runAgent(session, prompt, 6);
+      const outline = extractFinalText(output.messages).trim();
+      if (!outline) throw new Error('变换结果为空，请重试。');
+      this.#product.setScenarioSpeechOutline(input.scenarioId, outline);
+      return this.#scenarioSummary(scenario);
+    });
+  }
+
   #scenarioSummary(scenario: Scenario): ScenarioSummary {
     const extras = this.#product.getScenarioExtras(scenario.id);
     const questions = this.#product.listScenarioQuestions(scenario.id);
@@ -1055,6 +1164,7 @@ export class TrainingSessionService {
         answered: question.answered,
       })),
       analysis: extras?.analysis ? extras.analysis : null,
+      speechOutline: extras?.speechOutline ? extras.speechOutline : null,
     };
   }
 

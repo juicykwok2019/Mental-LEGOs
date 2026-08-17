@@ -36,9 +36,11 @@ import {
   SCENARIO_DELETE_CHANNEL,
   SCENARIO_DELETE_MATERIAL_CHANNEL,
   SCENARIO_DELETE_PREVIEW_CHANNEL,
+  SCENARIO_COMPOSE_OUTLINE_CHANNEL,
   SCENARIO_MATERIAL_INTENT_CHANNEL,
   SCENARIO_LIST_CHANNEL,
   SCENARIO_PREPARE_CHANNEL,
+  SCENARIO_TRANSFORM_OUTLINE_CHANNEL,
   SCENARIO_REVIEW_CHANNEL,
   SCENARIO_START_QUESTION_CHANNEL,
   SPEECH_INSTALL_CHANNEL,
@@ -83,7 +85,9 @@ import {
   scenarioCreateInputSchema,
   scenarioDeleteMaterialInputSchema,
   scenarioDeletePreviewSchema,
+  scenarioComposeOutlineInputSchema,
   scenarioMaterialIntentInputSchema,
+  scenarioTransformOutlineInputSchema,
   scenarioMaterialInputSchema,
   scenarioReviewInputSchema,
   scenarioSummarySchema,
@@ -109,9 +113,11 @@ import {
   type ProfileSeedInput,
   type ProviderSetupInput,
   type ScenarioCreateInput,
+  type ScenarioComposeOutlineInput,
   type ScenarioDeleteMaterialInput,
   type ScenarioMaterialInput,
   type ScenarioMaterialIntentInput,
+  type ScenarioTransformOutlineInput,
   type ScenarioReviewInput,
   type TrainingCloseFirstInput,
   type TrainingConfirmInput,
@@ -202,6 +208,20 @@ const desktopApi: MentalLegosDesktopApi = Object.freeze({
   },
   async getUsageOverview() {
     return invokeParsed(USAGE_OVERVIEW_CHANNEL, usageOverviewSchema);
+  },
+  async composeSpeechOutline(input: ScenarioComposeOutlineInput) {
+    return invokeParsed(
+      SCENARIO_COMPOSE_OUTLINE_CHANNEL,
+      scenarioSummarySchema,
+      scenarioComposeOutlineInputSchema.parse(input),
+    );
+  },
+  async transformSpeechOutline(input: ScenarioTransformOutlineInput) {
+    return invokeParsed(
+      SCENARIO_TRANSFORM_OUTLINE_CHANNEL,
+      scenarioSummarySchema,
+      scenarioTransformOutlineInputSchema.parse(input),
+    );
   },
   async updateScenarioMaterialIntent(input: ScenarioMaterialIntentInput) {
     return invokeParsed(
