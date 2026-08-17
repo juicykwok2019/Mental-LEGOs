@@ -22,6 +22,7 @@ export function LibraryView() {
   const [versionToDelete, setVersionToDelete] = useState<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [archiveConfirm, setArchiveConfirm] = useState(false);
+  const [filter, setFilter] = useState('all');
 
   async function refresh(): Promise<void> {
     try {
@@ -309,50 +310,67 @@ export function LibraryView() {
   }
 
   const active = (module: LibraryModuleSummary): boolean => module.status !== 'archived';
-  const groups: Array<{ label: string; filter: (module: LibraryModuleSummary) => boolean }> = [
-    { label: '通用模块', filter: (module) => active(module) && module.scope === 'global' && module.domain === 'generic' },
-    { label: '专业模块', filter: (module) => active(module) && module.scope === 'global' && module.domain !== 'generic' },
-    { label: '场景模块', filter: (module) => active(module) && module.scope === 'scenario' },
-    { label: '已归档', filter: (module) => module.status === 'archived' },
+  const filters: Array<{ key: string; label: string; match: (module: LibraryModuleSummary) => boolean }> = [
+    { key: 'all', label: '全部', match: active },
+    { key: 'generic', label: '通用', match: (module) => active(module) && module.scope === 'global' && module.domain === 'generic' },
+    { key: 'professional', label: '专业', match: (module) => active(module) && module.scope === 'global' && module.domain !== 'generic' },
+    { key: 'scenario', label: '场景', match: (module) => active(module) && module.scope === 'scenario' },
+    { key: 'archived', label: '已归档', match: (module) => module.status === 'archived' },
   ];
+  const current = filters.find((entry) => entry.key === filter) ?? filters[0]!;
+  const visible = modules.filter(current.match);
 
   return (
     <div className="library-view">
       {error && <p className="form-error">{error}</p>}
-      {modules.length === 0 && <p>还没有模块。完成一次训练并确认候选后，它们会出现在这里。</p>}
-      {groups.map((group) => {
-        const items = modules.filter(group.filter);
-        if (items.length === 0) return null;
-        return (
-          <section key={group.label} className="library-group">
-            <h3>{group.label}<span className="count-pill">{items.length}</span></h3>
-            <div className="scenario-list">
-              {items.map((module) => (
+      {modules.length === 0 ? (
+        <p>还没有模块。完成一次训练并确认候选后，它们会出现在这里。</p>
+      ) : (
+        <>
+          <div className="filter-row">
+            {filters.map((entry) => {
+              const count = modules.filter(entry.match).length;
+              if (entry.key === 'archived' && count === 0) return null;
+              return (
                 <button
-                  key={module.id}
+                  key={entry.key}
                   type="button"
-                  className="scenario-item"
-                  onClick={() => {
-                    setVersionToDelete(null);
-                    setNotice(null);
-                    setArchiveConfirm(false);
-                    window.mentalLegos.getLibraryModule(module.id)
-                      .then(setDetail)
-                      .catch((reason: unknown) => setError(messageFrom(reason)));
-                  }}
+                  className={`filter-chip ${filter === entry.key ? 'filter-active' : ''}`}
+                  onClick={() => setFilter(entry.key)}
                 >
-                  <strong>{module.title}</strong>
-                  <span>
-                    {categoryLabel(module.category)}
-                    {module.stage && ` · ${stageLabel(module.stage)}`}
-                    {module.dueAt && ` · 复现 ${module.dueAt.slice(0, 10)}`}
-                  </span>
+                  {entry.label}<span className="count-pill">{count}</span>
                 </button>
-              ))}
-            </div>
-          </section>
-        );
-      })}
+              );
+            })}
+          </div>
+          {visible.length === 0 && <p className="block-hint">这个分类还没有模块。</p>}
+          <div className="scenario-list library-grid">
+            {visible.map((module) => (
+              <button
+                key={module.id}
+                type="button"
+                className="scenario-item"
+                onClick={() => {
+                  setVersionToDelete(null);
+                  setNotice(null);
+                  setArchiveConfirm(false);
+                  window.mentalLegos.getLibraryModule(module.id)
+                    .then(setDetail)
+                    .catch((reason: unknown) => setError(messageFrom(reason)));
+                }}
+              >
+                <strong>{module.title}</strong>
+                <span>
+                  <em className="scope-tag">{module.status === 'archived' ? '已归档' : scopeLabel(module)}</em>
+                  {categoryLabel(module.category)}
+                  {module.stage && ` · ${stageLabel(module.stage)}`}
+                  {module.dueAt && ` · 复现 ${module.dueAt.slice(0, 10)}`}
+                </span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

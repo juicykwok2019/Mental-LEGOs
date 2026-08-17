@@ -838,10 +838,44 @@ button.scenario-item:hover:not(:disabled) {
 }
 .scenario-item span { color: #6a7466; font-size: 0.84rem; }
 .library-group h3 { margin: 4px 0 10px; }
-.library-group .scenario-list {
+.library-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.filter-row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.filter-chip {
+  min-height: 36px;
+  padding: 7px 15px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: #efe9db;
+  color: #4c5548;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.filter-chip:hover:not(:disabled) { background: #e6dfcc; }
+.filter-chip .count-pill { background: rgb(255 255 255 / 65%); }
+
+.filter-chip.filter-active,
+.filter-chip.filter-active:hover:not(:disabled) {
+  background: #2f3a2d;
+  color: #f5f1e8;
+}
+.filter-chip.filter-active .count-pill { background: rgb(255 255 255 / 22%); color: #f5f1e8; }
+
+.scope-tag {
+  margin-right: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e4eede;
+  color: #3c5a3c;
+  font-size: 0.74rem;
+  font-style: normal;
+  font-weight: 700;
 }
 
 .module-detail {
@@ -917,5 +951,5 @@ button.scenario-item:hover:not(:disabled) {
 .trigger-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 
 @media (max-width: 760px) {
-  .library-group .scenario-list { grid-template-columns: 1fr; }
+  .library-grid { grid-template-columns: 1fr; }
 }
