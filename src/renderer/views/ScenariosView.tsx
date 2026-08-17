@@ -410,11 +410,12 @@ export function ScenariosView(props: ScenariosViewProps) {
           {deletePreview ? (
             <>
               <p>
-                将删除：材料 {deletePreview.sources} · 片段 {deletePreview.segments} ·
-                问题 {deletePreview.questions} · 回答 {deletePreview.attempts} ·
-                场景模块 {deletePreview.scopedModules}；
+                将删除：材料 {deletePreview.sources} 份（含切段 {deletePreview.segments} 条）·
+                问题 {deletePreview.questions} 道 · 回答记录 {deletePreview.attempts} 条 ·
+                乐高库中属于本场景的模块 {deletePreview.scopedModules} 个
+                {deletePreview.scopedModules > 0 && '（尚未提升为通用/专业的场景模块会随场景一并删除；要保留请先在乐高库中提升）'}。
                 {deletePreview.globalModuleReferences > 0
-                  && ` ${deletePreview.globalModuleReferences} 个全局模块引用了这里的证据（模块保留）。`}
+                  && ` 另有 ${deletePreview.globalModuleReferences} 个已提升的全局模块引用了这里的证据——模块本身保留，仅证据链接失效。`}
               </p>
               <div className="phase-actions">
                 <button
