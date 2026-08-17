@@ -68,6 +68,7 @@ import {
   TRAINING_HINT_CHANNEL,
   TRAINING_SECOND_CHANNEL,
   TRAINING_START_CHANNEL,
+  TRAINING_STATE_CHANNEL,
   TRAINING_VARIATION_ANSWER_CHANNEL,
   TRAINING_VARIATION_SKIP_CHANNEL,
   appInfoSchema,
@@ -623,6 +624,9 @@ function registerIpcHandlers(): void {
     });
   });
 
+  withService(TRAINING_STATE_CHANNEL, async (service) => trainingTurnStateSchema.parse(
+    service.state(),
+  ));
   withService(TRAINING_START_CHANNEL, async (service, value) => trainingTurnStateSchema.parse(
     await service.start(trainingStartInputSchema.parse(value)),
   ));

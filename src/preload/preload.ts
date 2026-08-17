@@ -41,6 +41,7 @@ import {
   TRAINING_HINT_CHANNEL,
   TRAINING_SECOND_CHANNEL,
   TRAINING_START_CHANNEL,
+  TRAINING_STATE_CHANNEL,
   TRAINING_VARIATION_ANSWER_CHANNEL,
   TRAINING_VARIATION_SKIP_CHANNEL,
   appInfoSchema,
@@ -162,6 +163,9 @@ const desktopApi: MentalLegosDesktopApi = Object.freeze({
       throw new Error('Recording payload must be a non-empty ArrayBuffer.');
     }
     return invokeParsed(SPEECH_TRANSCRIBE_CHANNEL, speechTranscriptionResultSchema, wav);
+  },
+  async getTrainingState() {
+    return invokeParsed(TRAINING_STATE_CHANNEL, trainingTurnStateSchema);
   },
   async startTraining(input: TrainingStartInput) {
     return invokeParsed(TRAINING_START_CHANNEL, trainingTurnStateSchema, trainingStartInputSchema.parse(input));

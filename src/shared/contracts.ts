@@ -145,6 +145,7 @@ export type SpeechTranscriptionResult = z.infer<typeof speechTranscriptionResult
 
 export const PROFILE_GET_CHANNEL = 'profile:get' as const;
 export const PROFILE_SAVE_CHANNEL = 'profile:save' as const;
+export const TRAINING_STATE_CHANNEL = 'training:state' as const;
 export const TRAINING_START_CHANNEL = 'training:start' as const;
 export const TRAINING_CLOSE_FIRST_CHANNEL = 'training:close-first' as const;
 export const TRAINING_GAP_CHANNEL = 'training:resolve-gap' as const;
@@ -417,6 +418,7 @@ export interface MentalLegosDesktopApi {
   getSpeechReadiness(): Promise<SpeechReadinessState>;
   installSpeechModel(): Promise<SpeechReadinessState>;
   transcribeRecording(wav: ArrayBuffer): Promise<SpeechTranscriptionResult>;
+  getTrainingState(): Promise<TrainingTurnState>;
   startTraining(input: TrainingStartInput): Promise<TrainingTurnState>;
   closeFirstAttempt(input: TrainingCloseFirstInput): Promise<TrainingTurnState>;
   resolveGap(input: TrainingGapInput): Promise<TrainingTurnState>;

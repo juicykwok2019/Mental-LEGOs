@@ -118,10 +118,16 @@ export function App() {
       window.mentalLegos.getAppInfo(),
       window.mentalLegos.getProfile(),
       window.mentalLegos.getSpeechReadiness().catch(() => null),
-    ]).then(async ([info, profileState, speechState]) => {
+      window.mentalLegos.getTrainingState().catch(() => null),
+    ]).then(async ([info, profileState, speechState, trainingState]) => {
       setAppInfo(info);
       setProfile(profileState);
       setSpeech(speechState);
+      if (trainingState && trainingState.phase !== 'idle') {
+        // A renderer reload must not orphan a session that the host still holds.
+        setTurn(trainingState);
+        setView('chat');
+      }
       await window.mentalLegos.reportReady();
     }).catch((reason: unknown) => {
       setError(messageFrom(reason));
