@@ -28,6 +28,8 @@ const config: ForgeConfig = {
       'resources/asr-models',
       'resources/bash-runtime',
       'resources/licenses',
+      'node_modules/pdfjs-dist/cmaps',
+      'node_modules/pdfjs-dist/standard_fonts',
       'node_modules/@anthropic-ai/claude-agent-sdk-win32-x64/claude.exe',
       'resources/windows-sandbox/MentalLegos.SandboxLauncher.exe',
       'resources/windows-sandbox/MentalLegos.CredentialVault.exe',

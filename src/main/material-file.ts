@@ -176,6 +176,25 @@ function installPdfGeometryStubs(): void {
   }
 }
 
+// CID-keyed fonts (near-universal in Chinese PDFs) need pdfjs's external
+// CMap tables to map glyphs back to text, and non-embedded standard fonts
+// need the bundled font metrics; without them extraction can stall inside
+// the fake worker. The host tells us where the pdfjs asset directories
+// live (node_modules in dev, extraResource in the packaged app).
+export interface PdfAssetPaths {
+  cMapDirectory: string;
+  standardFontDirectory: string;
+}
+
+let pdfAssetPaths: PdfAssetPaths | null = null;
+
+export function configurePdfAssets(paths: PdfAssetPaths): void {
+  pdfAssetPaths = paths;
+}
+
+// A hang inside pdfjs must never leave the UI stuck on 解析文件… forever.
+const PDF_PARSE_TIMEOUT_MS = 90_000;
+
 async function extractPdfText(fileBytes: Buffer, warnings: string[]): Promise<string> {
   installPdfGeometryStubs();
   // Importing the worker entry assigns globalThis.pdfjsWorker, which the
@@ -189,9 +208,24 @@ async function extractPdfText(fileBytes: Buffer, warnings: string[]): Promise<st
     data: new Uint8Array(fileBytes),
     disableFontFace: true,
     useSystemFonts: false,
+    ...(pdfAssetPaths
+      ? {
+        // pdfjs concatenates name onto these, so the trailing separator matters.
+        cMapUrl: pdfAssetPaths.cMapDirectory + path.sep,
+        cMapPacked: true,
+        standardFontDataUrl: pdfAssetPaths.standardFontDirectory + path.sep,
+      }
+      : {}),
   });
 
-  try {
+  let timer: NodeJS.Timeout | undefined;
+  const expiry = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error('PDF 解析超时。这个文件可能过于复杂，可以复制内容后直接粘贴。'));
+    }, PDF_PARSE_TIMEOUT_MS);
+  });
+
+  const work = async (): Promise<string> => {
     let document;
     try {
       document = await loadingTask.promise;
@@ -220,8 +254,15 @@ async function extractPdfText(fileBytes: Buffer, warnings: string[]): Promise<st
       warnings.push('这个 PDF 里没有可提取的文本（可能是扫描件）。可以复制内容后直接粘贴。');
     }
     return text;
+  };
+
+  try {
+    return await Promise.race([work(), expiry]);
   } finally {
-    await loadingTask.destroy();
+    clearTimeout(timer);
+    loadingTask.destroy().catch(() => {
+      // A destroy failure after timeout must not mask the surfaced error.
+    });
   }
 }
 

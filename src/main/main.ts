@@ -18,7 +18,7 @@ import { AsrWorkerHost } from './asr-worker-host';
 import { BashRuntimeManager } from '../bash/runtime-manager';
 import { loadBashRuntimeManifest } from '../bash/runtime-manifest';
 import { CredentialVault } from './credential-vault';
-import { parseMaterialFile } from './material-file';
+import { configurePdfAssets, parseMaterialFile } from './material-file';
 import { ProviderCertificationService } from './provider-certification';
 import { ProviderConfigurationService } from './provider-configuration';
 import { ProviderSettingsStore } from './provider-settings-store';
@@ -854,6 +854,15 @@ function registerIpcHandlers(): void {
   guarded(MATERIAL_PARSE_FILE_CHANNEL, async () => {
     const window = mainWindow;
     if (!window) throw new Error('Main window is unavailable.');
+    // CMaps and standard fonts ship in node_modules during dev and as
+    // extraResource directories in the packaged app (see forge.config.ts).
+    const pdfAssetsRoot = app.isPackaged
+      ? process.resourcesPath
+      : path.join(app.getAppPath(), 'node_modules', 'pdfjs-dist');
+    configurePdfAssets({
+      cMapDirectory: path.join(pdfAssetsRoot, 'cmaps'),
+      standardFontDirectory: path.join(pdfAssetsRoot, 'standard_fonts'),
+    });
     const dialogResult = await dialog.showOpenDialog(window, {
       title: '选择材料文件',
       properties: ['openFile'],
