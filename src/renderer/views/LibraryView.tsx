@@ -201,6 +201,13 @@ export function LibraryView() {
             </section>
           )}
 
+          {detail.scope === 'global' && detail.status !== 'archived' && (
+            <p className="block-hint">
+              这已经是长期模块（{detail.domain === 'generic' ? '通用' : '专业'}），
+              不依附任何场景，无需提升。
+            </p>
+          )}
+
           {detail.scope === 'scenario' && (
             <section className="scenario-block">
               <h3>提升为长期模块</h3>
