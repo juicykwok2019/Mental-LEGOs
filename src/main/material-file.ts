@@ -210,10 +210,11 @@ async function extractPdfText(fileBytes: Buffer, warnings: string[]): Promise<st
     useSystemFonts: false,
     ...(pdfAssetPaths
       ? {
-        // pdfjs concatenates name onto these, so the trailing separator matters.
-        cMapUrl: pdfAssetPaths.cMapDirectory + path.sep,
+        // pdfjs insists on a trailing forward slash (its factory validation),
+        // and Windows fs APIs accept the resulting mixed separators fine.
+        cMapUrl: `${pdfAssetPaths.cMapDirectory}/`,
         cMapPacked: true,
-        standardFontDataUrl: pdfAssetPaths.standardFontDirectory + path.sep,
+        standardFontDataUrl: `${pdfAssetPaths.standardFontDirectory}/`,
       }
       : {}),
   });
