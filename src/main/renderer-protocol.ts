@@ -8,6 +8,8 @@ export const PACKAGED_CONTENT_SECURITY_POLICY = [
   "script-src 'self'",
   "style-src 'self'",
   "img-src 'self' data:",
+  // Local recording playback: WAV bytes become in-memory blob URLs.
+  "media-src 'self' blob:",
   "connect-src 'self'",
   "object-src 'none'",
   "base-uri 'none'",

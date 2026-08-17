@@ -57,6 +57,7 @@ import {
   MATERIAL_PARSE_FILE_CHANNEL,
   RECORDING_DELETE_CHANNEL,
   RECORDING_LIST_CHANNEL,
+  RECORDING_READ_CHANNEL,
   PRIVACY_EXPORT_CHANNEL,
   PRIVACY_IMPORT_CHANNEL,
   PRIVACY_OVERVIEW_CHANNEL,
@@ -926,6 +927,11 @@ function registerIpcHandlers(): void {
     const recordingId = z.string().uuid().parse(value);
     await rm(path.join(mediaRootPath(), `recording-${recordingId}.wav`), { force: true });
     return listRecordingItems();
+  });
+  guarded(RECORDING_READ_CHANNEL, async (value) => {
+    const recordingId = z.string().uuid().parse(value);
+    const bytes = await readFile(path.join(mediaRootPath(), `recording-${recordingId}.wav`));
+    return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
   });
 
   guarded(MATERIAL_PARSE_FILE_CHANNEL, async () => {

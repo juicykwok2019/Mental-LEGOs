@@ -31,6 +31,12 @@ export function SettingsView() {
   const [usage, setUsage] = useState<UsageOverview | null>(null);
   const [recordings, setRecordings] = useState<RecordingItem[]>([]);
   const [recordingToDelete, setRecordingToDelete] = useState<string | null>(null);
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const [playingUrl, setPlayingUrl] = useState<string | null>(null);
+
+  useEffect(() => () => {
+    if (playingUrl) URL.revokeObjectURL(playingUrl);
+  }, [playingUrl]);
   const [exportPassword, setExportPassword] = useState('');
   const [providerId, setProviderId] = useState<ProviderSetupInput['providerId']>('anthropic');
   const [displayName, setDisplayName] = useState('Anthropic');
@@ -641,6 +647,27 @@ export function SettingsView() {
                   <span>
                     {item.recordedAt.slice(0, 16).replace('T', ' ')} ·{' '}
                     {(item.sizeBytes / 1024).toFixed(0)} KB
+                    <button
+                      type="button"
+                      className="quiet-button intent-edit-button"
+                      disabled={busy}
+                      onClick={() => {
+                        if (playingId === item.recordingId) {
+                          setPlayingId(null);
+                          setPlayingUrl(null);
+                          return;
+                        }
+                        window.mentalLegos.readRecording(item.recordingId).then((bytes) => {
+                          setPlayingUrl(URL.createObjectURL(new Blob([bytes], { type: 'audio/wav' })));
+                          setPlayingId(item.recordingId);
+                        }).catch((reason: unknown) => setError(messageFrom(reason)));
+                      }}
+                    >
+                      {playingId === item.recordingId ? '收起播放' : '▶ 播放'}
+                    </button>
+                    {playingId === item.recordingId && playingUrl && (
+                      <audio className="recording-player" controls autoPlay src={playingUrl} />
+                    )}
                   </span>
                   {recordingToDelete === item.recordingId ? (
                     <span className="phase-actions">

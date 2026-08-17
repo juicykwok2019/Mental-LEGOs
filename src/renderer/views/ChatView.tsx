@@ -39,6 +39,11 @@ function Composer(props: ComposerProps) {
   const [durationMs, setDurationMs] = useState<number | null>(null);
   const [pauseCount, setPauseCount] = useState<number | null>(null);
   const [longestPauseMs, setLongestPauseMs] = useState<number | null>(null);
+  const [playbackUrl, setPlaybackUrl] = useState<string | null>(null);
+
+  useEffect(() => () => {
+    if (playbackUrl) URL.revokeObjectURL(playbackUrl);
+  }, [playbackUrl]);
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +67,7 @@ function Composer(props: ComposerProps) {
       setDurationMs(finished.durationMs);
       setPauseCount(result.pauseCount);
       setLongestPauseMs(result.longestPauseMs);
+      setPlaybackUrl(URL.createObjectURL(new Blob([finished.wav], { type: 'audio/wav' })));
     } catch (reason) {
       setRecording(false);
       setError(messageFrom(reason));
@@ -75,6 +81,12 @@ function Composer(props: ComposerProps) {
   return (
     <div className="composer">
       {error && <p className="form-error" role="alert">{error}</p>}
+      {playbackUrl && (
+        <div className="playback-row">
+          <span>🔁 听一遍自己刚才的录音：</span>
+          <audio controls src={playbackUrl} preload="metadata" />
+        </div>
+      )}
       <textarea
         value={text}
         placeholder={props.placeholder}
@@ -114,6 +126,7 @@ function Composer(props: ComposerProps) {
             setDurationMs(null);
             setPauseCount(null);
             setLongestPauseMs(null);
+            setPlaybackUrl(null);
           }}
         >
           {props.submitLabel}

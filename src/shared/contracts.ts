@@ -220,6 +220,7 @@ export type LibraryRenameInput = z.infer<typeof libraryRenameInputSchema>;
 export const LIBRARY_UNLINK_CHANNEL = 'library:unlink-modules' as const;
 export const RECORDING_LIST_CHANNEL = 'recording:list' as const;
 export const RECORDING_DELETE_CHANNEL = 'recording:delete' as const;
+export const RECORDING_READ_CHANNEL = 'recording:read' as const;
 export const FOUNDATION_OVERVIEW_CHANNEL = 'foundation:overview' as const;
 export const FOUNDATION_RESOLVE_ASSERTION_CHANNEL = 'foundation:resolve-assertion' as const;
 export const FOUNDATION_DELETE_KNOWLEDGE_CHANNEL = 'foundation:delete-knowledge' as const;
@@ -624,6 +625,7 @@ export interface MentalLegosDesktopApi {
   transformSpeechOutline(input: ScenarioTransformOutlineInput): Promise<ScenarioSummary>;
   listRecordings(): Promise<RecordingItem[]>;
   deleteRecording(recordingId: string): Promise<RecordingItem[]>;
+  readRecording(recordingId: string): Promise<ArrayBuffer>;
   startTraining(input: TrainingStartInput): Promise<TrainingTurnState>;
   closeFirstAttempt(input: TrainingCloseFirstInput): Promise<TrainingTurnState>;
   resolveGap(input: TrainingGapInput): Promise<TrainingTurnState>;

@@ -21,6 +21,7 @@ import {
   MATERIAL_PARSE_FILE_CHANNEL,
   RECORDING_DELETE_CHANNEL,
   RECORDING_LIST_CHANNEL,
+  RECORDING_READ_CHANNEL,
   PRIVACY_EXPORT_CHANNEL,
   PRIVACY_IMPORT_CHANNEL,
   PRIVACY_OVERVIEW_CHANNEL,
@@ -314,6 +315,19 @@ const desktopApi: MentalLegosDesktopApi = Object.freeze({
       z.array(recordingItemSchema),
       z.string().uuid().parse(recordingId),
     );
+  },
+  async readRecording(recordingId: string) {
+    const value: unknown = await ipcRenderer.invoke(
+      RECORDING_READ_CHANNEL,
+      z.string().uuid().parse(recordingId),
+    );
+    if (value instanceof ArrayBuffer) return value;
+    if (ArrayBuffer.isView(value)) {
+      const copy = new Uint8Array(value.byteLength);
+      copy.set(new Uint8Array(value.buffer, value.byteOffset, value.byteLength));
+      return copy.buffer;
+    }
+    throw new Error('Recording payload was not binary.');
   },
   async startTraining(input: TrainingStartInput) {
     return invokeParsed(TRAINING_START_CHANNEL, trainingTurnStateSchema, trainingStartInputSchema.parse(input));
