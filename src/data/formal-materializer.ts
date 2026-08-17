@@ -25,6 +25,7 @@ export interface FormalAssetRecord {
 const legoMaterialSchema = z.object({
   title: z.string().trim().min(1).max(200),
   category: legoCategorySchema,
+  domain: z.enum(['generic', 'professional']).default('professional'),
   triggers: z.array(z.string().min(1).max(200)).max(20).default([]),
   semantic_kernel: z.string().min(1),
   logic_skeleton: z.array(z.string().min(1)).min(1).max(8),
@@ -118,6 +119,7 @@ export class FormalMaterializer {
         scenarioId,
         category: material.category,
         title: material.title,
+        ...(scope === 'global' ? { domain: material.domain } : {}),
         triggers: material.triggers,
         payload: legoVersionPayloadSchema.parse({
           semanticKernel: material.semantic_kernel,

@@ -206,4 +206,32 @@ export const MIGRATIONS: readonly Migration[] = [
       );
     `,
   },
+  {
+    version: 2,
+    name: 'profile-grounding-and-module-domains',
+    statements: `
+      -- Growing professional profile seed: a single row of three short answers
+      -- plus optional pasted material, all encrypted (personal free text).
+      CREATE TABLE profile_seed (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        direction_enc TEXT NOT NULL,
+        current_work_enc TEXT NOT NULL,
+        target_scenarios_enc TEXT NOT NULL,
+        material_enc TEXT NOT NULL DEFAULT '',
+        updated_at TEXT NOT NULL
+      ) STRICT;
+
+      -- Six alternating question types plus the exploratory marker (questions
+      -- outside the confirmed profile do not count as expression failures).
+      ALTER TABLE questions ADD COLUMN question_type TEXT;
+      ALTER TABLE questions ADD COLUMN exploratory INTEGER NOT NULL DEFAULT 0;
+
+      -- Knowledge gap vs expression gap, chosen by the user when stuck.
+      ALTER TABLE attempts ADD COLUMN gap TEXT;
+
+      -- Three-tier module scopes: generic / professional (global scope) with
+      -- scenario modules staying domain-null until explicitly promoted.
+      ALTER TABLE lego_modules ADD COLUMN domain TEXT;
+    `,
+  },
 ];

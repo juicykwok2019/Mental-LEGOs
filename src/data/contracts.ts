@@ -100,18 +100,39 @@ export const profileAssertionSchema = z.object({
 });
 export type ProfileAssertion = z.infer<typeof profileAssertionSchema>;
 
+export const questionTypeSchema = z.enum([
+  'viewpoint',
+  'mechanism',
+  'decision',
+  'case-recall',
+  'challenge',
+  'pressure-probe',
+]);
+export type QuestionType = z.infer<typeof questionTypeSchema>;
+
 export const questionSchema = z.object({
   id: z.string().uuid(),
   scope: dataScopeSchema,
   scenarioId: z.string().uuid().nullable().default(null),
   prompt: z.string().min(1),
   origin: z.enum(['scheduler', 'scenario-analysis', 'variation', 'user', 'import']),
+  questionType: questionTypeSchema.nullable().default(null),
+  exploratory: z.boolean().default(false),
   parentQuestionId: z.string().uuid().nullable().default(null),
   targetModuleIds: z.array(z.string().uuid()).default([]),
   pressure: z.enum(['none', 'timed', 'follow-up', 'interruption']).default('none'),
   createdAt: z.string().datetime({ offset: true }),
 });
 export type Question = z.infer<typeof questionSchema>;
+
+export const profileSeedSchema = z.object({
+  direction: z.string().trim().min(1).max(2000),
+  currentWork: z.string().trim().max(4000).default(''),
+  targetScenarios: z.string().trim().max(4000).default(''),
+  material: z.string().max(200_000).default(''),
+  updatedAt: z.string().datetime({ offset: true }),
+});
+export type ProfileSeed = z.infer<typeof profileSeedSchema>;
 
 export const attemptStateSchema = z.enum([
   'QUESTION_CREATED',
@@ -132,6 +153,7 @@ export const attemptSchema = z.object({
   openingDelayMs: z.number().int().nonnegative().nullable().default(null),
   durationMs: z.number().int().nonnegative().nullable().default(null),
   hintLevel: z.enum(['none', 'L1', 'L2', 'L3', 'L4']).default('none'),
+  gap: z.enum(['knowledge', 'expression']).nullable().default(null),
   createdAt: z.string().datetime({ offset: true }),
   updatedAt: z.string().datetime({ offset: true }),
 });
@@ -162,6 +184,9 @@ export const legoCategorySchema = z.enum([
 
 export const legoModuleStatusSchema = z.enum(['candidate', 'confirmed', 'archived']);
 
+export const moduleDomainSchema = z.enum(['generic', 'professional']);
+export type ModuleDomain = z.infer<typeof moduleDomainSchema>;
+
 export const legoModuleSchema = z.object({
   id: z.string().uuid(),
   scope: dataScopeSchema,
@@ -169,6 +194,9 @@ export const legoModuleSchema = z.object({
   category: legoCategorySchema,
   title: z.string().trim().min(1).max(200),
   status: legoModuleStatusSchema,
+  // generic / professional for global modules; scenario modules stay null
+  // until the user explicitly promotes them.
+  domain: moduleDomainSchema.nullable().default(null),
   triggers: z.array(z.string().min(1).max(200)).default([]),
   currentVersion: z.number().int().positive().nullable().default(null),
   createdAt: z.string().datetime({ offset: true }),

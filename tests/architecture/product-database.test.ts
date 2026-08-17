@@ -126,9 +126,9 @@ describe('formal product database', () => {
   }
 
   it('applies migrations exactly once and reports the schema version', () => {
-    expect(database.migratedVersion).toBe(1);
+    expect(database.migratedVersion).toBe(2);
     const reopened = new ProductDatabase(path.join(directory, 'product.db'), keys);
-    expect(reopened.migratedVersion).toBe(1);
+    expect(reopened.migratedVersion).toBe(2);
     reopened.close();
   });
 

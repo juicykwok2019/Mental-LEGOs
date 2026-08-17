@@ -6,6 +6,8 @@ import { z } from 'zod';
 import {
   attemptSchema,
   auditEventSchema,
+  profileSeedSchema,
+  type ProfileSeed,
   consentEventSchema,
   diagnosticSchema,
   knowledgeItemSchema,
@@ -391,16 +393,19 @@ export class ProductDatabase {
 
   // ─── Questions, attempts, diagnostics ────────────────────────────────────
 
-  createQuestion(input: Omit<Question, 'createdAt'> & { now?: string }): Question {
+  createQuestion(
+    input: Omit<z.input<typeof questionSchema>, 'createdAt'> & { now?: string },
+  ): Question {
     const now = input.now ?? nowIso();
     const question = questionSchema.parse({ ...input, createdAt: now });
     this.#database.prepare(`
-      INSERT INTO questions (id, scope, scenario_id, prompt_enc, origin, parent_question_id,
-        target_module_ids_json, pressure, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO questions (id, scope, scenario_id, prompt_enc, origin, question_type,
+        exploratory, parent_question_id, target_module_ids_json, pressure, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       question.id, question.scope, question.scenarioId, this.#codec.encrypt(question.prompt),
-      question.origin, question.parentQuestionId, JSON.stringify(question.targetModuleIds),
+      question.origin, question.questionType, question.exploratory ? 1 : 0,
+      question.parentQuestionId, JSON.stringify(question.targetModuleIds),
       question.pressure, question.createdAt,
     );
     return question;
@@ -417,6 +422,8 @@ export class ProductDatabase {
       scenarioId: row.scenario_id,
       prompt: this.#codec.decrypt(String(row.prompt_enc)),
       origin: row.origin,
+      questionType: row.question_type,
+      exploratory: Boolean(row.exploratory),
       parentQuestionId: row.parent_question_id,
       targetModuleIds: parseStringArray(row.target_module_ids_json),
       pressure: row.pressure,
@@ -424,17 +431,28 @@ export class ProductDatabase {
     });
   }
 
-  createAttempt(input: Omit<Attempt, 'createdAt' | 'updatedAt'> & { now?: string }): Attempt {
+  listRecentQuestionTypes(limit = 6): string[] {
+    const rows = this.#database.prepare(`
+      SELECT question_type FROM questions
+      WHERE question_type IS NOT NULL ORDER BY created_at DESC LIMIT ?
+    `).all(limit) as Row[];
+    return rows.map((row) => String(row.question_type));
+  }
+
+  createAttempt(
+    input: Omit<z.input<typeof attemptSchema>, 'createdAt' | 'updatedAt'> & { now?: string },
+  ): Attempt {
     const now = input.now ?? nowIso();
     const attempt = attemptSchema.parse({ ...input, createdAt: now, updatedAt: now });
     this.#database.prepare(`
       INSERT INTO attempts (id, question_id, round, state, outcome, response_enc,
-        recording_source_id, opening_delay_ms, duration_ms, hint_level, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        recording_source_id, opening_delay_ms, duration_ms, hint_level, gap,
+        created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       attempt.id, attempt.questionId, attempt.round, attempt.state, attempt.outcome,
       this.#codec.encrypt(attempt.responseText), attempt.recordingSourceId,
-      attempt.openingDelayMs, attempt.durationMs, attempt.hintLevel,
+      attempt.openingDelayMs, attempt.durationMs, attempt.hintLevel, attempt.gap,
       attempt.createdAt, attempt.updatedAt,
     );
     return attempt;
@@ -443,7 +461,7 @@ export class ProductDatabase {
   updateAttempt(
     id: string,
     patch: Partial<Pick<Attempt,
-      'state' | 'outcome' | 'responseText' | 'openingDelayMs' | 'durationMs' | 'hintLevel'>>,
+      'state' | 'outcome' | 'responseText' | 'openingDelayMs' | 'durationMs' | 'hintLevel' | 'gap'>>,
     now = nowIso(),
   ): Attempt {
     return this.#transaction(() => {
@@ -452,11 +470,11 @@ export class ProductDatabase {
       const next = attemptSchema.parse({ ...current, ...patch, updatedAt: now });
       this.#database.prepare(`
         UPDATE attempts SET state = ?, outcome = ?, response_enc = ?, opening_delay_ms = ?,
-          duration_ms = ?, hint_level = ?, updated_at = ?
+          duration_ms = ?, hint_level = ?, gap = ?, updated_at = ?
         WHERE id = ?
       `).run(
         next.state, next.outcome, this.#codec.encrypt(next.responseText), next.openingDelayMs,
-        next.durationMs, next.hintLevel, next.updatedAt, id,
+        next.durationMs, next.hintLevel, next.gap, next.updatedAt, id,
       );
       return next;
     });
@@ -478,6 +496,7 @@ export class ProductDatabase {
       openingDelayMs: row.opening_delay_ms,
       durationMs: row.duration_ms,
       hintLevel: row.hint_level,
+      gap: row.gap,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     });
@@ -515,11 +534,15 @@ export class ProductDatabase {
   // ─── Language LEGO modules ───────────────────────────────────────────────
 
   createLegoCandidate(
-    input: Omit<LegoModule, 'status' | 'currentVersion' | 'createdAt' | 'updatedAt'>
+    input: Omit<LegoModule, 'status' | 'currentVersion' | 'createdAt' | 'updatedAt' | 'domain'>
       & { payload: LegoVersion['payload']; authorship: LegoVersion['authorship'];
-        evidenceSegmentIds?: string[]; attemptIds?: string[]; now?: string },
+        domain?: LegoModule['domain']; evidenceSegmentIds?: string[]; attemptIds?: string[];
+        now?: string },
   ): { module: LegoModule; version: LegoVersion } {
     const now = input.now ?? nowIso();
+    if (input.scope !== 'global' && input.domain) {
+      throw new Error('Only global modules carry a generic/professional domain.');
+    }
     const module = legoModuleSchema.parse({
       id: input.id,
       scope: input.scope,
@@ -527,6 +550,7 @@ export class ProductDatabase {
       category: input.category,
       title: input.title,
       status: 'candidate',
+      domain: input.domain ?? null,
       triggers: input.triggers,
       currentVersion: null,
       createdAt: now,
@@ -543,12 +567,13 @@ export class ProductDatabase {
     });
     this.#transaction(() => {
       this.#database.prepare(`
-        INSERT INTO lego_modules (id, scope, scenario_id, category, title, status,
+        INSERT INTO lego_modules (id, scope, scenario_id, category, title, status, domain,
           triggers_json, current_version, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         module.id, module.scope, module.scenarioId, module.category, module.title, module.status,
-        JSON.stringify(module.triggers), module.currentVersion, module.createdAt, module.updatedAt,
+        module.domain, JSON.stringify(module.triggers), module.currentVersion,
+        module.createdAt, module.updatedAt,
       );
       this.#insertVersion(version);
       this.#indexSearchText('lego-module', module.id, `${module.title} ${module.triggers.join(' ')}`);
@@ -663,10 +688,39 @@ export class ProductDatabase {
       category: row.category,
       title: row.title,
       status: row.status,
+      domain: row.domain,
       triggers: parseStringArray(row.triggers_json),
       currentVersion: row.current_version,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+    });
+  }
+
+  // Scenario modules stay scenario-scoped until the user explicitly promotes
+  // them (PRD: promotion requires proof of reuse or confirmation).
+  promoteModuleToGlobal(
+    moduleId: string,
+    domain: NonNullable<LegoModule['domain']>,
+    now = nowIso(),
+  ): LegoModule {
+    return this.#transaction(() => {
+      const module = this.getLegoModule(moduleId);
+      if (!module) throw new Error('Module does not exist.');
+      if (module.scope !== 'scenario') {
+        throw new Error('Only scenario modules can be promoted.');
+      }
+      this.#database.prepare(
+        "UPDATE lego_modules SET scope = 'global', scenario_id = NULL, domain = ?, updated_at = ? WHERE id = ?",
+      ).run(domain, now, moduleId);
+      this.#recordConsent({
+        id: randomUUID(),
+        action: 'scope-promotion',
+        objectRef: `lego:${moduleId}`,
+        scope: 'global',
+        decision: 'granted',
+        occurredAt: now,
+      });
+      return { ...module, scope: 'global' as const, scenarioId: null, domain, updatedAt: now };
     });
   }
 
@@ -776,6 +830,59 @@ export class ProductDatabase {
       result: row.result,
       detail: row.detail,
       occurredAt: row.occurred_at,
+    }));
+  }
+
+  // ─── Growing professional profile seed ──────────────────────────────────
+
+  saveProfileSeed(input: Omit<ProfileSeed, 'updatedAt'> & { now?: string }): ProfileSeed {
+    const now = input.now ?? nowIso();
+    const seed = profileSeedSchema.parse({ ...input, updatedAt: now });
+    this.#database.prepare(`
+      INSERT INTO profile_seed (id, direction_enc, current_work_enc, target_scenarios_enc,
+        material_enc, updated_at)
+      VALUES (1, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET direction_enc = excluded.direction_enc,
+        current_work_enc = excluded.current_work_enc,
+        target_scenarios_enc = excluded.target_scenarios_enc,
+        material_enc = excluded.material_enc, updated_at = excluded.updated_at
+    `).run(
+      this.#codec.encrypt(seed.direction), this.#codec.encrypt(seed.currentWork),
+      this.#codec.encrypt(seed.targetScenarios), this.#codec.encrypt(seed.material),
+      seed.updatedAt,
+    );
+    return seed;
+  }
+
+  getProfileSeed(): ProfileSeed | null {
+    const row = this.#database.prepare('SELECT * FROM profile_seed WHERE id = 1').get() as
+      | Row
+      | undefined;
+    if (!row) return null;
+    return profileSeedSchema.parse({
+      direction: this.#codec.decrypt(String(row.direction_enc)),
+      currentWork: this.#codec.decrypt(String(row.current_work_enc)),
+      targetScenarios: this.#codec.decrypt(String(row.target_scenarios_enc)),
+      material: this.#codec.decrypt(String(row.material_enc)),
+      updatedAt: row.updated_at,
+    });
+  }
+
+  listProfileAssertions(status?: ProfileAssertion['status']): ProfileAssertion[] {
+    const rows = (status
+      ? this.#database.prepare(
+        'SELECT * FROM profile_assertions WHERE status = ? ORDER BY updated_at DESC',
+      ).all(status)
+      : this.#database.prepare('SELECT * FROM profile_assertions ORDER BY updated_at DESC')
+        .all()) as Row[];
+    return rows.map((row) => profileAssertionSchema.parse({
+      id: row.id,
+      tier: row.tier,
+      statement: this.#codec.decrypt(String(row.statement_enc)),
+      evidenceSegmentIds: parseStringArray(row.evidence_segment_ids_json),
+      status: row.status,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     }));
   }
 

@@ -14,6 +14,7 @@ const EXPORT_FORMAT = 'mental-legos-export';
 const EXPORT_VERSION = 1;
 
 const EXPORT_TABLES = [
+  'profile_seed',
   'scenarios',
   'sources',
   'source_segments',
@@ -32,6 +33,7 @@ const EXPORT_TABLES = [
 ] as const;
 
 const ENCRYPTED_COLUMNS: Readonly<Record<string, readonly string[]>> = {
+  profile_seed: ['direction_enc', 'current_work_enc', 'target_scenarios_enc', 'material_enc'],
   source_segments: ['content_enc'],
   knowledge_items: ['content_enc'],
   profile_assertions: ['statement_enc'],
