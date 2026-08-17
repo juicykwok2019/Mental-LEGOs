@@ -43,6 +43,7 @@ import {
   LIBRARY_ARCHIVE_CHANNEL,
   LIBRARY_DELETE_VERSION_CHANNEL,
   LIBRARY_LIST_CHANNEL,
+  LIBRARY_RESTORE_CHANNEL,
   LIBRARY_MODULE_DETAIL_CHANNEL,
   LIBRARY_PROMOTE_CHANNEL,
   LIBRARY_REAL_WORLD_CHANNEL,
@@ -737,7 +738,9 @@ function registerIpcHandlers(): void {
 
   withService(LIBRARY_LIST_CHANNEL, async () => {
     const database = await getProductDatabase();
-    const modules = database.listLegoModules().filter((module) => module.status !== 'archived');
+    // Archived modules stay listed so the renderer can show them in a
+    // dedicated group with a restore action.
+    const modules = database.listLegoModules();
     return z.array(libraryModuleSummarySchema).parse(modules.map((module) => {
       const mastery = database.getMasteryState(module.id);
       return {
@@ -791,6 +794,12 @@ function registerIpcHandlers(): void {
     const database = await getProductDatabase();
     database.deleteLegoVersion(input.moduleId, input.version);
     return buildModuleDetail(database, input.moduleId);
+  });
+  withService(LIBRARY_RESTORE_CHANNEL, async (_service, value) => {
+    const moduleId = z.string().uuid().parse(value);
+    const database = await getProductDatabase();
+    database.restoreLegoModule(moduleId);
+    return buildModuleDetail(database, moduleId);
   });
   withService(LIBRARY_ARCHIVE_CHANNEL, async (_service, value) => {
     const database = await getProductDatabase();

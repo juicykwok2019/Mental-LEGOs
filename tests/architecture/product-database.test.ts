@@ -207,6 +207,16 @@ describe('formal product database', () => {
     expect(() => database.deleteSource(source.id)).toThrow('Source');
   });
 
+  it('restores an archived module back to confirmed', () => {
+    const ids = seedScenarioTraining();
+    database.confirmLegoVersion(ids.moduleId, 1, NOW);
+    database.archiveLegoModule(ids.moduleId, LATER);
+    expect(database.getLegoModule(ids.moduleId)?.status).toBe('archived');
+    database.restoreLegoModule(ids.moduleId, LATER);
+    expect(database.getLegoModule(ids.moduleId)?.status).toBe('confirmed');
+    expect(() => database.restoreLegoModule(ids.moduleId)).toThrow('archived');
+  });
+
   it('deletes a single module version and repoints the current pointer', () => {
     const ids = seedScenarioTraining();
     database.confirmLegoVersion(ids.moduleId, 1, NOW);

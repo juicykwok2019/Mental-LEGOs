@@ -7,6 +7,7 @@ import {
   LIBRARY_ARCHIVE_CHANNEL,
   LIBRARY_DELETE_VERSION_CHANNEL,
   LIBRARY_LIST_CHANNEL,
+  LIBRARY_RESTORE_CHANNEL,
   LIBRARY_MODULE_DETAIL_CHANNEL,
   LIBRARY_PROMOTE_CHANNEL,
   LIBRARY_REAL_WORLD_CHANNEL,
@@ -191,6 +192,13 @@ const desktopApi: MentalLegosDesktopApi = Object.freeze({
       SCENARIO_DELETE_MATERIAL_CHANNEL,
       scenarioSummarySchema,
       scenarioDeleteMaterialInputSchema.parse(input),
+    );
+  },
+  async restoreLibraryModule(moduleId: string) {
+    return invokeParsed(
+      LIBRARY_RESTORE_CHANNEL,
+      libraryModuleDetailSchema,
+      z.string().uuid().parse(moduleId),
     );
   },
   async deleteModuleVersion(input: LibraryDeleteVersionInput) {

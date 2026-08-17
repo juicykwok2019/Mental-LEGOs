@@ -180,6 +180,7 @@ export const LIBRARY_ARCHIVE_CHANNEL = 'library:archive-module' as const;
 export const LIBRARY_PROMOTE_CHANNEL = 'library:promote-module' as const;
 export const LIBRARY_REAL_WORLD_CHANNEL = 'library:real-world-report' as const;
 export const LIBRARY_DELETE_VERSION_CHANNEL = 'library:delete-version' as const;
+export const LIBRARY_RESTORE_CHANNEL = 'library:restore-module' as const;
 export const RECORDING_LIST_CHANNEL = 'recording:list' as const;
 export const RECORDING_DELETE_CHANNEL = 'recording:delete' as const;
 export const PRIVACY_OVERVIEW_CHANNEL = 'privacy:overview' as const;
@@ -490,6 +491,7 @@ export interface MentalLegosDesktopApi {
   parseMaterialFile(): Promise<ParsedMaterialFile | null>;
   getUsageOverview(): Promise<UsageOverview>;
   deleteModuleVersion(input: LibraryDeleteVersionInput): Promise<LibraryModuleDetail>;
+  restoreLibraryModule(moduleId: string): Promise<LibraryModuleDetail>;
   deleteScenarioMaterial(input: ScenarioDeleteMaterialInput): Promise<ScenarioSummary>;
   listRecordings(): Promise<RecordingItem[]>;
   deleteRecording(recordingId: string): Promise<RecordingItem[]>;

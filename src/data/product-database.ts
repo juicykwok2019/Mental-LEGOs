@@ -791,6 +791,15 @@ export class ProductDatabase {
     ).run('archived', now, moduleId);
   }
 
+  restoreLegoModule(moduleId: string, now = nowIso()): void {
+    const module = this.getLegoModule(moduleId);
+    if (!module) throw new Error('Module does not exist.');
+    if (module.status !== 'archived') throw new Error('Only archived modules can be restored.');
+    this.#database.prepare(
+      'UPDATE lego_modules SET status = ?, updated_at = ? WHERE id = ?',
+    ).run('confirmed', now, moduleId);
+  }
+
   getLegoModule(id: string): LegoModule | null {
     const row = this.#database.prepare('SELECT * FROM lego_modules WHERE id = ?').get(id) as
       | Row

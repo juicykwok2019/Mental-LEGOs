@@ -239,10 +239,30 @@ export function LibraryView() {
             </section>
           )}
 
+          {detail.status === 'archived' ? (
+            <section className="scenario-block">
+              <h3>已归档</h3>
+              <p className="block-hint">
+                这个模块处于归档状态：不参与复现调度，只出现在库首页的"已归档"分组里。
+                恢复后回到原分组，重新进入复现调度。
+              </p>
+              <button
+                type="button"
+                disabled={working}
+                onClick={() => void step(async () => {
+                  setDetail(await window.mentalLegos.restoreLibraryModule(detail.id));
+                  setNotice('✓ 已恢复——模块回到了库中的原分组，并重新进入复现调度。');
+                })}
+              >
+                恢复此模块
+              </button>
+            </section>
+          ) : (
           <section className="scenario-block">
             <h3>归档此模块</h3>
             <p className="block-hint">
-              适合已经过时、或不想再练的表达。归档后不再出现在库里，也不再提醒复现；数据保留。
+              适合已经过时、或不想再练的表达。归档后移入库首页的"已归档"分组，不再提醒复现；
+              数据保留，随时可从"已归档"里恢复。
               如要彻底删除：单个版本在上方"版本历史"中删除；场景模块会随"删除场景"一并彻底删除。
             </p>
             {archiveConfirm ? (
@@ -274,15 +294,18 @@ export function LibraryView() {
               </button>
             )}
           </section>
+          )}
         </div>
       </div>
     );
   }
 
+  const active = (module: LibraryModuleSummary): boolean => module.status !== 'archived';
   const groups: Array<{ label: string; filter: (module: LibraryModuleSummary) => boolean }> = [
-    { label: '通用模块', filter: (module) => module.scope === 'global' && module.domain === 'generic' },
-    { label: '专业模块', filter: (module) => module.scope === 'global' && module.domain !== 'generic' },
-    { label: '场景模块', filter: (module) => module.scope === 'scenario' },
+    { label: '通用模块', filter: (module) => active(module) && module.scope === 'global' && module.domain === 'generic' },
+    { label: '专业模块', filter: (module) => active(module) && module.scope === 'global' && module.domain !== 'generic' },
+    { label: '场景模块', filter: (module) => active(module) && module.scope === 'scenario' },
+    { label: '已归档', filter: (module) => module.status === 'archived' },
   ];
 
   return (
