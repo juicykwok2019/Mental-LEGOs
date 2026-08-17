@@ -51,6 +51,7 @@ export function ScenariosView(props: ScenariosViewProps) {
   const [outlineMinutes, setOutlineMinutes] = useState(10);
   const [outlineAudience, setOutlineAudience] = useState('');
   const audioInputRef = useRef<HTMLInputElement | null>(null);
+  const materialAudioRef = useRef<HTMLInputElement | null>(null);
   const [reviewTranscript, setReviewTranscript] = useState('');
   const [reviewNote, setReviewNote] = useState('');
   const [deletePreview, setDeletePreview] = useState<ScenarioDeletePreview | null>(null);
@@ -269,6 +270,37 @@ export function ScenariosView(props: ScenariosViewProps) {
             >
               📄 选择文件（PDF / Word / 文本）
             </button>
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={working !== ''}
+              onClick={() => materialAudioRef.current?.click()}
+            >
+              🎧 导入录音并本地转写（wav / mp3 / m4a）
+            </button>
+            <input
+              ref={materialAudioRef}
+              type="file"
+              accept="audio/*,.m4a,.aac"
+              style={{ display: 'none' }}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = '';
+                if (!file) return;
+                void step('本地转写录音（长录音需要几分钟）…', async () => {
+                  const bytes = await file.arrayBuffer();
+                  const decoded = await decodeAudioFileToWav(bytes);
+                  const result = await window.mentalLegos.transcribeRecording(decoded.wav);
+                  if (!result.text.trim()) {
+                    setMaterialNotice(`「${file.name}」转写结果为空——录音里可能没有清晰人声。`);
+                    return;
+                  }
+                  setMaterialLabel((current) => (current.trim() ? current : file.name));
+                  setMaterialContent((current) => (current ? `${current}\n${result.text}` : result.text));
+                  setMaterialNotice(`✓ 已本地转写「${file.name}」（${Math.round(result.audioDurationSeconds / 60)} 分钟音频），音频未离开本机。确认文本后再授权导入。`);
+                });
+              }}
+            />
           </div>
           <input
             placeholder="材料名称，例如：JD / 我的简历 / 方案摘要"
