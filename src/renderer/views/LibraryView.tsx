@@ -100,7 +100,7 @@ export function LibraryView() {
               上报会直接影响这个模块的掌握阶段和下次复现时间。
             </p>
             <input
-              placeholder="一句话备注（可选）"
+              placeholder="一句话备注（可选，点下方按钮时随反馈一起保存）"
               value={note}
               maxLength={4000}
               onChange={(event) => setNote(event.target.value)}
@@ -113,11 +113,15 @@ export function LibraryView() {
                   className="secondary-button"
                   disabled={working}
                   onClick={() => void step(async () => {
+                    const savedNote = note.trim();
                     await window.mentalLegos.reportRealWorldUse({
-                      moduleId: detail.id, result, note: note.trim(),
+                      moduleId: detail.id, result, note: savedNote,
                     });
                     setNote('');
-                    setDetail(await window.mentalLegos.getLibraryModule(detail.id));
+                    const refreshed = await window.mentalLegos.getLibraryModule(detail.id);
+                    setDetail(refreshed);
+                    const label = result === 'success' ? '成功调用' : result === 'partial' ? '部分调用' : '没调用出来';
+                    setNotice(`✓ 已记录「${label}」${savedNote ? '（备注已保存）' : ''}——掌握阶段现在是 ${refreshed.stage ?? '未评估'}${refreshed.dueAt ? `，下次复现 ${refreshed.dueAt.slice(0, 10)}` : ''}。`);
                   })}
                 >
                   {result === 'success' ? '成功调用' : result === 'partial' ? '部分调用' : '没调用出来'}
