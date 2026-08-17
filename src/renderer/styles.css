@@ -204,6 +204,9 @@ h2 {
   text-align: right;
 }
 
+.philosophy-lanes { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 0; }
+.philosophy-lanes article:last-child { border-color: #d4d1c8; background: #faf8f2; }
+
 .provider-lanes p {
   margin: 10px 0;
   color: #62665f;
@@ -497,7 +500,7 @@ button:disabled { cursor: not-allowed; opacity: 0.58; }
   .provider-form { grid-template-columns: 1fr; }
   .wide-field { grid-column: auto; }
   .configured-card { grid-template-columns: 1fr; gap: 12px; }
-  .provider-lanes, .connection-detail { grid-template-columns: 1fr; }
+  .provider-lanes, .philosophy-lanes, .connection-detail { grid-template-columns: 1fr; }
   .connection-detail p { grid-column: auto; }
   .section-heading { align-items: flex-start; }
   .certification-panel { grid-template-columns: 1fr; }
