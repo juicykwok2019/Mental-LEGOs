@@ -194,7 +194,7 @@ export function App() {
     <main className="app-shell">
       <header className="topbar">
         <div>
-          <p className="eyebrow">心理乐高 · 先回答，再辅助</p>
+          <p className="eyebrow">心理乐高 · 把每一次开口，炼成可拼装的表达积木</p>
           <h1>Mental LEGOs</h1>
         </div>
         <nav className="main-nav">
