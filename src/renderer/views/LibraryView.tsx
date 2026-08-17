@@ -19,7 +19,6 @@ export function LibraryView() {
   const [note, setNote] = useState('');
   const [versionToDelete, setVersionToDelete] = useState<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [showHelp, setShowHelp] = useState(false);
   const [archiveConfirm, setArchiveConfirm] = useState(false);
 
   async function refresh(): Promise<void> {
@@ -53,39 +52,45 @@ export function LibraryView() {
         <header className="chat-header">
           <button type="button" className="quiet-button" onClick={() => setDetail(null)}>← 模块库</button>
           <span>{detail.title}</span>
-          <button type="button" className="quiet-button" onClick={() => setShowHelp((current) => !current)}>
-            {showHelp ? '收起说明' : '❓ 这些词是什么意思'}
-          </button>
+          <span />
         </header>
         {error && <p className="form-error">{error}</p>}
         {notice && <p className="material-notice">{notice}</p>}
-        {showHelp && (
-          <div className="module-detail">
-            <p className="block-hint">
-              一个语言乐高模块由四部分组成——
-              <strong>语义内核</strong>：这块积木要表达的核心判断，一句话说清"你想说什么"；
-              <strong>逻辑骨架</strong>：把内核展开成几步推理的顺序，回答时照这个骨架走；
-              <strong>语言外壳</strong>：你自己的原话措辞（提炼时优先保留你回答里的用词，开口时直接可说）；
-              <strong>触发线索</strong>：听到什么样的问题，应该想起并调用这个模块。
-            </p>
-            <p className="block-hint">
-              <strong>掌握阶段</strong>会随训练与现实使用升降，决定<strong>下次复现</strong>的时间——
-              到期的模块会出现在首页提示条里，提醒你换个问法再练一次。
-            </p>
-          </div>
-        )}
         <div className="module-detail">
-          <p><strong>作用域</strong> {scopeLabel(detail)} · {detail.category}
+          <p className="module-meta">
+            {scopeLabel(detail)}模块 · {detail.category}
             {detail.stage && ` · 掌握阶段 ${detail.stage}`}
-            {detail.dueAt && ` · 下次复现 ${detail.dueAt.slice(0, 10)}`}
+            {detail.dueAt && ` · 下次复现 ${detail.dueAt.slice(0, 10)}（到期会出现在首页提示条）`}
           </p>
-          <p><strong>语义内核</strong> {detail.semanticKernel}</p>
-          <p><strong>逻辑骨架</strong> {detail.logicSkeleton.join(' → ')}</p>
-          <p><strong>语言外壳</strong></p>
-          <ul>{detail.languageShells.map((shell, index) => <li key={index}>{shell}</li>)}</ul>
-          {detail.triggers.length > 0 && (
-            <p><strong>触发线索</strong> {detail.triggers.join(' / ')}</p>
-          )}
+
+          <div className="anatomy">
+            <div className="anatomy-item">
+              <div className="anatomy-label">语义内核<span>你想表达的核心判断，一句话</span></div>
+              <p className="anatomy-kernel">{detail.semanticKernel}</p>
+            </div>
+            <div className="anatomy-item">
+              <div className="anatomy-label">逻辑骨架<span>展开时照着走的推理步骤</span></div>
+              <ol className="anatomy-steps">
+                {detail.logicSkeleton.map((step, index) => <li key={index}>{step}</li>)}
+              </ol>
+            </div>
+            <div className="anatomy-item">
+              <div className="anatomy-label">语言外壳<span>你自己的原话，开口直接可说</span></div>
+              <ul className="anatomy-shells">
+                {detail.languageShells.map((shell, index) => <li key={index}>{shell}</li>)}
+              </ul>
+            </div>
+            {detail.triggers.length > 0 && (
+              <div className="anatomy-item">
+                <div className="anatomy-label">触发线索<span>听到这类问题时，调用这块积木</span></div>
+                <div className="trigger-chips">
+                  {detail.triggers.map((trigger, index) => (
+                    <span key={index} className="due-chip">{trigger}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           <section className="scenario-block">
             <h3>现实使用了这个模块？</h3>
