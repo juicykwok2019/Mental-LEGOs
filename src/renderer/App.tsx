@@ -7,6 +7,7 @@ import type {
   SpeechReadinessState,
   TrainingTurnState,
 } from '../shared/contracts';
+import { AboutView } from './views/AboutView';
 import { BusyIndicator } from './components/BusyIndicator';
 import { ChatView } from './views/ChatView';
 import { HomeView } from './views/HomeView';
@@ -17,7 +18,7 @@ import { SettingsView } from './views/SettingsView';
 // Application shell: two primary actions (open practice / scenarios), the
 // module library, and settings. Training itself always runs in the chat view.
 
-type View = 'home' | 'chat' | 'scenarios' | 'library' | 'settings';
+type View = 'home' | 'chat' | 'scenarios' | 'library' | 'settings' | 'about';
 
 function messageFrom(reason: unknown): string {
   return reason instanceof Error ? reason.message : '发生了未知错误。';
@@ -281,10 +282,13 @@ export function App() {
         <LibraryView />
       ) : view === 'settings' ? (
         <SettingsView />
+      ) : view === 'about' ? (
+        <AboutView onBack={() => setView('home')} />
       ) : profile ? (
         <HomeView
           profile={profile}
           busy={busy}
+          onOpenAbout={() => setView('about')}
           onEditProfile={() => setEditingProfile(true)}
           onCreateScenario={() => {
             setCreatingScenario(true);

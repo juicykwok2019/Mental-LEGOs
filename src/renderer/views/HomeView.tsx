@@ -9,6 +9,7 @@ export interface HomeViewProps {
   onStartOpenPractice(topic: string): void;
   onCreateScenario(): void;
   onEditProfile(): void;
+  onOpenAbout(): void;
 }
 
 export function HomeView(props: HomeViewProps) {
@@ -75,6 +76,12 @@ export function HomeView(props: HomeViewProps) {
           <p className="due-hint">开始一次开放训练即可覆盖到期模块的复现。</p>
         </section>
       )}
+
+      <p className="about-link">
+        <button type="button" className="quiet-button" onClick={props.onOpenAbout}>
+          心智乐高是什么？了解产品理念 →
+        </button>
+      </p>
     </div>
   );
 }
