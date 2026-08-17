@@ -820,11 +820,22 @@ button.scenario-item:hover:not(:disabled) {
 }
 
 .anatomy-heading {
-  margin: 0 0 4px;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 1.3rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 5px;
+  color: #22251f;
+  font-size: 1.02rem;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+}
+
+.anatomy-heading::before {
+  content: '';
+  width: 4px;
+  height: 16px;
+  border-radius: 2px;
+  background: #2f5034;
 }
 
 .anatomy { display: flex; flex-direction: column; gap: 20px; }
