@@ -93,7 +93,7 @@ export function LibraryView() {
           </div>
 
           <section className="scenario-block">
-            <h3>现实使用了这个模块？</h3>
+            <h3>反馈一下掌握情况？</h3>
             <p className="block-hint">
               在真实会议、面试或沟通里用过它之后，回来点一下：成功=当场如期调用出来；
               部分=想起来了但没说完整；没调用出来=当场没想起。
