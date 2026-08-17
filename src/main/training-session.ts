@@ -91,6 +91,7 @@ interface ActiveSession {
   candidates: TrainingCandidate[];
   committedCount: number;
   speechStats?: string;
+  compositionPair?: string[] | null;
 }
 
 const resultMessageSchema = z.object({
@@ -105,6 +106,10 @@ const generatedQuestionSchema = z.object({
   question_type: z.string().trim().min(1),
   exploratory: z.boolean().default(false),
   question: z.string().trim().min(8),
+  // Present only when the question was deliberately designed around a
+  // user-linked composable pair. Hidden from the user until after the first
+  // attempt — composition must be recalled unprompted, then revealed.
+  composition_pair: z.array(z.string().trim().min(1)).length(2).optional(),
 });
 
 const preparationSchema = z.object({
@@ -348,21 +353,30 @@ export class TrainingSessionService {
           : '',
         'If composable module pairs are listed, you MAY design the question so a strong',
         'answer naturally requires combining one linked pair (composition practice) —',
-        'without naming the modules in the question.',
+        'without naming the modules in the question. When you do, add',
+        '"composition_pair":["module title A","module title B"] to the JSON.',
         'If the question reaches beyond what the profile clearly supports, set exploratory=true.',
         'Do NOT include any outline, answer, hints, or evaluation criteria.',
         'Reply with ONLY this JSON: {"question_type":"...","exploratory":false,"question":"..."}',
       ].filter(Boolean).join('\n');
       const output = await this.#runAgent(session, prompt, 4);
       const generated = parseJsonReply(extractFinalText(output.messages), generatedQuestionSchema);
+      const targetModuleIds = (generated.composition_pair ?? [])
+        .flatMap((title) => {
+          const match = this.#product.listLegoModules({ status: 'confirmed' })
+            .find((module) => module.title === title);
+          return match ? [match.id] : [];
+        });
       const question = this.#engine.registerQuestion({
         prompt: generated.question,
         scope: 'global',
         origin: 'scheduler',
         questionType: normalizeQuestionType(generated.question_type),
         exploratory: generated.exploratory,
+        targetModuleIds,
       });
       this.#beginGate(session, question);
+      session.compositionPair = generated.composition_pair ?? null;
       return this.#turnState();
     });
   }
@@ -414,6 +428,7 @@ export class TrainingSessionService {
     session.firstAttemptId = gate.attemptId;
     session.secondResponse = null;
     session.candidates = [];
+    session.compositionPair = null;
     session.phase = 'first-attempt';
     const typeLabel = question.questionType
       ? QUESTION_TYPE_LABELS[question.questionType as QuestionType] ?? question.questionType
@@ -466,6 +481,13 @@ export class TrainingSessionService {
           session.transcript.push({ role: 'system', kind: 'status', text: stats });
         }
         session.phase = 'first-closed';
+        if (session.compositionPair && session.compositionPair.length === 2) {
+          session.transcript.push({
+            role: 'system',
+            kind: 'status',
+            text: `揭示：这其实是一道组合题——设计目标是让你连用【${session.compositionPair[0]}】和【${session.compositionPair[1]}】两块积木。回头看刚才的回答，两块都调用出来了吗？诊断会重点看这一点。`,
+          });
+        }
         session.transcript.push({
           role: 'system',
           kind: 'status',
@@ -554,6 +576,14 @@ export class TrainingSessionService {
             'clear opening hook, distinct points, and a deliberate close? Comment on pacing',
             'and pauses using these measured stats:',
             session.speechStats ?? '(no delivery stats were captured)',
+          ]
+          : []),
+        ...(session.compositionPair && session.compositionPair.length === 2
+          ? [
+            'This question was designed as COMPOSITION practice for two of the user\'s own',
+            `modules: 【${session.compositionPair[0]}】 and 【${session.compositionPair[1]}】.`,
+            'Assess whether each module\'s core judgment actually appeared in the answer',
+            '(quote the matching words), and whether the two connected naturally.',
           ]
           : []),
         'Every finding MUST quote the user\'s own words as evidence.',
