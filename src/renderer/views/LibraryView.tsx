@@ -57,15 +57,21 @@ export function LibraryView() {
         {error && <p className="form-error">{error}</p>}
         {notice && <p className="material-notice">{notice}</p>}
         <div className="module-detail">
-          <p className="module-meta">
-            {scopeLabel(detail)}模块 · {detail.category}
-            {detail.stage && ` · 掌握阶段 ${detail.stage}`}
-            {detail.dueAt && ` · 下次复现 ${detail.dueAt.slice(0, 10)}（到期会出现在首页提示条）`}
-          </p>
+          <div className="module-meta">
+            <span className="badge badge-ready">{scopeLabel(detail)}模块</span>
+            <span className="badge">{detail.category}</span>
+            {detail.stage && <span className="badge">掌握阶段 · {detail.stage}</span>}
+            {detail.dueAt && <span className="badge">下次复现 · {detail.dueAt.slice(0, 10)}</span>}
+          </div>
+          {detail.dueAt && (
+            <p className="block-hint">到期的模块会出现在首页提示条，提醒你换个问法再练一次。</p>
+          )}
 
-          <div>
-            <h3 className="anatomy-heading">模块解剖（语义内核 / 逻辑骨架 / 语言外壳 / 触发线索）</h3>
-            <p className="block-hint">一个模块的四件套——它们合起来，才是一块随时可调用的表达积木。</p>
+          <div className="anatomy-header">
+            <h3 className="anatomy-heading">模块解剖</h3>
+            <p className="block-hint">
+              语义内核 / 逻辑骨架 / 语言外壳 / 触发线索——四件套合起来，才是一块随时可调用的表达积木。
+            </p>
           </div>
 
           <div className="anatomy">

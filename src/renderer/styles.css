@@ -811,25 +811,44 @@ button.scenario-item:hover:not(:disabled) {
 }
 .module-detail p, .module-detail ul { margin: 0; font-size: 0.92rem; }
 
-.module-meta { color: #6a7466; font-size: 0.84rem; }
+.module-meta { display: flex; flex-wrap: wrap; gap: 8px; }
 
-.anatomy-heading { margin: 0 0 4px; font-size: 1rem; }
+.anatomy-header {
+  margin-top: 6px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e8e2d3;
+}
 
-.anatomy { display: flex; flex-direction: column; gap: 16px; }
-.anatomy-item { display: flex; flex-direction: column; gap: 6px; }
+.anatomy-heading {
+  margin: 0 0 4px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.3rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.anatomy { display: flex; flex-direction: column; gap: 20px; }
+
+.anatomy-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-left: 14px;
+  border-left: 2px solid #cfdcc9;
+}
 
 .anatomy-label {
   display: flex;
   align-items: baseline;
   gap: 10px;
-  color: #2f3a2d;
-  font-size: 0.82rem;
+  color: #57814e;
+  font-size: 0.76rem;
   font-weight: 750;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.1em;
 }
-.anatomy-label span { color: #8a9484; font-size: 0.76rem; font-weight: 400; letter-spacing: 0; }
+.anatomy-label span { color: #9aa294; font-size: 0.74rem; font-weight: 400; letter-spacing: 0; }
 
-.anatomy-kernel { font-size: 1.02rem; line-height: 1.6; color: #22251f; }
+.anatomy-kernel { font-size: 1.06rem; font-weight: 600; line-height: 1.65; color: #22251f; }
 
 .anatomy-steps { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 4px; }
 .anatomy-steps li { font-size: 0.92rem; line-height: 1.55; }
