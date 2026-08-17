@@ -237,8 +237,8 @@ export function LibraryView() {
           <section className="scenario-block">
             <h3>归档此模块</h3>
             <p className="block-hint">
-              归档=把模块从库和复现安排中移出：不再出现在列表里，也不再提醒复现，
-              但数据保留（不同于删除）。适合已经过时、或不想再练的表达。
+              适合已经过时、或不想再练的表达。归档后不再出现在库里，也不再提醒复现；数据保留。
+              如要彻底删除：单个版本在上方"版本历史"中删除；场景模块会随"删除场景"一并彻底删除。
             </p>
             {archiveConfirm ? (
               <div className="phase-actions">
