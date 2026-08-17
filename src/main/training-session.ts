@@ -607,8 +607,11 @@ export class TrainingSessionService {
     });
   }
 
-  // Speech mode only: unlimited rehearsal rounds, each with measured delivery
-  // stats, until the user decides they are done and moves to extraction.
+  // Unlimited rehearsal rounds in every mode, until the user is satisfied and
+  // moves to extraction — half-polished wording must not get committed into
+  // the library. Speech rounds get measured delivery stats (no token cost);
+  // other modes get an evidence-quoting progress note against the previous
+  // round, never a model answer.
   async rehearse(input: {
     responseText: string;
     recordingId: string | null;
@@ -619,14 +622,16 @@ export class TrainingSessionService {
     return this.#exclusive(async () => {
       const session = this.#session;
       if (!session) throw new Error('No training session is active.');
-      if (session.mode !== 'speech') throw new Error('只有演讲训练支持多遍复练。');
       if (!['first-closed', 'assistance', 'second-done'].includes(session.phase)) {
-        throw new Error('先完成第一遍试讲，再进行复练。');
+        throw new Error('先完成第一遍回答，再进行复练。');
       }
       if (!session.questionId || !session.firstAttemptId) throw new Error('No open question.');
       if (session.phase === 'first-closed') {
         this.#engine.releaseAssistance(session.firstAttemptId);
       }
+      const previousResponse = session.secondResponse
+        ?? this.#product.getAttempt(session.firstAttemptId)?.responseText
+        ?? '';
       this.#engine.recordSecondAttempt({
         questionId: session.questionId,
         firstAttemptId: session.firstAttemptId,
@@ -638,23 +643,42 @@ export class TrainingSessionService {
       session.secondResponse = input.responseText;
       session.phase = 'second-done';
       session.transcript.push({ role: 'user', kind: 'response', text: input.responseText });
-      if (input.durationMs && input.durationMs > 0) {
-        const stats = speechStatsLine(
-          input.responseText, input.durationMs, input.pauseCount ?? null, input.longestPauseMs ?? null,
-        );
-        session.speechStats = stats;
-        session.transcript.push({ role: 'system', kind: 'status', text: stats });
+      if (session.mode === 'speech') {
+        if (input.durationMs && input.durationMs > 0) {
+          const stats = speechStatsLine(
+            input.responseText, input.durationMs, input.pauseCount ?? null, input.longestPauseMs ?? null,
+          );
+          session.speechStats = stats;
+          session.transcript.push({ role: 'system', kind: 'status', text: stats });
+        } else {
+          session.transcript.push({
+            role: 'system',
+            kind: 'status',
+            text: '这一遍是文字提交，没有实测数据——用 🎙 录音试讲才能得到时长、语速和停顿反馈。',
+          });
+        }
       } else {
+        const prompt = [
+          'The user re-attempted the same question to polish their spoken answer.',
+          `Question: ${session.questionPrompt}`,
+          `Previous attempt: ${previousResponse || '(none)'}`,
+          `New attempt: ${input.responseText}`,
+          'In Chinese, give at most three short findings: what improved and what still',
+          'sticks, each quoting the user\'s own words as evidence.',
+          'Do NOT provide a better answer, an outline, or model wording — the user',
+          'decides for themselves when the answer is good enough.',
+        ].join('\n');
+        const output = await this.#runAgent(session, prompt, 4);
         session.transcript.push({
-          role: 'system',
-          kind: 'status',
-          text: '这一遍是文字提交，没有实测数据——用 🎙 录音试讲才能得到时长、语速和停顿反馈。',
+          role: 'coach',
+          kind: 'diagnosis',
+          text: extractFinalText(output.messages).trim(),
         });
       }
       session.transcript.push({
         role: 'system',
         kind: 'status',
-        text: '可以继续"再练一遍"打磨，或觉得练够了就提炼语言乐高。',
+        text: '可以继续"再练一遍"打磨，满意了就提炼语言乐高。',
       });
       return Promise.resolve(this.#turnState());
     });

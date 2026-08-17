@@ -453,16 +453,19 @@ export function ChatView(props: ChatViewProps) {
           </>
         )}
 
-        {phase === 'second-done' && turn.mode === 'speech' && (
+        {phase === 'second-done' && (
           <Composer
-            placeholder="🎙 还想再练？直接开口——练到满意为止，每一遍都有实测评估。"
+            placeholder={turn.mode === 'speech'
+              ? '🎙 还想再练？直接开口——练到满意为止，每一遍都有实测评估。'
+              : '还不满意可以再答一遍——每一遍都会得到对照上一遍的点评，练到满意再提炼。'}
             submitLabel="再练一遍"
             disabled={busy}
             speech={props.speech}
             onSpeechInstall={props.onSpeechInstall}
-            onSubmit={(draft) => props.onAction('记录这一遍试讲…', () => api.rehearseSpeech({
-              ...draft,
-            }))}
+            onSubmit={(draft) => props.onAction(
+              turn.mode === 'speech' ? '记录这一遍试讲…' : '点评这一遍的进步…',
+              () => api.rehearseSpeech({ ...draft }),
+            )}
           />
         )}
 
@@ -473,7 +476,7 @@ export function ChatView(props: ChatViewProps) {
               disabled={busy}
               onClick={() => props.onAction('提炼候选模块…', () => api.extractCandidates())}
             >
-              {turn.mode === 'speech' ? '练够了，提炼语言乐高' : '提炼语言乐高'}
+              满意了，提炼语言乐高
             </button>
             {turn.mode !== 'open' && (
               <button

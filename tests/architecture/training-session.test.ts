@@ -347,6 +347,18 @@ describe('training session v2 orchestration', () => {
     });
     await service.diagnose();
     await service.second('这次我先给结论再给证据。');
+
+    // Any mode supports polish rounds before extraction, each answered with
+    // an evidence-quoting progress note (never a model answer).
+    const polished = await service.rehearse({
+      responseText: '第三遍：结论先行，证据是上线率从 40% 提到 75%。',
+      recordingId: null,
+      durationMs: null,
+    });
+    expect(polished.phase).toBe('second-done');
+    expect(polished.transcript.filter((entry) => entry.kind === 'diagnosis').length)
+      .toBeGreaterThanOrEqual(2);
+
     const backToFollowUp = await service.followUp();
     expect(backToFollowUp.phase).toBe('first-attempt');
 
