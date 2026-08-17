@@ -162,7 +162,7 @@ export function ScenariosView(props: ScenariosViewProps) {
         {working && <BusyIndicator label={working} />}
 
         <section className="scenario-block">
-          <h3>材料（{selected.materialCount}）</h3>
+          <h3>材料<span className="count-pill">{selected.materialCount}</span></h3>
           {selected.materials.length > 0 && (
             <ul className="version-list">
               {selected.materials.map((material) => (

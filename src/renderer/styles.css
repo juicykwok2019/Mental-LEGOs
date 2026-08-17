@@ -425,6 +425,22 @@ button:disabled { cursor: not-allowed; opacity: 0.58; }
 .material-intent { display: block; color: #8a7a52; font-style: normal; font-size: 0.8rem; }
 .version-locked { color: #9aa294; font-size: 0.78rem; }
 
+.count-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 21px;
+  height: 19px;
+  padding: 0 7px;
+  margin-left: 7px;
+  border-radius: 999px;
+  background: #e7e2d4;
+  color: #5a5d57;
+  font-size: 0.72rem;
+  font-weight: 700;
+  vertical-align: 2px;
+}
+
 .recording-manager { margin-bottom: 24px; }
 .recording-manager .section-copy { margin-bottom: 12px; }
 

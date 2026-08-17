@@ -67,7 +67,7 @@ export function HomeView(props: HomeViewProps) {
 
       {due.length > 0 && (
         <section className="due-strip">
-          <strong>到期复现（{due.length}）</strong>
+          <strong>到期复现<span className="count-pill">{due.length}</span></strong>
           {due.slice(0, 5).map((item) => (
             <span key={item.moduleId} className="due-chip">
               {item.title} · {stageLabel(item.stage)}
