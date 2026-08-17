@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import type { ProfileState, TrainingDueItem } from '../../shared/contracts';
+import { stageLabel } from '../labels';
 
 export interface HomeViewProps {
   profile: ProfileState;
@@ -68,7 +69,7 @@ export function HomeView(props: HomeViewProps) {
           <strong>到期复现（{due.length}）</strong>
           {due.slice(0, 5).map((item) => (
             <span key={item.moduleId} className="due-chip">
-              {item.title} · {item.stage}
+              {item.title} · {stageLabel(item.stage)}
             </span>
           ))}
           <p className="due-hint">开始一次开放训练即可覆盖到期模块的复现。</p>

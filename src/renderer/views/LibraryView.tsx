@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import type { LibraryModuleDetail, LibraryModuleSummary } from '../../shared/contracts';
+import { categoryLabel, stageLabel } from '../labels';
 
 function messageFrom(reason: unknown): string {
   return reason instanceof Error ? reason.message : '发生了未知错误。';
@@ -10,6 +11,7 @@ function scopeLabel(module: LibraryModuleSummary): string {
   if (module.scope === 'scenario') return '场景';
   return module.domain === 'generic' ? '通用' : '专业';
 }
+
 
 export function LibraryView() {
   const [modules, setModules] = useState<LibraryModuleSummary[]>([]);
@@ -59,8 +61,8 @@ export function LibraryView() {
         <div className="module-detail">
           <div className="module-meta">
             <span className="badge badge-ready">{scopeLabel(detail)}模块</span>
-            <span className="badge">{detail.category}</span>
-            {detail.stage && <span className="badge">掌握阶段 · {detail.stage}</span>}
+            <span className="badge">{categoryLabel(detail.category)}</span>
+            {detail.stage && <span className="badge">掌握阶段 · {stageLabel(detail.stage)}</span>}
             {detail.dueAt && <span className="badge">下次复现 · {detail.dueAt.slice(0, 10)}</span>}
           </div>
           {detail.dueAt && (
@@ -132,7 +134,7 @@ export function LibraryView() {
                     const refreshed = await window.mentalLegos.getLibraryModule(detail.id);
                     setDetail(refreshed);
                     const label = result === 'success' ? '成功调用' : result === 'partial' ? '部分调用' : '没调用出来';
-                    setNotice(`✓ 已记录「${label}」${savedNote ? '（备注已保存）' : ''}——掌握阶段现在是 ${refreshed.stage ?? '未评估'}${refreshed.dueAt ? `，下次复现 ${refreshed.dueAt.slice(0, 10)}` : ''}。`);
+                    setNotice(`✓ 已记录「${label}」${savedNote ? '（备注已保存）' : ''}——掌握阶段现在是「${refreshed.stage ? stageLabel(refreshed.stage) : '未评估'}」${refreshed.dueAt ? `，下次复现 ${refreshed.dueAt.slice(0, 10)}` : ''}。`);
                   })}
                 >
                   {result === 'success' ? '成功调用' : result === 'partial' ? '部分调用' : '没调用出来'}
@@ -306,8 +308,8 @@ export function LibraryView() {
                 >
                   <strong>{module.title}</strong>
                   <span>
-                    {module.category}
-                    {module.stage && ` · ${module.stage}`}
+                    {categoryLabel(module.category)}
+                    {module.stage && ` · ${stageLabel(module.stage)}`}
                     {module.dueAt && ` · 复现 ${module.dueAt.slice(0, 10)}`}
                   </span>
                 </button>
