@@ -28,6 +28,12 @@ import {
 } from '../../src/main/training-session';
 import { EvalReporter, sampleCases } from '../eval/report';
 import {
+  scoreCrossScenarioLeak,
+  scoreInjectionResistance,
+  scoreIntentShift,
+  scoreScenarioQuestionSet,
+} from '../eval/scenario-scoring';
+import {
   scoreDiagnosisGrounding,
   scoreHintLadder,
   scoreQuestionLeakage,
@@ -68,6 +74,14 @@ interface Suite1Case {
 interface Suite2Case {
   id: string; personaId: string; question: string;
   firstAttempt: string; secondAttempt: string; noisySecondAttempt: string;
+}
+interface Suite4Pack {
+  id: string; personaId: string;
+  type: 'interview' | 'meeting' | 'negotiation' | 'client' | 'other';
+  title: string; objective: string; counterpart: string;
+  leakCanary: string;
+  materials: Array<{ label: string; content: string; intent: string; intentKeywords: string[] }>;
+  injection: { marker: string; materialLabel: string } | null;
 }
 
 const fixturesDirectory = path.join(repositoryRoot, 'tests', 'fixtures', 'eval');
@@ -356,5 +370,106 @@ describe('MENTAL_LEGOS_EVAL runner (Suite 1/2 rule metrics)', () => {
       }
     }
     expect(reporter().rate('s2-shell-fidelity').total).toBeGreaterThan(0);
+  }, SUITE_TIMEOUT_MS);
+
+  evalProbe('suite 4: scenario targeting and injection resistance', async () => {
+    const personas = (await loadJson<{ personas: Persona[] }>('personas.json')).personas;
+    const personaById = new Map(personas.map((persona) => [persona.id, persona]));
+    const packs = (await loadJson<{ packs: Suite4Pack[] }>('suite4-scenarios.json')).packs;
+    const sampled = sampleCases(packs, sampleFraction);
+
+    for (const [index, pack] of sampled.entries()) {
+      const persona = personaById.get(pack.personaId);
+      if (!persona) continue;
+      // 跨场景泄漏的 B 场景取全集中的下一个包（保证与 A 不同源）。
+      const packIndex = packs.findIndex((candidate) => candidate.id === pack.id);
+      const foreign = packs[(packIndex + 1) % packs.length]!;
+      try {
+        const harness = await createHarness(persona);
+        const prepare = async (
+          title: string,
+          source: Suite4Pack,
+          withIntent: boolean,
+        ) => {
+          const created = harness.service.createScenario({
+            type: source.type,
+            title,
+            objective: source.objective,
+            counterpart: source.counterpart,
+            worries: '',
+          });
+          for (const material of source.materials) {
+            harness.service.addScenarioMaterial({
+              scenarioId: created.id,
+              label: material.label,
+              content: material.content,
+              ...(withIntent && material.intent ? { intent: material.intent } : {}),
+            });
+          }
+          return harness.service.prepareScenario(created.id);
+        };
+
+        const withoutIntent = await prepare(`${pack.title}（A0）`, pack, false);
+        const withIntent = await prepare(`${pack.title}（A1）`, pack, true);
+        const foreignSummary = await prepare(`${foreign.title}（B）`, foreign, false);
+
+        const promptsWith = withIntent.preparedQuestions.map((question) => question.prompt);
+        const promptsWithout = withoutIntent.preparedQuestions.map((question) => question.prompt);
+
+        const setReport = scoreScenarioQuestionSet(withIntent.preparedQuestions.map((question) => ({
+          prompt: question.prompt,
+          questionType: question.questionType,
+        })));
+        reporter().record('s4-question-set', {
+          id: pack.id,
+          ok: setReport.ok,
+          count: setReport.count,
+          distinctTypes: setReport.distinctTypes,
+          leakedPrompts: setReport.leakedPrompts,
+        });
+
+        const intentKeywords = pack.materials.flatMap((material) => material.intentKeywords);
+        const shift = scoreIntentShift(promptsWith, promptsWithout, intentKeywords);
+        reporter().record('s4-intent-shift', {
+          id: pack.id,
+          ok: shift.shifted,
+          hitRateWithIntent: shift.hitRateWithIntent,
+          hitRateWithout: shift.hitRateWithout,
+        });
+
+        if (pack.injection) {
+          const outputs = [
+            ...promptsWith,
+            ...promptsWithout,
+            withIntent.analysis ?? '',
+            withoutIntent.analysis ?? '',
+          ];
+          const injection = scoreInjectionResistance(outputs, pack.injection.marker);
+          reporter().record('s4-injection', {
+            id: pack.id,
+            ok: !injection.executed,
+            hits: injection.hits,
+          });
+        }
+
+        const crossLeak = scoreCrossScenarioLeak(
+          foreignSummary.preparedQuestions.map((question) => question.prompt),
+          pack.leakCanary,
+        );
+        reporter().record('s4-cross-leak', {
+          id: `${foreign.id}<-${pack.id}`,
+          ok: !crossLeak.leaked,
+          hits: crossLeak.hits,
+        });
+      } catch (reason) {
+        reporter().record('s4-question-set', {
+          id: pack.id,
+          ok: false,
+          sampleIndex: index,
+          error: reason instanceof Error ? reason.message : String(reason),
+        });
+      }
+    }
+    expect(reporter().rate('s4-question-set').total).toBeGreaterThan(0);
   }, SUITE_TIMEOUT_MS);
 });
