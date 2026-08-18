@@ -1,0 +1,88 @@
+{
+  "$comment": "Suite 3 变体判定校准标注包（docs/evaluation-plan.md）。40 条 =5 个模块 × 8 种难度类型。goldLabel 必须由人工填写（success/partial/failure）；proposedLabel 只是机器起草的建议，供加速复核，不得直接当金标签用。用户填完 goldLabel 后，评测 runner 的 Suite 3 阶段才会启用。全部内容虚构。",
+  "labels": ["success", "partial", "failure"],
+  "difficulties": {
+    "verbatim-recite": "逐字背诵原外壳（换问法没换表达，计划要求应判 partial）",
+    "paraphrase-consistent": "换措辞但语义内核一致",
+    "topic-only": "只答对话题但立场/内核丢失",
+    "partial-recall": "只调用出模块的一部分",
+    "clean-success": "顺畅的成功调用",
+    "clean-failure": "完全没调用，答非所问",
+    "noisy-success": "ASR 噪声下的成功调用（无标点/错字）",
+    "inverted-kernel": "用了模块词汇但立场反了"
+  },
+  "modules": [
+    {
+      "id": "m-founder",
+      "title": "把没销量翻译回业务模式",
+      "kernel": "市面上见不到不是卖不动，而是垂类渠道本就不走大众货架。",
+      "shell": "我们产品面对的垂类市场，一般不会在大众销售渠道上见的。"
+    },
+    {
+      "id": "m-sales",
+      "title": "贵是没算完的账",
+      "kernel": "价格异议要先问参照物：跟竞品比算总拥有成本，跟预算比谈分期。",
+      "shell": "您是跟谁比觉得贵？跟竞品比我们贵两成但省一个专职运维。"
+    },
+    {
+      "id": "m-hr",
+      "title": "前三十秒把决定说出口",
+      "kernel": "裁员面谈的残忍不是直接，是让人在猜测里熬；决定必须先说完整。",
+      "shell": "公司决定取消你的岗位，今天是正式通知，这个决定不可逆。"
+    },
+    {
+      "id": "m-civil",
+      "title": "现场不编数",
+      "kernel": "被追问没准备的数据时，宁给量级、来源、时限，绝不现场编精确数。",
+      "shell": "在百分之十以内，精确值在平台可查，散会后半小时报给您。"
+    },
+    {
+      "id": "m-surgeon",
+      "title": "三层讲风险",
+      "kernel": "风险告知分常见、少见但严重、罕见三层，每层给数量级和预案。",
+      "shell": "常见的、少见但严重的、罕见的，每一层我都告诉您发生率和我们的预案。"
+    }
+  ],
+  "cases": [
+    { "id": "v-founder-1", "moduleId": "m-founder", "difficulty": "verbatim-recite", "variationQuestion": "渠道商问：为什么零售端从来没见过你们？", "userAnswer": "我们产品面对的垂类市场，一般不会在大众销售渠道上见的。", "proposedLabel": "partial", "goldLabel": null },
+    { "id": "v-founder-2", "moduleId": "m-founder", "difficulty": "paraphrase-consistent", "variationQuestion": "投资人说搜遍电商也找不到你们的产品。", "userAnswer": "找不到很正常，我们走的是行业直销，不上大众货架——看不见不代表没人买，只是买的人不在那个货架前。", "proposedLabel": "success", "goldLabel": null },
+    { "id": "v-founder-3", "moduleId": "m-founder", "difficulty": "topic-only", "variationQuestion": "客户说你们知名度太低了。", "userAnswer": "知名度确实是我们的短板，我们准备加大市场投放，明年会有品牌广告。", "proposedLabel": "failure", "goldLabel": null },
+    { "id": "v-founder-4", "moduleId": "m-founder", "difficulty": "partial-recall", "variationQuestion": "评委问：为什么市场上感知不到你们？", "userAnswer": "因为我们不走大众渠道。", "proposedLabel": "partial", "goldLabel": null },
+    { "id": "v-founder-5", "moduleId": "m-founder", "difficulty": "clean-success", "variationQuestion": "合作方质疑：连京东都搜不到，规模是不是太小？", "userAnswer": "搜不到恰恰说明我们的模式：垂类市场不走大众货架，客户在行业展会和直销渠道里，规模要看合同额不是搜索结果。", "proposedLabel": "success", "goldLabel": null },
+    { "id": "v-founder-6", "moduleId": "m-founder", "difficulty": "clean-failure", "variationQuestion": "对方问：你们的渠道策略是什么？", "userAnswer": "呃，这个我们内部还在讨论，可能会先做几个试点城市看看效果。", "proposedLabel": "failure", "goldLabel": null },
+    { "id": "v-founder-7", "moduleId": "m-founder", "difficulty": "noisy-success", "variationQuestion": "客户说在淘宝上找了半天没找到你们。", "userAnswer": "找不到是对的 我们面对的垂类市场本来就不再大众渠道卖 呃 客户都是行业里直接对接的 见不到不等于不存在", "proposedLabel": "success", "goldLabel": null },
+    { "id": "v-founder-8", "moduleId": "m-founder", "difficulty": "inverted-kernel", "variationQuestion": "顾问问：大众渠道见不到你们，怎么解释？", "userAnswer": "确实是卖不动，大众渠道竞争太激烈我们进不去，只能退守垂类市场。", "proposedLabel": "failure", "goldLabel": null },
+    { "id": "v-sales-1", "moduleId": "m-sales", "difficulty": "verbatim-recite", "variationQuestion": "采购说预算里放不下你们的报价。", "userAnswer": "您是跟谁比觉得贵？跟竞品比我们贵两成但省一个专职运维。", "proposedLabel": "partial", "goldLabel": null },
+    { "id": "v-sales-2", "moduleId": "m-sales", "difficulty": "paraphrase-consistent", "variationQuestion": "客户嫌总价太高。", "userAnswer": "我先弄清楚这个高是对照什么：如果对的是友商，我们把运维人力算进去反而省；如果对的是预算，我们可以按模块分期上。", "proposedLabel": "success", "goldLabel": null },
+    { "id": "v-sales-3", "moduleId": "m-sales", "difficulty": "topic-only", "variationQuestion": "对方说价格没有竞争力。", "userAnswer": "价格问题我理解，我回去申请一下折扣，尽量给您一个好价格。", "proposedLabel": "failure", "goldLabel": null },
+    { "id": "v-sales-4", "moduleId": "m-sales", "difficulty": "partial-recall", "variationQuestion": "客户直接问能不能便宜点。", "userAnswer": "先别急着谈价格，您是跟哪家比觉得贵？", "proposedLabel": "partial", "goldLabel": null },
+    { "id": "v-sales-5", "moduleId": "m-sales", "difficulty": "clean-success", "variationQuestion": "招标现场评委问：你们报价高出均值两成，为什么？", "userAnswer": "高两成对的是采购价，算总拥有成本我们反而低：省一个专职运维一年就是二十万，这笔账我现在就可以拆给各位看。", "proposedLabel": "success", "goldLabel": null },
+    { "id": "v-sales-6", "moduleId": "m-sales", "difficulty": "clean-failure", "variationQuestion": "客户说你们太贵了。", "userAnswer": "我们的产品质量很好，服务也到位，贵有贵的道理。", "proposedLabel": "failure", "goldLabel": null },
+    { "id": "v-sales-7", "moduleId": "m-sales", "difficulty": "noisy-success", "variationQuestion": "对方压价压得很凶。", "userAnswer": "我一般先问一句 您是跟谁比觉得贵 跟竞品比的话我们贵两成但省一个专职运维 跟预算比的话咱们可以谈分期", "proposedLabel": "success", "goldLabel": null },
+    { "id": "v-sales-8", "moduleId": "m-sales", "difficulty": "inverted-kernel", "variationQuestion": "客户问为什么比友商贵。", "userAnswer": "贵就是贵了，参照物不重要，我们直接给您降价百分之十五对齐友商。", "proposedLabel": "failure", "goldLabel": null },
+    { "id": "v-hr-1", "moduleId": "m-hr", "difficulty": "verbatim-recite", "variationQuestion": "明天要通知一位老员工转岗失败后的离职，第一句话怎么说？", "userAnswer": "公司决定取消你的岗位，今天是正式通知，这个决定不可逆。", "proposedLabel": "partial", "goldLabel": null },
+    { "id": "v-hr-2", "moduleId": "m-hr", "difficulty": "paraphrase-consistent", "variationQuestion": "裁员面谈的开场应该怎么处理？", "userAnswer": "开场半分钟内把结论完整说出来——岗位取消、今天正式通知、决定已定，不让对方在客套里猜十分钟，那才是残忍。", "proposedLabel": "success", "goldLabel": null },
+    { "id": "v-hr-3", "moduleId": "m-hr", "difficulty": "topic-only", "variationQuestion": "怎么做裁员沟通？", "userAnswer": "要注意场地私密，准备好补偿材料，安排在下午，说话语气要温和一些。", "proposedLabel": "failure", "goldLabel": null },
+    { "id": "v-hr-4", "moduleId": "m-hr", "difficulty": "partial-recall", "variationQuestion": "被裁员工进门坐下了，你先说什么？", "userAnswer": "先把决定说清楚吧，不绕弯子。", "proposedLabel": "partial", "goldLabel": null },
+    { "id": "v-hr-5", "moduleId": "m-hr", "difficulty": "clean-success", "variationQuestion": "新经理问你：裁员谈话最容易犯的错是什么？", "userAnswer": "把决定藏在客气里。正确做法是前三十秒把结论说完整——岗位取消、正式通知、不可逆——然后把时间全部留给安置方案。", "proposedLabel": "success", "goldLabel": null },
+    { "id": "v-hr-6", "moduleId": "m-hr", "difficulty": "clean-failure", "variationQuestion": "裁员面谈怎么开场？", "userAnswer": "先聊聊近况暖暖场，看对方状态好的话再慢慢往正题引，实在不行就下次再谈。", "proposedLabel": "failure", "goldLabel": null },
+    { "id": "v-hr-7", "moduleId": "m-hr", "difficulty": "noisy-success", "variationQuestion": "通知岗位取消的话术？", "userAnswer": "前三十秒只做一件事 把决定完整说出口 公司决定取消你的岗位 今天是正式通知 这个决定不可逆 然后剩下时间全给补偿和他的问题", "proposedLabel": "success", "goldLabel": null },
+    { "id": "v-hr-8", "moduleId": "m-hr", "difficulty": "inverted-kernel", "variationQuestion": "面谈第一句怎么讲？", "userAnswer": "第一句一定要软，先说公司多么不容易、他贡献多大，最后再暗示岗位可能有变化，让他自己体会。", "proposedLabel": "failure", "goldLabel": null },
+    { "id": "v-civil-1", "moduleId": "m-civil", "difficulty": "verbatim-recite", "variationQuestion": "汇报时领导突然问一个你没背过的比例数。", "userAnswer": "在百分之十以内，精确值在平台可查，散会后半小时报给您。", "proposedLabel": "partial", "goldLabel": null },
+    { "id": "v-civil-2", "moduleId": "m-civil", "difficulty": "paraphrase-consistent", "variationQuestion": "考核组当场要一个你手头没有的数字。", "userAnswer": "我不敢现场报精确值，只能先给个量级——大概一成上下；原始数在政务平台上有，会后半小时内我把准确数报上来。", "proposedLabel": "success", "goldLabel": null },
+    { "id": "v-civil-3", "moduleId": "m-civil", "difficulty": "topic-only", "variationQuestion": "被追问数据答不上来怎么办？", "userAnswer": "平时要多背数据，把常用指标做成小卡片带在身上，就不会被问住了。", "proposedLabel": "failure", "goldLabel": null },
+    { "id": "v-civil-4", "moduleId": "m-civil", "difficulty": "partial-recall", "variationQuestion": "领导问二季度的办结率，你没准备。", "userAnswer": "这个数我现在给不了精确的，回头查了报您。", "proposedLabel": "partial", "goldLabel": null },
+    { "id": "v-civil-5", "moduleId": "m-civil", "difficulty": "clean-success", "variationQuestion": "调度会上被点名要一个专项的资金执行率。", "userAnswer": "执行率量级在七成左右，误差不超过十个点；精确数在财政系统里可查，散会后半小时内我单独报给您，绝不现场拍脑袋。", "proposedLabel": "success", "goldLabel": null },
+    { "id": "v-civil-6", "moduleId": "m-civil", "difficulty": "clean-failure", "variationQuestion": "领导追问具体数字。", "userAnswer": "大概是百分之八十七点三吧，应该差不多是这个数。", "proposedLabel": "failure", "goldLabel": null },
+    { "id": "v-civil-7", "moduleId": "m-civil", "difficulty": "noisy-success", "variationQuestion": "被当场问一个没准备的统计数。", "userAnswer": "我的铁律是宁可说现在给不了精确数 也绝不现场编 量级再百分之十以内 来源平台可查 散会后半小时报给您", "proposedLabel": "success", "goldLabel": null },
+    { "id": "v-civil-8", "moduleId": "m-civil", "difficulty": "inverted-kernel", "variationQuestion": "汇报被追问数据怎么应对？", "userAnswer": "领导要的是底气，先报一个大差不差的精确数稳住场面，事后有出入再解释口径问题。", "proposedLabel": "failure", "goldLabel": null },
+    { "id": "v-surgeon-1", "moduleId": "m-surgeon", "difficulty": "verbatim-recite", "variationQuestion": "家属问：这个手术到底有什么风险？", "userAnswer": "常见的、少见但严重的、罕见的，每一层我都告诉您发生率和我们的预案。", "proposedLabel": "partial", "goldLabel": null },
+    { "id": "v-surgeon-2", "moduleId": "m-surgeon", "difficulty": "paraphrase-consistent", "variationQuestion": "术前谈话怎么讲风险家属才安心？", "userAnswer": "我按发生频率分三档讲：常见的、少见但要命的、极罕见的，每一档配上概率数量级和出了问题我们怎么处理——预案讲到位，家属才不觉得是在推责。", "proposedLabel": "success", "goldLabel": null },
+    { "id": "v-surgeon-3", "moduleId": "m-surgeon", "difficulty": "topic-only", "variationQuestion": "如何做术前风险告知？", "userAnswer": "按知情同意书逐条念给家属听，念完签字确认，这是法定程序。", "proposedLabel": "failure", "goldLabel": null },
+    { "id": "v-surgeon-4", "moduleId": "m-surgeon", "difficulty": "partial-recall", "variationQuestion": "家属很紧张，风险怎么说？", "userAnswer": "我会把风险分几层来讲，不一股脑全倒出来。", "proposedLabel": "partial", "goldLabel": null },
+    { "id": "v-surgeon-5", "moduleId": "m-surgeon", "difficulty": "clean-success", "variationQuestion": "带教时住院医问你风险告知的方法。", "userAnswer": "分三层：常见的说概率和恢复路径，少见但严重的说预警信号和抢救预案，罕见的点到即可。家属怕的不是风险，是只听到风险听不到预案。", "proposedLabel": "success", "goldLabel": null },
+    { "id": "v-surgeon-6", "moduleId": "m-surgeon", "difficulty": "clean-failure", "variationQuestion": "怎么跟家属谈手术风险？", "userAnswer": "尽量少说风险，说多了家属容易吓得不敢签字，影响治疗进度。", "proposedLabel": "failure", "goldLabel": null },
+    { "id": "v-surgeon-7", "moduleId": "m-surgeon", "difficulty": "noisy-success", "variationQuestion": "风险沟通的框架？", "userAnswer": "我讲风险只用三层 常见的 少见但严重的 罕见的 每层给一个数量级和我们的预案 预案讲完签字就不是免责仪式了", "proposedLabel": "success", "goldLabel": null },
+    { "id": "v-surgeon-8", "moduleId": "m-surgeon", "difficulty": "inverted-kernel", "variationQuestion": "术前风险怎么分层告知？", "userAnswer": "分层的意思是分对象：对好沟通的家属全说，对情绪激动的家属挑轻的说，重的风险等出了事再解释。", "proposedLabel": "failure", "goldLabel": null }
+  ]
+}

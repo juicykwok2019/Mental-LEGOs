@@ -592,4 +592,99 @@ describe('MENTAL_LEGOS_EVAL runner (Suite 1/2 rule metrics)', () => {
     }
     expect(reporter().rate('s7-references').total).toBeGreaterThan(0);
   }, SUITE_TIMEOUT_MS);
+
+  evalProbe('suite 5: end-to-end reliability and cost (+ suite 8 collection)', async () => {
+    const personas = (await loadJson<{ personas: Persona[] }>('personas.json')).personas;
+    const persona = personas.find((candidate) => candidate.id === 'founder');
+    if (!persona) throw new Error('founder persona missing from corpus');
+    const loops = Number.parseInt(
+      process.env.MENTAL_LEGOS_EVAL_S5_LOOPS ?? (sampleFraction >= 1 ? '20' : '5'),
+      10,
+    );
+    const script = {
+      topic: '被客户追问交付确定性时怎么讲',
+      first: '呃，我们交付挺快的，一般两周吧，具体要看项目情况，反正比同行快。',
+      second: '这个垂类赢的关键不是功能多，是交付确定性。我们是唯一把实施周期压到两周并写进合同赔付条款的——功能可以抄，赔付敢不敢写进合同，抄不了。',
+      variation: '我的回应是：客户真正怕的不是周期长，是不确定。所以我们把两周实施写进合同并配赔付条款，把风险从口头承诺变成合同责任。',
+    };
+
+    const stepDurations = new Map<string, number[]>();
+    for (let loop = 0; loop < loops; loop += 1) {
+      const steps: Array<{ name: string; ms: number }> = [];
+      let lastStep = 'init';
+      try {
+        const harness = await createHarness(persona);
+        const timed = async <T>(name: string, work: () => Promise<T>): Promise<T> => {
+          lastStep = name;
+          const startedAt = Date.now();
+          const result = await work();
+          const ms = Date.now() - startedAt;
+          steps.push({ name, ms });
+          const list = stepDurations.get(name) ?? [];
+          list.push(ms);
+          stepDurations.set(name, list);
+          return result;
+        };
+
+        await timed('start', () => harness.service.start({
+          topic: script.topic, scenarioId: null, questionId: null,
+        }));
+        await timed('closeFirst', () => harness.service.closeFirst({
+          outcome: 'answered',
+          responseText: script.first,
+          recordingId: null,
+          openingDelayMs: 3000,
+          durationMs: 20_000,
+        }));
+        await timed('diagnose', () => harness.service.diagnose());
+        await timed('hint', () => harness.service.hint('L1'));
+        await timed('second', () => harness.service.second(script.second));
+        const extracted = await timed('extract', () => harness.service.extract());
+        if (extracted.candidates.length === 0) throw new Error('no candidates extracted');
+        const confirmed = await timed('confirm', () => harness.service.confirm([
+          extracted.candidates[0]!.id,
+        ]));
+        if (confirmed.phase === 'variation') {
+          await timed('variation', () => harness.service.answerVariation(script.variation));
+        }
+        reporter().record('s5-loop', { id: `loop-${loop}`, ok: true, steps });
+
+        // Suite 8 采集：本闭环产生的全部画像断言 + 会话转写，供后续
+        // Judge/人工做蕴含复核（虚构率判定不在规则层）。
+        const assertions = harness.product.listProfileAssertions();
+        reporter().record('s8-assertions', {
+          id: `loop-${loop}`,
+          ok: true,
+          count: assertions.length,
+          assertions: assertions.map((assertion) => ({
+            tier: assertion.tier,
+            status: assertion.status,
+            statement: assertion.statement,
+          })),
+          transcript: confirmed.transcript.map((entry) => `${entry.role}/${entry.kind}: ${entry.text}`),
+        });
+      } catch (reason) {
+        reporter().record('s5-loop', {
+          id: `loop-${loop}`,
+          ok: false,
+          failedStep: lastStep,
+          steps,
+          error: reason instanceof Error ? reason.message : String(reason),
+        });
+      }
+    }
+
+    // 单步 p95 延迟（计划指标：≤ 3 分钟）。
+    const p95: Record<string, number> = {};
+    for (const [name, list] of stepDurations) {
+      const sorted = [...list].sort((left, right) => left - right);
+      p95[name] = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))] ?? 0;
+    }
+    reporter().record('s5-step-p95', {
+      id: 'aggregate',
+      ok: Object.values(p95).every((ms) => ms <= 180_000),
+      p95,
+    });
+    expect(reporter().rate('s5-loop').total).toBeGreaterThan(0);
+  }, SUITE_TIMEOUT_MS);
 });
