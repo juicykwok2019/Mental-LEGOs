@@ -445,4 +445,18 @@ describe('training session v2 orchestration', () => {
     expect(() => parseJsonReply('no json here', schema)).toThrow('no JSON');
     expect(extractFinalText([resultMessage('x')])).toBe('x');
   });
+
+  it('repairs the provider JSON defects seen in the first smoke round', () => {
+    const schema = z.object({ analysis: z.string(), n: z.number().optional() });
+    // 字符串里未转义的中文引号（kimi 实测样式）。
+    expect(parseJsonReply('{"analysis":"他说"没销量"的时候要接住"}', schema))
+      .toEqual({ analysis: '他说"没销量"的时候要接住' });
+    // 字符串内裸换行。
+    expect(parseJsonReply('{"analysis":"第一行\n第二行"}', schema))
+      .toEqual({ analysis: '第一行\n第二行' });
+    // 尾逗号。
+    expect(parseJsonReply('{"analysis":"ok","n":1,}', schema)).toEqual({ analysis: 'ok', n: 1 });
+    // 修不好的仍然抛错，不吞。
+    expect(() => parseJsonReply('{"analysis": [unclosed}', schema)).toThrow();
+  });
 });

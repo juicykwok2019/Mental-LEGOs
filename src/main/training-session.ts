@@ -153,16 +153,20 @@ const variationJudgementSchema = z.object({
 // judgeVariation entry, so Suite 3 always measures the exact production prompt.
 export function buildVariationJudgementPrompt(input: {
   semanticKernel: string;
+  languageShell?: string;
   variationQuestion: string;
   responseText: string;
 }): string {
   return [
     'Judge whether the user transferred their confirmed module to the changed question.',
     `Module kernel: ${input.semanticKernel}`,
+    ...(input.languageShell ? [`Module original shell (the user's stored wording): ${input.languageShell}`] : []),
     `Changed question: ${input.variationQuestion}`,
     `User answer: ${input.responseText}`,
     'success = the kernel was recalled and adapted; partial = fragments appeared without the',
     'core; failure = the module did not surface. Judge recall, not eloquence.',
+    'IMPORTANT: if the answer merely repeats the original shell nearly verbatim, that is',
+    'partial — the question changed but the wording was not adapted to it.',
     'Reply with ONLY this JSON: {"result":"success|partial|failure","comment":"one Chinese sentence"}',
   ].join('\n');
 }
@@ -209,11 +213,61 @@ export function extractFinalText(messages: unknown[]): string {
   throw new Error('The agent did not return a final response.');
 }
 
+// Provider 输出是敌意输入：kimi 等模型偶发未转义引号、字符串内裸换行、
+// 尾逗号（2026-08-18 冒烟轮实测三处失败同此根因）。先按常见毛病修复
+// 再解析，修不好才抛错。
+function repairJsonCandidate(raw: string): string {
+  let out = '';
+  let inString = false;
+  for (let index = 0; index < raw.length; index += 1) {
+    const character = raw[index]!;
+    if (!inString) {
+      if (character === '"') inString = true;
+      out += character;
+      continue;
+    }
+    if (character === '\\') {
+      out += character;
+      if (index + 1 < raw.length) {
+        out += raw[index + 1];
+        index += 1;
+      }
+      continue;
+    }
+    if (character === '"') {
+      // 只有后面跟着 JSON 定界符的引号才是字符串结束；否则视为内容引号。
+      let lookahead = index + 1;
+      while (lookahead < raw.length && /\s/u.test(raw[lookahead]!)) lookahead += 1;
+      const next = raw[lookahead];
+      if (next === undefined || next === ',' || next === '}' || next === ']' || next === ':') {
+        inString = false;
+        out += character;
+      } else {
+        out += '\\"';
+      }
+      continue;
+    }
+    if (character === '\n') { out += '\\n'; continue; }
+    if (character === '\r') continue;
+    out += character;
+  }
+  return out.replace(/,\s*([}\]])/gu, '$1');
+}
+
 export function parseJsonReply<T>(text: string, schema: z.ZodType<T>): T {
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
   if (start < 0 || end <= start) throw new Error('The agent reply contained no JSON object.');
-  return schema.parse(JSON.parse(text.slice(start, end + 1)));
+  const candidate = text.slice(start, end + 1);
+  try {
+    return schema.parse(JSON.parse(candidate));
+  } catch (reason) {
+    try {
+      return schema.parse(JSON.parse(repairJsonCandidate(candidate)));
+    } catch {
+      throw reason instanceof Error ? reason : new Error(String(reason));
+    }
+  }
 }
 
 const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
@@ -410,8 +464,7 @@ export class TrainingSessionService {
         'Do NOT include any outline, answer, hints, or evaluation criteria.',
         'Reply with ONLY this JSON: {"question_type":"...","exploratory":false,"question":"..."}',
       ].filter(Boolean).join('\n');
-      const output = await this.#runAgent(session, prompt, 4);
-      const generated = parseJsonReply(extractFinalText(output.messages), generatedQuestionSchema);
+      const generated = await this.#runJsonAgent(session, prompt, 4, generatedQuestionSchema);
       const targetModuleIds = (generated.composition_pair ?? [])
         .flatMap((title) => {
           const match = this.#product.listLegoModules({ status: 'confirmed' })
@@ -642,7 +695,10 @@ export class TrainingSessionService {
             '(quote the matching words), and whether the two connected naturally.',
           ]
           : []),
-        'Every finding MUST quote the user\'s own words as evidence.',
+        'Number the findings 1. 2. 3. — one finding per number.',
+        'Every finding MUST contain a verbatim quote copied character-for-character from',
+        'the user\'s answer, wrapped in 「」. Paraphrased or invented quotes are forbidden;',
+        'a finding you cannot anchor with a verbatim quote must not be written.',
         'Do NOT provide a better answer, an outline, or model wording. Diagnosis only.',
         'Reply in Chinese with at most five short findings.',
       ].join('\n');
@@ -844,6 +900,8 @@ export class TrainingSessionService {
         'Use EXACTLY these snake_case keys; semantic_kernel, logic_skeleton and',
         'language_shells are required and logic_skeleton/language_shells are string arrays.',
         'language_shells MUST reuse the user\'s own second-attempt wording wherever possible.',
+        'Each language shell MUST be one complete, independently speakable sentence of',
+        'roughly 15-120 characters — never a fragment shorter than a full clause.',
         'Granularity bar: one communication task, reusable across questions, speakable in 5-30 seconds.',
         'After submitting, reply in Chinese with a one-line summary per candidate.',
       ].join('\n');
@@ -963,8 +1021,7 @@ export class TrainingSessionService {
         'into a client/executive/interview situation). Do not mention the module or the answer.',
         'Reply with ONLY this JSON: {"question_type":"...","exploratory":false,"question":"..."}',
       ].join('\n');
-      const output = await this.#runAgent(session, prompt, 4);
-      const generated = parseJsonReply(extractFinalText(output.messages), generatedQuestionSchema);
+      const generated = await this.#runJsonAgent(session, prompt, 4, generatedQuestionSchema);
       const question = this.#engine.registerQuestion({
         prompt: generated.question,
         scope: session.mode === 'open' ? 'global' : 'scenario',
@@ -1025,11 +1082,13 @@ export class TrainingSessionService {
         : null;
       const prompt = buildVariationJudgementPrompt({
         semanticKernel: version?.payload.semanticKernel ?? '',
+        ...(version?.payload.languageShells[0]
+          ? { languageShell: version.payload.languageShells[0] }
+          : {}),
         variationQuestion: variationQuestion?.prompt ?? '',
         responseText,
       });
-      const output = await this.#runAgent(session, prompt, 4);
-      const judged = parseJsonReply(extractFinalText(output.messages), variationJudgementSchema);
+      const judged = await this.#runJsonAgent(session, prompt, 4, variationJudgementSchema);
       const mastery = this.#engine.recordPracticeResult({
         moduleId,
         attemptId: attempt.id,
@@ -1052,6 +1111,7 @@ export class TrainingSessionService {
   // 解析。不写任何产品数据（不建 attempt、不动掌握度），会话对象即用即还。
   async judgeVariation(input: {
     semanticKernel: string;
+    languageShell?: string;
     variationQuestion: string;
     responseText: string;
   }): Promise<{ result: 'success' | 'partial' | 'failure'; comment: string }> {
@@ -1059,8 +1119,9 @@ export class TrainingSessionService {
       const previous = this.#session;
       const session = await this.#createSession('open', null);
       try {
-        const output = await this.#runAgent(session, buildVariationJudgementPrompt(input), 4);
-        return parseJsonReply(extractFinalText(output.messages), variationJudgementSchema);
+        return await this.#runJsonAgent(
+          session, buildVariationJudgementPrompt(input), 4, variationJudgementSchema,
+        );
       } finally {
         this.#session = previous;
       }
@@ -1108,8 +1169,7 @@ export class TrainingSessionService {
         `User's latest answer: ${session.secondResponse ?? '(first answer only)'}`,
         'Reply with ONLY this JSON: {"question_type":"pressure-probe","exploratory":false,"question":"..."}',
       ].join('\n');
-      const output = await this.#runAgent(session, prompt, 4);
-      const generated = parseJsonReply(extractFinalText(output.messages), generatedQuestionSchema);
+      const generated = await this.#runJsonAgent(session, prompt, 4, generatedQuestionSchema);
       const question = this.#engine.registerQuestion({
         prompt: generated.question,
         scope: 'scenario',
@@ -1235,8 +1295,7 @@ export class TrainingSessionService {
         'question_type MUST be exactly one of: viewpoint, mechanism, decision, case-recall, challenge, pressure-probe.',
         'Reply with ONLY this JSON: {"analysis":"Chinese text","questions":[{"question_type":"viewpoint","question":"..."}]}',
       ].filter(Boolean).join('\n');
-      const output = await this.#runAgent(session, prompt, 8);
-      const prepared = parseJsonReply(extractFinalText(output.messages), preparationSchema);
+      const prepared = await this.#runJsonAgent(session, prompt, 8, preparationSchema);
       this.#product.setScenarioAnalysis(scenarioId, prepared.analysis);
       for (const item of prepared.questions) {
         this.#engine.registerQuestion({
@@ -1545,6 +1604,28 @@ export class TrainingSessionService {
     };
     this.#session = session;
     return session;
+  }
+
+  // JSON 步骤的统一入口：解析失败不废整步，在同一会话里就地纠正一轮
+  // （敌意输入防线的执行层，配合 parseJsonReply 的修复解析）。
+  async #runJsonAgent<T>(
+    session: ActiveSession,
+    prompt: string,
+    maxTurns: number,
+    schema: z.ZodType<T>,
+  ): Promise<T> {
+    const output = await this.#runAgent(session, prompt, maxTurns);
+    try {
+      return parseJsonReply(extractFinalText(output.messages), schema);
+    } catch {
+      const retry = await this.#runAgent(
+        session,
+        '你上一条回复不是合法 JSON（常见原因：字符串里有未转义的引号、JSON 之外有多余文字）。'
+        + '重新回复一次：只输出符合前述格式要求的合法 JSON 对象，不要任何其他文字。',
+        2,
+      );
+      return parseJsonReply(extractFinalText(retry.messages), schema);
+    }
   }
 
   async #runAgent(

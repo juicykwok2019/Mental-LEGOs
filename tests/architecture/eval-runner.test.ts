@@ -727,6 +727,7 @@ describe('MENTAL_LEGOS_EVAL runner (Suite 1/2 rule metrics)', () => {
       try {
         const judged = await harness.service.judgeVariation({
           semanticKernel: module.kernel,
+          languageShell: module.shell,
           variationQuestion: entry.variationQuestion,
           responseText: entry.userAnswer,
         });
@@ -765,6 +766,7 @@ describe('MENTAL_LEGOS_EVAL runner (Suite 1/2 rule metrics)', () => {
         for (let round = 0; round < 3; round += 1) {
           const judged = await harness.service.judgeVariation({
             semanticKernel: module.kernel,
+            languageShell: module.shell,
             variationQuestion: entry.variationQuestion,
             responseText: entry.userAnswer,
           });
