@@ -63,9 +63,16 @@ npm run make
 
 细节（训练闭环、粒度规则、安全边界）见下文各节与 `docs/`。
 
-**剩余事项**：干净 Windows 环境安装验收（需真实测试设备）；火山引擎云端语音为接口就绪 + 界面占位（等待账户与条款确认）。视频分析、Web/移动伴随端、可信评审者与组织版属后续阶段，未开发。
+**已知限制**
 
-评测体系设计见 [`docs/evaluation-plan.md`](docs/evaluation-plan.md)（按产品失效模式组织的八个评测套件）；开发约定见 [`docs/dev-workflow-notes.md`](docs/dev-workflow-notes.md)。
+- 云端语音（火山引擎）暂未接入，本地语音不受影响；
+- 安装包尚未在全新 Windows 环境上完成验证，遇安装问题请提 Issue。
+
+**路线图（后续版本）**
+
+- 系统化评测体系（设计见 [`docs/evaluation-plan.md`](docs/evaluation-plan.md)）；
+- 云端语音接入、公开演讲视频分析；
+- 跨设备同步、Web / 移动伴随端、可信评审者反馈。
 
 ### 核心理念
 
@@ -134,12 +141,12 @@ npm run make
 
 ```mermaid
 flowchart LR
-  UI["Electron Renderer<br/>只提交配置，不能回读 Key"] --> MAIN["Main Process<br/>凭据引用与供应商配置"]
+  UI["Electron Renderer<br/>只提交配置 不能回读 Key"] --> MAIN["Main Process<br/>凭据引用与供应商配置"]
   MAIN --> VAULT["会话内存 / Windows 凭据管理器"]
   MAIN --> AGENT["单一 Claude Agent SDK Runtime<br/>Skills + 原生工具 + MCP"]
   AGENT --> BROKER["本地主机安全 Provider Broker"]
-  BROKER -->|"Anthropic Messages 直连"| DIRECT["官方 Anthropic 兼容端点<br/>Anthropic / Kimi 开放平台 / DeepSeek / 智谱"]
-  BROKER -.->|"Anthropic ↔ OpenAI 双向转换（备用）"| OPEN["仅 OpenAI 协议的服务"]
+  BROKER -- "Anthropic Messages 直连" --> DIRECT["官方 Anthropic 兼容端点<br/>Anthropic / Kimi / DeepSeek / Zhipu"]
+  BROKER -. "OpenAI 协议双向转换 备用通道" .-> OPEN["仅 OpenAI 协议的服务"]
 ```
 
 OpenAI Chat Completions 本地转换器保留为备用通道，面向未来只有 OpenAI 协议的服务；协议转换只存在于受信任的 Provider 边界，转换器不是第二个 Agent。任何通道都必须通过相同的完整 Provider 能力认证，不能降级成普通聊天调用。应用始终如实发送自身客户端标识，不伪装成其他工具。
@@ -240,9 +247,16 @@ As of 2026-08-18 all four PRD phases are **delivered within single-machine scope
 
 Details (the training loop, granularity rules, security boundaries) follow below and in `docs/`.
 
-**Remaining**: clean-Windows installation acceptance (needs a real test device); Volcano cloud speech is interface-ready with a UI placeholder pending account and terms. Video analysis, web/mobile companions, trusted reviewers, and an organization edition belong to later phases and are not built.
+**Known limitations**
 
-The evaluation design lives in [`docs/evaluation-plan.md`](docs/evaluation-plan.md) (eight suites organized around product failure modes); development conventions in [`docs/dev-workflow-notes.md`](docs/dev-workflow-notes.md).
+- Cloud speech (Volcano Engine) is not yet integrated; local speech is unaffected;
+- The installer has not yet been verified on a pristine Windows machine — please file an issue if installation misbehaves.
+
+**Roadmap**
+
+- A systematic evaluation harness (design in [`docs/evaluation-plan.md`](docs/evaluation-plan.md));
+- Cloud speech integration and public-speaking video analysis;
+- Cross-device sync, web / mobile companions, trusted-reviewer feedback.
 
 ### The core idea
 
@@ -311,12 +325,12 @@ Preset providers are limited to products that expose an **official Anthropic-com
 
 ```mermaid
 flowchart LR
-  UI["Electron Renderer<br/>submits config; cannot read a key back"] --> MAIN["Main Process<br/>credential reference + provider config"]
+  UI["Electron Renderer<br/>submits config, cannot read a key back"] --> MAIN["Main Process<br/>credential reference + provider config"]
   MAIN --> VAULT["session memory / Windows Credential Manager"]
   MAIN --> AGENT["one Claude Agent SDK Runtime<br/>Skills + native tools + MCP"]
   AGENT --> BROKER["trusted local Provider Broker"]
-  BROKER -->|"direct Anthropic Messages"| DIRECT["official Anthropic-compatible endpoints<br/>Anthropic / Kimi Open Platform / DeepSeek / Zhipu"]
-  BROKER -.->|"Anthropic ↔ OpenAI translation (fallback)"| OPEN["OpenAI-protocol-only services"]
+  BROKER -- "direct Anthropic Messages" --> DIRECT["official Anthropic-compatible endpoints<br/>Anthropic / Kimi / DeepSeek / Zhipu"]
+  BROKER -. "OpenAI protocol translation fallback" .-> OPEN["OpenAI-protocol-only services"]
 ```
 
 The local OpenAI Chat Completions adapter remains a fallback for future providers that only speak the OpenAI protocol. Translation exists only at the trusted provider boundary and the adapter is not a second Agent. Every route must pass the same full provider capability certification and may not degrade into ordinary chat-only API use. The application always sends its own client identity and never impersonates another tool.
