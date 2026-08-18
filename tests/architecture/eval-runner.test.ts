@@ -11,6 +11,7 @@
 //   MENTAL_LEGOS_AGENT_LIVE_BASH_RUNTIME
 //   MENTAL_LEGOS_EVAL_SAMPLE             抽样比例，默认 0.2（冒烟轮）；1 为全量
 //   MENTAL_LEGOS_EVAL_OUT                输出根目录，默认 .private/eval-runs
+import { randomUUID } from 'node:crypto';
 import { readFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -33,6 +34,12 @@ import {
   scoreIntentShift,
   scoreScenarioQuestionSet,
 } from '../eval/scenario-scoring';
+import {
+  extractSkeletonReferences,
+  scoreReferenceRetention,
+  scoreTimeBudget,
+  validateSkeletonReferences,
+} from '../eval/skeleton-scoring';
 import {
   scoreDiagnosisGrounding,
   scoreHintLadder,
@@ -154,6 +161,7 @@ const cleanups: Array<() => Promise<void>> = [];
 
 interface CaseHarness {
   service: TrainingSessionService;
+  product: ProductDatabase;
   dispose(): Promise<void>;
 }
 
@@ -196,7 +204,7 @@ async function createHarness(persona: Persona): Promise<CaseHarness> {
     await rm(directory, { recursive: true, force: true });
   };
   cleanups.push(dispose);
-  return { service, dispose };
+  return { service, product, dispose };
 }
 
 function hintSamplesFromTranscript(
@@ -471,5 +479,117 @@ describe('MENTAL_LEGOS_EVAL runner (Suite 1/2 rule metrics)', () => {
       }
     }
     expect(reporter().rate('s4-question-set').total).toBeGreaterThan(0);
+  }, SUITE_TIMEOUT_MS);
+
+  evalProbe('suite 7: speech skeleton assembly rules', async () => {
+    interface Suite7Module { title: string; kernel: string; shell: string; triggers: string[] }
+    interface Suite7Library {
+      personaId: string; sparse: boolean;
+      speech: { title: string; objective: string; counterpart: string };
+      modules: Suite7Module[];
+    }
+    interface Suite7Fixture { durationsMinutes: number[]; libraries: Suite7Library[] }
+
+    const personas = (await loadJson<{ personas: Persona[] }>('personas.json')).personas;
+    const personaById = new Map(personas.map((persona) => [persona.id, persona]));
+    const fixture = await loadJson<Suite7Fixture>('suite7-skeleton.json');
+    const grid = fixture.libraries.flatMap(
+      (library) => fixture.durationsMinutes.map((duration) => ({ library, duration })),
+    );
+    const sampled = sampleCases(grid, sampleFraction);
+
+    for (const { library, duration } of sampled) {
+      const persona = personaById.get(library.personaId);
+      if (!persona) continue;
+      const caseId = `${library.personaId}-${duration}m`;
+      try {
+        const harness = await createHarness(persona);
+        for (const moduleSpec of library.modules) {
+          const { module } = harness.product.createLegoCandidate({
+            id: randomUUID(),
+            scope: 'global',
+            scenarioId: null,
+            category: 'viewpoint',
+            title: moduleSpec.title,
+            triggers: moduleSpec.triggers,
+            payload: {
+              semanticKernel: moduleSpec.kernel,
+              logicSkeleton: [moduleSpec.kernel],
+              languageShells: [moduleSpec.shell],
+              anchorPhrase: '',
+              slots: [],
+              purpose: '',
+              boundaries: '',
+            },
+            authorship: 'user-native',
+            domain: 'professional',
+          });
+          harness.product.confirmLegoVersion(module.id, 1);
+        }
+
+        const scenario = harness.service.createScenario({
+          type: 'speech',
+          title: library.speech.title,
+          objective: library.speech.objective,
+          counterpart: library.speech.counterpart,
+          worries: '',
+        });
+        const composed = await harness.service.composeSpeechOutline({
+          scenarioId: scenario.id,
+          durationMinutes: duration,
+          audience: '',
+        });
+        const outline = composed.speechOutline ?? '';
+        const titles = library.modules.map((moduleSpec) => moduleSpec.title);
+
+        const references = validateSkeletonReferences(outline, titles);
+        reporter().record('s7-references', {
+          id: caseId,
+          ok: references.ok,
+          references: references.references,
+          unknown: references.unknown,
+        });
+
+        const budget = scoreTimeBudget(outline, duration);
+        reporter().record('s7-time-budget', {
+          id: caseId,
+          ok: budget.withinTolerance,
+          totalMinutes: budget.totalMinutes,
+          sections: budget.sections,
+        });
+
+        if (library.sparse) {
+          const honesty = extractSkeletonReferences(outline);
+          reporter().record('s7-honesty', {
+            id: caseId,
+            ok: honesty.missingBricks.length >= 1,
+            missingBricks: honesty.missingBricks,
+          });
+        }
+
+        // 变换保持率只在中档时长上测一次，避免成本翻倍。
+        if (!library.sparse && duration === 10) {
+          const compressed = await harness.service.transformSpeechOutline({
+            scenarioId: scenario.id,
+            transform: 'compress',
+            audience: '',
+          });
+          const retention = scoreReferenceRetention(outline, compressed.speechOutline ?? '');
+          reporter().record('s7-transform-retention', {
+            id: `${library.personaId}-compress`,
+            ok: retention.retentionRate >= 0.5,
+            retentionRate: retention.retentionRate,
+            lost: retention.lost,
+          });
+        }
+      } catch (reason) {
+        reporter().record('s7-references', {
+          id: caseId,
+          ok: false,
+          error: reason instanceof Error ? reason.message : String(reason),
+        });
+      }
+    }
+    expect(reporter().rate('s7-references').total).toBeGreaterThan(0);
   }, SUITE_TIMEOUT_MS);
 });
