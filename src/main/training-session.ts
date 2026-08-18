@@ -838,14 +838,27 @@ export class TrainingSessionService {
       } finally {
         repository.close();
       }
-      session.phase = 'candidates-ready';
-      session.transcript.push({
-        role: 'coach',
-        kind: 'candidates',
-        text: session.candidates.length > 0
-          ? `提炼出 ${session.candidates.length} 个候选模块。外壳用的是你自己的话，逐个确认、修改或拒绝。`
-          : '这一轮没有提炼出符合粒度标准的候选模块。',
-      });
+      if (session.candidates.length > 0) {
+        session.phase = 'candidates-ready';
+        session.transcript.push({
+          role: 'coach',
+          kind: 'candidates',
+          text: `提炼出 ${session.candidates.length} 个候选模块。外壳用的是你自己的话，逐个确认、修改或拒绝。`,
+        });
+      } else {
+        // Zero candidates must never dead-end the round: fall back to
+        // second-done so rehearse / retry-extraction / exit all stay open.
+        session.phase = 'second-done';
+        session.transcript.push({
+          role: 'coach',
+          kind: 'candidates',
+          text: '这一轮没有提炼出符合粒度标准的候选模块——回答里还没有出现"一句核心判断 + 展开 + 你的原话"这样完整的表达单元。',
+        }, {
+          role: 'system',
+          kind: 'status',
+          text: '可以：再练一遍（把想法说得更完整，更容易提炼出积木）→ 再次点"提炼语言乐高"重试；或点左上角"← 返回"结束本轮。',
+        });
+      }
       return this.#turnState();
     });
   }

@@ -195,6 +195,31 @@ describe('training session v2 orchestration', () => {
     await rm(directory, { recursive: true, force: true });
   });
 
+  it('falls back to second-done with guidance when extraction yields nothing', async () => {
+    await service.start({ topic: '', scenarioId: null, questionId: null });
+    await service.closeFirst({
+      outcome: 'answered', responseText: '嗯……可能要看情况吧。', recordingId: null,
+      openingDelayMs: null, durationMs: null,
+    });
+    await service.diagnose();
+    await service.second('我觉得还是要看情况。');
+    agent.submitCandidatesOnExtract = 0;
+    const empty = await service.extract();
+    expect(empty.phase).toBe('second-done');
+    expect(empty.transcript.some((entry) => entry.text.includes('再练一遍'))).toBe(true);
+
+    // The round is not dead: rehearse and retry extraction still work.
+    await service.rehearse({
+      responseText: '重来一遍：我的核心判断是分歧要先界定范围再谈方案。',
+      recordingId: null,
+      durationMs: null,
+    });
+    agent.submitCandidatesOnExtract = 1;
+    const retried = await service.extract();
+    expect(retried.phase).toBe('candidates-ready');
+    expect(retried.candidates.length).toBeGreaterThanOrEqual(1);
+  });
+
   it('requires a profile seed before open practice', async () => {
     const bareProduct = new ProductDatabase(
       path.join(directory, 'bare.db'),
