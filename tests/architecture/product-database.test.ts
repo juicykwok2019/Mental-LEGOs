@@ -428,6 +428,14 @@ describe('formal product database', () => {
     expect(database.search('壁垒').some((hit) => hit.entityId === ids.moduleId)).toBe(false);
   });
 
+  it('rejects malicious column names in restored backup rows', () => {
+    expect(() => database.restoreRow('scenarios', {
+      'id) VALUES (1); DROP TABLE scenarios;--': 'x',
+    })).toThrow('Invalid column name');
+    expect(() => database.restoreRow('scenarios; DROP TABLE sources', { id: 'x' }))
+      .toThrow('Invalid table name');
+  });
+
   it('exports with a password and restores into a fresh database with a different key', () => {
     const ids = seedScenarioTraining();
     database.confirmLegoVersion(ids.moduleId, 1, LATER);

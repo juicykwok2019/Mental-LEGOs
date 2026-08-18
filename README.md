@@ -14,12 +14,12 @@
 
 **已交付功能**（五个导航区：今天练 / 场景 / 积木库 / 个人底座 / 设置）：
 
-- **核心训练闭环**：画像接地出题（六题型轮换、探索题标注）→ 第一遍无辅助回答（含"答不出来"的知识缺口/表达缺口分流）→ 引用原话的证据化诊断 → L1-L4 提示阶梯 → 第二遍回答 → 共同提炼候选模块（**确认前可编辑措辞**，入库以用户版本为准）→ 变体调用判定迁移 → 九阶掌握度与到期复现调度；
+- **核心训练闭环**：画像接地出题（六题型轮换、探索题标注、基于模块关系的**组合题**——盲测出题、答后揭示目标积木对）→ 第一遍无辅助回答（含"答不出来"的知识缺口/表达缺口分流）→ 引用原话的证据化诊断 → L1-L4 提示阶梯 → **无限复练**（每遍附对照点评或实测数据，满意才提炼）→ 共同提炼候选模块（**确认前可编辑措辞**，入库以用户版本为准）→ 变体调用判定迁移 → 九阶掌握度与到期复现调度；重进练过的题目自动回放历史作答（含录音）；
 - **真实场景模式**：场景创建 → 材料导入（**PDF / DOCX / 文本文件本地解析**或粘贴，逐项授权，可附使用意图）→ 针对性问题生成（高成本操作需确认）→ 逐题门禁训练 → 事后转写复盘 → 场景模块提炼与手动提升（通用/专业）；
 - **演讲专业化**：试讲实测反馈（时长、语速对照 180-220 字/分舒适区、基于 SenseVoice token 时间戳的真实停顿检测）、演讲结构诊断透镜、**演讲骨架组装**（用用户自己的模块拼装：开场钩子 → 模块引用要点 + 时间预算 → 收尾，缺口标注【缺积木】而非编造）、压缩 / 扩展 / 换听众三种变换；
-- **积木库**：模块四件套展示（语义内核 / 逻辑骨架 / 语言外壳 / 触发线索，均有白话说明）、版本历史、模块关系（可组合 / 相似 / 互斥 / 先于）、现实使用上报驱动调度、归档-恢复-彻底删除；
+- **积木库**：模块四件套展示（语义内核 / 逻辑骨架 / 语言外壳 / 触发线索，均有白话说明）、改名、版本历史、模块关系（可组合 / 相似 / 互斥 / 先于——驱动组合出题与骨架排布，相似可**一键合并去重**）、现实使用上报驱动调度、归档-恢复-彻底删除；
 - **个人底座**：画像种子、三层画像观察（待验假设 / 有据观察 / 已确认事实，候选观察可"确认属实 / 不是我"复核）、知识底座（含知识缺口汇总，逐条可删）；
-- **本地语音**：SenseVoice / sherpa-onnx 本地转写，模型逐文件校验下载，音频不出设备，单条录音可删；
+- **本地语音**：SenseVoice / sherpa-onnx 本地转写，模型逐文件校验下载，音频不出设备；录音与作答**全链路关联**（对话气泡、历史回顾、设置页均可回放自评），音频文件（wav/mp3/m4a）可导入本地转写为材料或复盘转写，单条录音可删；
 - **隐私与数据主权**：字段级 AES-256-GCM 加密落盘（主密钥存 Windows 凭据管理器）、分层删除（录音 / 材料 / 模块版本 / 整模块 / 场景级联）、口令加密导出、**换设备加密备份恢复**（全新安装引导页入口）、原始 token 用量展示（不折算金额）；
 - **多 Provider**：Anthropic / Kimi 开放平台 / DeepSeek / 智谱官方 Anthropic 兼容端点预置 + 自定义端点，两阶段真实能力认证；Provider 输出漂移（字段名、枚举值）统一归一化，单条异常不废整次调用。
 
@@ -144,12 +144,12 @@ As of 2026-08-18 all four PRD phases are **delivered within single-machine scope
 
 **Shipped features** (five navigation areas — Today / Scenarios / Brick Library / Personal Foundation / Settings):
 
-- **Core training loop**: profile-grounded question generation (six rotating types, exploratory marking) → unaided first attempt (with a knowledge-gap vs expression-gap fork for "I cannot answer") → evidence-based diagnosis that must quote the user's own words → an L1-L4 hint ladder → second attempt → co-extracted candidate modules that are **user-editable before confirmation** → a changed-question transfer check → nine-stage mastery with spaced-recall scheduling;
+- **Core training loop**: profile-grounded question generation (six rotating types, exploratory marking, relation-driven **composition questions** asked blind and revealed after the attempt) → unaided first attempt (with a knowledge-gap vs expression-gap fork) → evidence-based diagnosis that must quote the user's own words → an L1-L4 hint ladder → **unlimited polish rounds** (each answered with a comparative critique or measured stats; extraction only when the user is satisfied) → co-extracted candidate modules that are **user-editable before confirmation** → a changed-question transfer check → nine-stage mastery with spaced-recall scheduling; re-entering a trained question replays its history, recordings included;
 - **Real-scenario mode**: scenario creation → material import (**local PDF / DOCX / text parsing** or paste, per-item authorization, optional usage intent) → targeted question generation (high-cost confirmation) → per-question gated training → post-event transcript review → scenario modules with manual promotion;
 - **Speech professionalization**: measured rehearsal feedback (duration, pace against the 180-220 chars/min comfort band, real pause detection from SenseVoice token timestamps), a delivery-structure diagnosis lens, **speech skeleton composition** from the user's own modules (hook → module-referenced points with time budgets → close; missing bricks are marked, never invented), and compress / expand / re-audience transformations;
-- **Brick library**: four-part module anatomy with plain-language explanations, version history, module relations (composes / similar / conflicts / precedes), real-world usage reporting that drives scheduling, and archive-restore-hard-delete;
+- **Brick library**: four-part module anatomy with plain-language explanations, renaming, version history, module relations (composes / similar / conflicts / precedes — driving composition questions and skeleton layout, with one-click **similar-merge** deduplication), real-world usage reporting that drives scheduling, and archive-restore-hard-delete;
 - **Personal foundation**: profile seed, three-tier profile observations (hypothesis / evidenced observation / confirmed fact, with confirm-or-reject review), and the knowledge base including gap summaries;
-- **Local speech**: SenseVoice / sherpa-onnx on-device transcription with per-file-verified model download; audio never leaves the device; per-recording deletion;
+- **Local speech**: SenseVoice / sherpa-onnx on-device transcription with per-file-verified model download; audio never leaves the device; recordings are **linked to their attempts** and replayable everywhere (chat bubbles, history, Settings), audio files (wav/mp3/m4a) import for local transcription, and recordings delete individually;
 - **Privacy and data sovereignty**: field-level AES-256-GCM encryption at rest (master key in Windows Credential Manager), layered deletion (recording / material / module version / whole module / scenario cascade), password-sealed export, **cross-device encrypted backup restore** on a fresh install, and raw token usage display (never currency estimates);
 - **Multi-provider**: Anthropic / Kimi Open Platform / DeepSeek / Zhipu official Anthropic-compatible presets plus custom endpoints, two-stage real capability certification, and normalization of provider output drift so one malformed element never voids a run.
 

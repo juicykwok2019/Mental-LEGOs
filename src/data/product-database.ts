@@ -1498,6 +1498,12 @@ export class ProductDatabase {
   restoreRow(table: string, row: Row): void {
     if (!/^[a-z_]+$/u.test(table)) throw new Error('Invalid table name.');
     const keys = Object.keys(row);
+    // Column names come from the (attacker-controllable) backup JSON and are
+    // interpolated into SQL — identifiers must be as strictly validated as
+    // the table name, or a crafted .mlexport becomes an injection vector.
+    for (const key of keys) {
+      if (!/^[a-z0-9_]+$/u.test(key)) throw new Error(`Invalid column name in backup: ${key}`);
+    }
     const placeholders = keys.map(() => '?').join(', ');
     this.#database.prepare(
       `INSERT INTO ${table} (${keys.join(', ')}) VALUES (${placeholders})`,

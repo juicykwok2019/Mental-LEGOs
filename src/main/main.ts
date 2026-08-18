@@ -1067,6 +1067,10 @@ function registerIpcHandlers(): void {
     if (dialogResult.canceled || !selectedPath) {
       return privacyImportResultSchema.parse({ restored: false, fileName: null, moduleCount: 0 });
     }
+    const importStat = await stat(selectedPath);
+    if (importStat.size > 512 * 1024 * 1024) {
+      throw new Error('备份文件超过 512MB，超出可恢复范围。');
+    }
     let envelope: ExportEnvelope;
     try {
       envelope = JSON.parse(await readFile(selectedPath, 'utf8')) as ExportEnvelope;
