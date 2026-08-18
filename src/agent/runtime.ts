@@ -183,7 +183,7 @@ export function buildMinimalAgentEnvironment(options: {
   environment.CLAUDE_CODE_DISABLE_AUTO_MEMORY = '1';
   environment.CLAUDE_AGENT_SDK_DISABLE_BUILTIN_AGENTS = '1';
   environment.CLAUDE_CODE_DISABLE_BUNDLED_SKILLS = '1';
-  environment.CLAUDE_AGENT_SDK_CLIENT_APP = 'mental-legos/0.1.0';
+  environment.CLAUDE_AGENT_SDK_CLIENT_APP = 'mental-legos/0.2.0';
   environment.NO_PROXY = '127.0.0.1,localhost';
 
   return environment;

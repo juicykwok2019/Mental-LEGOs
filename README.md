@@ -10,7 +10,7 @@
 
 ### 当前版本
 
-**0.1.0**（验收定档标签 `v0.1.0-phase1`；`main` 分支包含其后的真机验收迭代与安全修复，为最新可用版本）。
+**0.2.0**（定档标签 `v0.2.0`——含 Phase 2/3/4 全部功能、两天真机验收打磨与安全修复；上一定档为 `v0.1.0-phase1`）。
 
 ### 下载与安装
 
@@ -161,7 +161,7 @@ The goal is not to let AI answer on the user's behalf. It is to help the user bu
 
 ### Current version
 
-**0.1.0** (acceptance tag `v0.1.0-phase1`; the `main` branch carries the subsequent live-acceptance iterations and security fixes and is the latest usable build).
+**0.2.0** (tag `v0.2.0` — all Phase 2/3/4 features, two days of live-acceptance polish, and the security fixes; the previous milestone was `v0.1.0-phase1`).
 
 ### Download and install
 

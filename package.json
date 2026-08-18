@@ -1,7 +1,7 @@
 {
   "name": "mental-legos",
   "productName": "Mental LEGOs",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Local-first language LEGO training for professional spoken communication.",
   "author": "Mental LEGOs Contributors",
   "main": ".vite/build/main.js",
