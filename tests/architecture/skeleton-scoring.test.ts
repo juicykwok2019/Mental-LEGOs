@@ -50,6 +50,13 @@ describe('validateSkeletonReferences (引用集合校验)', () => {
   it('fails an outline with no module references at all', () => {
     expect(validateSkeletonReferences('全是新写的内容，没有引用。', library).ok).toBe(false);
   });
+
+  it('ignores the speech title restated in brackets when whitelisted', () => {
+    const outline = '【季度经营会：管道质量汇报】\n要点：引用模块【三组数字作证】';
+    const validation = validateSkeletonReferences(outline, library, ['季度经营会：管道质量汇报']);
+    expect(validation.ok).toBe(true);
+    expect(validation.references).toEqual(['三组数字作证']);
+  });
 });
 
 describe('scoreTimeBudget (时间预算加和)', () => {
@@ -76,6 +83,17 @@ describe('scoreTimeBudget (时间预算加和)', () => {
     const report = scoreTimeBudget(outline, 10);
     expect(report.totalMinutes).toBe(10);
     expect(report.withinTolerance).toBe(true);
+  });
+
+  it('resolves the two-value ambiguity toward the target', () => {
+    // "总时长 5 分钟 + 正文 5 分钟"：目标 5 时按剔除总行解释——
+    const asTotal = scoreTimeBudget('总时长 5 分钟\n正文 5 分钟', 5);
+    expect(asTotal.totalMinutes).toBe(5);
+    expect(asTotal.withinTolerance).toBe(true);
+    // ——目标 10 时按两段相加解释，两种歧义都不误伤。
+    const asSections = scoreTimeBudget('上半场 5 分钟\n下半场 5 分钟', 10);
+    expect(asSections.totalMinutes).toBe(10);
+    expect(asSections.withinTolerance).toBe(true);
   });
 });
 

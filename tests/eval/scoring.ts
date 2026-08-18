@@ -41,19 +41,36 @@ export interface DiagnosisGroundingReport {
 }
 
 const QUOTE_SPAN_PATTERN = /[「『“"]([^」』”"]{2,})[」』”"]/gu;
+const NUMBERED_FINDING_PATTERN = /(?:^|\n)\s*(?:\*{0,2})\d+[.、）)]/u;
+
+/** 把诊断文本拆成 finding 单元。真实模型输出常见"前言 + 编号小节"结构
+ * （标题行与内容行分行）——按编号块切分，标题与内容归入同一 finding；
+ * 无编号时退回按行切分（与主流程存储口径一致）。 */
+function splitFindings(diagnosis: string): string[] {
+  if (NUMBERED_FINDING_PATTERN.test(diagnosis)) {
+    const blocks = diagnosis
+      .split(/(?=(?:^|\n)\s*(?:\*{0,2})\d+[.、）)])/u)
+      .map((block) => block.trim())
+      .filter(Boolean);
+    // 首块若不带编号则是前言（"以下是五个诊断要点："），不算 finding。
+    const findings = blocks.filter((block) => /^(?:\*{0,2})\d+[.、）)]/u.test(block));
+    if (findings.length > 0) return findings.slice(0, 8);
+  }
+  return diagnosis
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 5);
+}
 
 /** 诊断的每条发现必须包含用户原话的直接引用（Suite 1 规则项，
- * 指标：诊断引用率 = 100%）。按行拆 finding，与主流程一致（最多 5 条）。 */
+ * 指标：诊断引用率 = 100%）。 */
 export function scoreDiagnosisGrounding(
   diagnosis: string,
   userResponse: string,
 ): DiagnosisGroundingReport {
   const normalizedResponse = normalizeForMatch(userResponse);
-  const findings = diagnosis
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .slice(0, 5)
+  const findings = splitFindings(diagnosis)
     .map((finding) => {
       const spans = [...finding.matchAll(QUOTE_SPAN_PATTERN)]
         .flatMap((match) => (match[1] === undefined ? [] : [match[1]]));
@@ -86,6 +103,15 @@ const DEMONSTRATION_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
 ];
 
 const OUTLINE_LINE_PATTERN = /^\s*(?:[-*•]|\d{1,2}[.、).]|[①②③④⑤⑥⑦⑧⑨⑩]|第[一二三四五六七八九十]+[步点条])/u;
+
+/** 只查示范措辞（不查大纲/长度）——用于诊断这类本就该分条的输出。 */
+export function scoreDemonstrationLeakage(text: string): LeakageReport {
+  const reasons: string[] = [];
+  for (const { pattern, reason } of DEMONSTRATION_PATTERNS) {
+    if (pattern.test(text)) reasons.push(reason);
+  }
+  return { leaked: reasons.length > 0, reasons };
+}
 
 /** 出题输出不得包含大纲或示范回答结构（Suite 1 规则项：模式匹配 + 长度上限）。
  * `maxLength` 按归一化字符数计，默认 300（场景题可引用材料，留出余量）。 */

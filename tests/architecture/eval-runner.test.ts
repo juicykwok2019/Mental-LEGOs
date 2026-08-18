@@ -41,6 +41,7 @@ import {
   validateSkeletonReferences,
 } from '../eval/skeleton-scoring';
 import {
+  scoreDemonstrationLeakage,
   scoreDiagnosisGrounding,
   scoreHintLadder,
   scoreQuestionLeakage,
@@ -264,7 +265,8 @@ describe('MENTAL_LEGOS_EVAL runner (Suite 1/2 rule metrics)', () => {
           .map((item) => item.text)
           .join('\n');
         const grounding = scoreDiagnosisGrounding(diagnosisText, entry.answer);
-        const diagnosisLeak = scoreQuestionLeakage(diagnosisText, 2000);
+        // 诊断本就该分条列出，只查示范措辞，不套大纲/长度规则。
+        const diagnosisLeak = scoreDemonstrationLeakage(diagnosisText);
         reporter().record('s1-diagnosis', {
           id: entry.id,
           ok: grounding.groundedRate === 1 && !diagnosisLeak.leaked,
@@ -385,6 +387,11 @@ describe('MENTAL_LEGOS_EVAL runner (Suite 1/2 rule metrics)', () => {
     const personaById = new Map(personas.map((persona) => [persona.id, persona]));
     const packs = (await loadJson<{ packs: Suite4Pack[] }>('suite4-scenarios.json')).packs;
     const sampled = sampleCases(packs, sampleFraction);
+    // 注入对抗是零容忍指标，抽样轮也必须至少覆盖一个注入包。
+    if (!sampled.some((pack) => pack.injection !== null)) {
+      const injected = packs.find((pack) => pack.injection !== null);
+      if (injected) sampled.push(injected);
+    }
 
     for (const [index, pack] of sampled.entries()) {
       const persona = personaById.get(pack.personaId);
@@ -542,12 +549,14 @@ describe('MENTAL_LEGOS_EVAL runner (Suite 1/2 rule metrics)', () => {
         const outline = composed.speechOutline ?? '';
         const titles = library.modules.map((moduleSpec) => moduleSpec.title);
 
-        const references = validateSkeletonReferences(outline, titles);
+        // 骨架里复述的演讲标题不是模块引用，排除后再做集合校验。
+        const references = validateSkeletonReferences(outline, titles, [library.speech.title]);
         reporter().record('s7-references', {
           id: caseId,
           ok: references.ok,
           references: references.references,
           unknown: references.unknown,
+          outline,
         });
 
         const budget = scoreTimeBudget(outline, duration);

@@ -41,12 +41,16 @@ export interface ReferenceValidation {
   ok: boolean;
 }
 
-/** 每个【模块引用】必须存在于该用户的模块库（集合校验，Suite 7 规则）。 */
+/** 每个【模块引用】必须存在于该用户的模块库（集合校验，Suite 7 规则）。
+ * `ignoreTitles` 用于排除非模块性引用（如骨架里复述的演讲标题）。 */
 export function validateSkeletonReferences(
   outline: string,
   libraryTitles: string[],
+  ignoreTitles: string[] = [],
 ): ReferenceValidation {
-  const { modules } = extractSkeletonReferences(outline);
+  const ignored = new Set(ignoreTitles.map((title) => title.trim()));
+  const modules = extractSkeletonReferences(outline).modules
+    .filter((title) => !ignored.has(title));
   const library = new Set(libraryTitles.map((title) => title.trim()));
   const unknown = modules.filter((title) => !library.has(title));
   return { references: modules, unknown, ok: modules.length > 0 && unknown.length === 0 };
@@ -84,20 +88,36 @@ export function scoreTimeBudget(
     values.push(Number.parseFloat(match[1] ?? '0') / 60);
   }
 
-  let sections = values;
-  if (values.length >= 3) {
-    const max = Math.max(...values);
-    const restSum = values.reduce((sum, value) => sum + value, 0) - max;
-    if (restSum > 0 && Math.abs(max - restSum) / restSum <= 0.05) {
-      const dropIndex = values.indexOf(max);
-      sections = values.filter((_, index) => index !== dropIndex);
+  // 大纲里可能夹一行"总时长 X 分钟"造成重复计数。两种解释都算：
+  // 全部相加，或剔除一个"约等于其余之和"的候选总时长值——哪种命中
+  // 目标容差就采信哪种；都不命中时取相对误差较小的一种。
+  const sum = (list: number[]): number => list.reduce((acc, value) => acc + value, 0);
+  const interpretations: number[][] = [values];
+  if (values.length >= 2) {
+    for (let index = 0; index < values.length; index += 1) {
+      const value = values[index]!;
+      const rest = sum(values) - value;
+      if (rest > 0 && Math.abs(value - rest) / rest <= 0.05) {
+        interpretations.push(values.filter((_, i) => i !== index));
+        break;
+      }
     }
   }
-
-  const totalMinutes = sections.reduce((sum, value) => sum + value, 0);
-  const withinTolerance = targetMinutes > 0
-    && Math.abs(totalMinutes - targetMinutes) / targetMinutes <= tolerance;
-  return { sections, totalMinutes, targetMinutes, withinTolerance };
+  const scored = interpretations.map((sections) => {
+    const totalMinutes = sum(sections);
+    const relativeError = targetMinutes > 0
+      ? Math.abs(totalMinutes - targetMinutes) / targetMinutes
+      : Number.POSITIVE_INFINITY;
+    return { sections, totalMinutes, relativeError };
+  });
+  scored.sort((left, right) => left.relativeError - right.relativeError);
+  const best = scored[0]!;
+  return {
+    sections: best.sections,
+    totalMinutes: best.totalMinutes,
+    targetMinutes,
+    withinTolerance: best.relativeError <= tolerance,
+  };
 }
 
 export interface RetentionReport {

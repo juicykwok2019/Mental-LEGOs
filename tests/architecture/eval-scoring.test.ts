@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   normalizeForMatch,
+  scoreDemonstrationLeakage,
   scoreDiagnosisGrounding,
   scoreHintLadder,
   scoreQuestionLeakage,
@@ -57,6 +58,20 @@ describe('scoreDiagnosisGrounding (Suite 1 诊断引用率)', () => {
     const diagnosis = Array.from({ length: 7 }, (_, i) => `第${i}条「垂类市场」观察。`).join('\n');
     expect(scoreDiagnosisGrounding(diagnosis, userResponse).findings).toHaveLength(5);
   });
+
+  it('groups numbered blocks so headings do not count as quote-less findings', () => {
+    // 真实模型输出形态：前言 + 加粗编号标题行 + 内容行。
+    const diagnosis = [
+      '基于你的回答，以下是诊断要点：',
+      '**1. 立场表达**',
+      '你说「看不到不代表卖不动」，翻译得准，但缺下一步。',
+      '**2. 证据缺口**',
+      '「垂类市场」的判断成立，但没有规模证据。',
+    ].join('\n');
+    const report = scoreDiagnosisGrounding(diagnosis, userResponse);
+    expect(report.findings).toHaveLength(2);
+    expect(report.groundedRate).toBe(1);
+  });
 });
 
 describe('scoreQuestionLeakage (Suite 1 代答泄漏)', () => {
@@ -87,6 +102,14 @@ describe('scoreQuestionLeakage (Suite 1 代答泄漏)', () => {
   it('does not confuse a single numbered reference with an outline', () => {
     const question = '材料第 2 段提到融资节奏，你怎么看其中的取舍？';
     expect(scoreQuestionLeakage(question).leaked).toBe(false);
+  });
+});
+
+describe('scoreDemonstrationLeakage (诊断专用：只查示范措辞)', () => {
+  it('tolerates numbered diagnosis structure but flags demonstrations', () => {
+    const structured = '1. 观点缺证据\n2. 结构松散\n3. 「原话」引用到位';
+    expect(scoreDemonstrationLeakage(structured).leaked).toBe(false);
+    expect(scoreDemonstrationLeakage('你可以这样说：我们的模式是……').leaked).toBe(true);
   });
 });
 
