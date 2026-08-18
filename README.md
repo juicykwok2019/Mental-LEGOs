@@ -14,16 +14,39 @@
 
 ### 下载与安装
 
-暂无公开发布渠道，需从源码构建（Windows 10/11 x64，Node.js ≥ 22）：
+暂无公开发布渠道，需从源码构建。
+
+**环境要求**
+
+- Windows 10 / 11（x64）
+- Node.js ≥ 22 与 npm
+
+**构建安装包**
 
 ```bash
 git clone https://github.com/juicykwok2019/Mental-LEGOs.git
 cd Mental-LEGOs
 npm install
-npm run make        # 生成安装包到 out/make/
+npm run make
 ```
 
-构建产物：`out/make/squirrel.windows/x64/Mental LEGOs-<版本> Setup.exe`（双击安装，装至 `%LocalAppData%\mental_legos`，卸载走 Windows"设置 → 应用"）；同目录另有免安装 zip。开发运行用 `npm start`。首次使用需在应用内：填写三句话画像（或从加密备份恢复）→ 设置页下载离线 Bash 运行时与本地语音模型 → 配置自己的模型 API Key（BYOK）。用户数据存于 `%APPDATA%\Mental LEGOs`，全程本机。
+产物位于 `out/make/`：
+
+| 产物 | 说明 |
+| --- | --- |
+| `squirrel.windows/x64/Mental LEGOs-<版本> Setup.exe` | 双击安装，装至 `%LocalAppData%\mental_legos`；卸载走 Windows「设置 → 应用」 |
+| `zip/win32/x64/Mental LEGOs-win32-x64-<版本>.zip` | 免安装便携版 |
+
+开发调试直接 `npm start`（无需打包）。
+
+**首次使用**
+
+1. 填写三句话专业画像（换设备迁移可改用引导页的「从加密备份恢复」）；
+2. 进入「设置」，下载离线 Bash 运行时与本地语音模型（均逐文件校验）；
+3. 配置自己的模型 API Key（BYOK，支持 Anthropic / Kimi / DeepSeek / 智谱预置或自定义端点）；
+4. 回到「今天练」，开始第一轮训练。
+
+用户数据存于 `%APPDATA%\Mental LEGOs`，全程本机，不上传。
 
 ### 项目状态
 
@@ -165,16 +188,39 @@ The goal is not to let AI answer on the user's behalf. It is to help the user bu
 
 ### Download and install
 
-No public release channel yet — build from source (Windows 10/11 x64, Node.js ≥ 22):
+No public release channel yet — build from source.
+
+**Requirements**
+
+- Windows 10 / 11 (x64)
+- Node.js ≥ 22 with npm
+
+**Build the installer**
 
 ```bash
 git clone https://github.com/juicykwok2019/Mental-LEGOs.git
 cd Mental-LEGOs
 npm install
-npm run make        # installer lands in out/make/
+npm run make
 ```
 
-Artifacts: `out/make/squirrel.windows/x64/Mental LEGOs-<version> Setup.exe` (installs to `%LocalAppData%\mental_legos`; uninstall via Windows Settings → Apps), plus a portable zip alongside. Use `npm start` for a dev run. First-run setup inside the app: fill the three-sentence profile (or restore an encrypted backup) → download the offline Bash runtime and local speech model in Settings → configure your own model API key (BYOK). User data lives in `%APPDATA%\Mental LEGOs`, entirely on-device.
+Artifacts land in `out/make/`:
+
+| Artifact | Notes |
+| --- | --- |
+| `squirrel.windows/x64/Mental LEGOs-<version> Setup.exe` | Double-click to install into `%LocalAppData%\mental_legos`; uninstall via Windows Settings → Apps |
+| `zip/win32/x64/Mental LEGOs-win32-x64-<version>.zip` | Portable build, no installation |
+
+For development, `npm start` runs the app directly.
+
+**First run**
+
+1. Fill in the three-sentence professional profile (or use "restore from encrypted backup" on the onboarding screen when migrating devices);
+2. In Settings, download the offline Bash runtime and the local speech model (both per-file verified);
+3. Configure your own model API key (BYOK — Anthropic / Kimi / DeepSeek / Zhipu presets or a custom endpoint);
+4. Head back to Today and start your first round.
+
+User data lives in `%APPDATA%\Mental LEGOs` — entirely on-device, never uploaded.
 
 ### Status
 
