@@ -149,6 +149,24 @@ const variationJudgementSchema = z.object({
   comment: z.string().trim().min(1),
 });
 
+// Shared between the in-session judgement (answerVariation) and the eval-only
+// judgeVariation entry, so Suite 3 always measures the exact production prompt.
+export function buildVariationJudgementPrompt(input: {
+  semanticKernel: string;
+  variationQuestion: string;
+  responseText: string;
+}): string {
+  return [
+    'Judge whether the user transferred their confirmed module to the changed question.',
+    `Module kernel: ${input.semanticKernel}`,
+    `Changed question: ${input.variationQuestion}`,
+    `User answer: ${input.responseText}`,
+    'success = the kernel was recalled and adapted; partial = fragments appeared without the',
+    'core; failure = the module did not surface. Judge recall, not eloquence.',
+    'Reply with ONLY this JSON: {"result":"success|partial|failure","comment":"one Chinese sentence"}',
+  ].join('\n');
+}
+
 const candidatePayloadSchema = z.object({
   title: z.string(),
   category: z.string().default('viewpoint'),
@@ -1005,15 +1023,11 @@ export class TrainingSessionService {
       const version = module?.currentVersion
         ? this.#product.getLegoVersion(moduleId, module.currentVersion)
         : null;
-      const prompt = [
-        'Judge whether the user transferred their confirmed module to the changed question.',
-        `Module kernel: ${version?.payload.semanticKernel}`,
-        `Changed question: ${variationQuestion?.prompt}`,
-        `User answer: ${responseText}`,
-        'success = the kernel was recalled and adapted; partial = fragments appeared without the',
-        'core; failure = the module did not surface. Judge recall, not eloquence.',
-        'Reply with ONLY this JSON: {"result":"success|partial|failure","comment":"one Chinese sentence"}',
-      ].join('\n');
+      const prompt = buildVariationJudgementPrompt({
+        semanticKernel: version?.payload.semanticKernel ?? '',
+        variationQuestion: variationQuestion?.prompt ?? '',
+        responseText,
+      });
       const output = await this.#runAgent(session, prompt, 4);
       const judged = parseJsonReply(extractFinalText(output.messages), variationJudgementSchema);
       const mastery = this.#engine.recordPracticeResult({
@@ -1030,6 +1044,26 @@ export class TrainingSessionService {
         text: `迁移判定：${judged.result === 'success' ? '成功' : judged.result === 'partial' ? '部分成功' : '未调用'}。${judged.comment}（掌握阶段 → ${mastery.stage}，下次复现 ${mastery.dueAt ?? '未安排'}）`,
       });
       return this.#turnState();
+    });
+  }
+
+  // 评测专用入口（docs/evaluation-plan.md Suite 3）：用受控的（模块内核,
+  // 变体问题, 回答）三元组调用与 answerVariation 完全相同的判定 prompt 与
+  // 解析。不写任何产品数据（不建 attempt、不动掌握度），会话对象即用即还。
+  async judgeVariation(input: {
+    semanticKernel: string;
+    variationQuestion: string;
+    responseText: string;
+  }): Promise<{ result: 'success' | 'partial' | 'failure'; comment: string }> {
+    return this.#exclusive(async () => {
+      const previous = this.#session;
+      const session = await this.#createSession('open', null);
+      try {
+        const output = await this.#runAgent(session, buildVariationJudgementPrompt(input), 4);
+        return parseJsonReply(extractFinalText(output.messages), variationJudgementSchema);
+      } finally {
+        this.#session = previous;
+      }
     });
   }
 

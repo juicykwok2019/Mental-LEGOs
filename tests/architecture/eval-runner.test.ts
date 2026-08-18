@@ -687,4 +687,93 @@ describe('MENTAL_LEGOS_EVAL runner (Suite 1/2 rule metrics)', () => {
     });
     expect(reporter().rate('s5-loop').total).toBeGreaterThan(0);
   }, SUITE_TIMEOUT_MS);
+
+  evalProbe('suite 3: variation judgement vs human gold labels', async () => {
+    interface Suite3Module { id: string; title: string; kernel: string; shell: string }
+    interface Suite3Case {
+      id: string; moduleId: string; difficulty: string;
+      variationQuestion: string; userAnswer: string;
+      proposedLabel: string; goldLabel: 'success' | 'partial' | 'failure' | null;
+    }
+    interface Suite3Kit { modules: Suite3Module[]; cases: Suite3Case[] }
+
+    const personas = (await loadJson<{ personas: Persona[] }>('personas.json')).personas;
+    const persona = personas.find((candidate) => candidate.id === 'founder');
+    if (!persona) throw new Error('founder persona missing from corpus');
+    const kit = await loadJson<Suite3Kit>('suite3-variation-gold.json');
+    const moduleById = new Map(kit.modules.map((module) => [module.id, module]));
+    const labeled = kit.cases.filter((entry) => entry.goldLabel !== null);
+    if (labeled.length === 0) {
+      // 金标签未标注时本套件无事可测（金标签是唯一的评分权威）。
+      reporter().record('s3-agreement', { id: 'unlabeled', ok: false, error: 'gold labels missing' });
+      return;
+    }
+    const sampled = sampleCases(labeled, sampleFraction);
+    // 判定 prompt 不读画像，一个 harness 即可服务全部样本。
+    const harness = await createHarness(persona);
+
+    for (const entry of sampled) {
+      const module = moduleById.get(entry.moduleId);
+      if (!module) continue;
+      try {
+        const judged = await harness.service.judgeVariation({
+          semanticKernel: module.kernel,
+          variationQuestion: entry.variationQuestion,
+          responseText: entry.userAnswer,
+        });
+        reporter().record('s3-agreement', {
+          id: entry.id,
+          ok: judged.result === entry.goldLabel,
+          judged: judged.result,
+          gold: entry.goldLabel,
+          difficulty: entry.difficulty,
+          comment: judged.comment,
+        });
+        if (entry.goldLabel === 'failure') {
+          // 最危险方向：failure 被判 success = 虚假晋级（指标 ≤5%）。
+          reporter().record('s3-dangerous', {
+            id: entry.id,
+            ok: judged.result !== 'success',
+            judged: judged.result,
+          });
+        }
+      } catch (reason) {
+        reporter().record('s3-agreement', {
+          id: entry.id,
+          ok: false,
+          gold: entry.goldLabel,
+          error: reason instanceof Error ? reason.message : String(reason),
+        });
+      }
+    }
+
+    // 自一致率：抽样集的前三条各重跑 3 次，要求三次同判。
+    for (const entry of sampled.slice(0, 3)) {
+      const module = moduleById.get(entry.moduleId);
+      if (!module) continue;
+      try {
+        const results: string[] = [];
+        for (let round = 0; round < 3; round += 1) {
+          const judged = await harness.service.judgeVariation({
+            semanticKernel: module.kernel,
+            variationQuestion: entry.variationQuestion,
+            responseText: entry.userAnswer,
+          });
+          results.push(judged.result);
+        }
+        reporter().record('s3-self-consistency', {
+          id: entry.id,
+          ok: new Set(results).size === 1,
+          results,
+        });
+      } catch (reason) {
+        reporter().record('s3-self-consistency', {
+          id: entry.id,
+          ok: false,
+          error: reason instanceof Error ? reason.message : String(reason),
+        });
+      }
+    }
+    expect(reporter().rate('s3-agreement').total).toBeGreaterThan(0);
+  }, SUITE_TIMEOUT_MS);
 });
