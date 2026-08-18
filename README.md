@@ -8,9 +8,26 @@
 
 产品目标不是让 AI 代替用户回答，而是帮助用户建立真正属于自己的语言——**不再从零思考表达，拼装你的认知积木**——使其能够在面试、会议、谈判、客户沟通、专业演讲和现场问答中自然调用。
 
+### 当前版本
+
+**0.1.0**（验收定档标签 `v0.1.0-phase1`；`main` 分支包含其后的真机验收迭代与安全修复，为最新可用版本）。
+
+### 下载与安装
+
+暂无公开发布渠道，需从源码构建（Windows 10/11 x64，Node.js ≥ 22）：
+
+```bash
+git clone https://github.com/juicykwok2019/Mental-LEGOs.git
+cd Mental-LEGOs
+npm install
+npm run make        # 生成安装包到 out/make/
+```
+
+构建产物：`out/make/squirrel.windows/x64/Mental LEGOs-<版本> Setup.exe`（双击安装，装至 `%LocalAppData%\mental_legos`，卸载走 Windows"设置 → 应用"）；同目录另有免安装 zip。开发运行用 `npm start`。首次使用需在应用内：填写三句话画像（或从加密备份恢复）→ 设置页下载离线 Bash 运行时与本地语音模型 → 配置自己的模型 API Key（BYOK）。用户数据存于 `%APPDATA%\Mental LEGOs`，全程本机。
+
 ### 项目状态
 
-截至 2026-08-18，PRD 规划的四个阶段在单机可行范围内**已全部交付**，验收版本以 `v0.1.0-phase1` 标签定档，Windows 安装包（Squirrel Setup.exe + 便携 zip）可通过 `npm run make` 构建。完整训练闭环已在真实 Provider（Kimi 开放平台官方 Anthropic 端点）上端到端验证。
+截至 2026-08-18，PRD 规划的四个阶段在单机可行范围内**已全部交付**。完整训练闭环已在真实 Provider（Kimi 开放平台官方 Anthropic 端点）上端到端验证，全部新增攻击面经过安全审查。
 
 **已交付功能**（五个导航区：今天练 / 场景 / 积木库 / 个人底座 / 设置）：
 
@@ -130,6 +147,10 @@ npm run make                   # 生成 Windows 安装包（out/make/）
 
 示例和测试数据必须使用合成数据或明确公开的数据。私密产品文档与本地用户材料仅保存在 Git 忽略的目录中。
 
+### 许可证
+
+版权所有 © 2026 Mental LEGOs 项目作者，保留所有权利（All Rights Reserved）。本仓库暂未采用开源许可证：在获得明确书面授权前，不授予复制、修改、分发或商用本代码的许可。第三方组件的许可声明见 `resources/licenses/`。
+
 ---
 
 ## English
@@ -138,9 +159,26 @@ Mental LEGOs (心智乐高) is a local-first training system for turning persona
 
 The goal is not to let AI answer on the user's behalf. It is to help the user build language that becomes genuinely available in interviews, meetings, negotiations, client conversations, professional presentations, and live Q&A — never thinking from zero again, assembling your own cognitive bricks instead.
 
+### Current version
+
+**0.1.0** (acceptance tag `v0.1.0-phase1`; the `main` branch carries the subsequent live-acceptance iterations and security fixes and is the latest usable build).
+
+### Download and install
+
+No public release channel yet — build from source (Windows 10/11 x64, Node.js ≥ 22):
+
+```bash
+git clone https://github.com/juicykwok2019/Mental-LEGOs.git
+cd Mental-LEGOs
+npm install
+npm run make        # installer lands in out/make/
+```
+
+Artifacts: `out/make/squirrel.windows/x64/Mental LEGOs-<version> Setup.exe` (installs to `%LocalAppData%\mental_legos`; uninstall via Windows Settings → Apps), plus a portable zip alongside. Use `npm start` for a dev run. First-run setup inside the app: fill the three-sentence profile (or restore an encrypted backup) → download the offline Bash runtime and local speech model in Settings → configure your own model API key (BYOK). User data lives in `%APPDATA%\Mental LEGOs`, entirely on-device.
+
 ### Status
 
-As of 2026-08-18 all four PRD phases are **delivered within single-machine scope**. The acceptance build is tagged `v0.1.0-phase1`, a Windows installer (Squirrel Setup.exe plus a portable zip) builds via `npm run make`, and the full training loop is verified end to end against a real provider (the Kimi Open Platform official Anthropic endpoint).
+As of 2026-08-18 all four PRD phases are **delivered within single-machine scope**. The full training loop is verified end to end against a real provider (the Kimi Open Platform official Anthropic endpoint), and every newly added attack surface has passed a security review.
 
 **Shipped features** (five navigation areas — Today / Scenarios / Brick Library / Personal Foundation / Settings):
 
@@ -259,3 +297,7 @@ npm run make                   # Windows installer (out/make/)
 This repository is maintained as if every commit may eventually become public. Personal materials, recordings, transcripts, credentials, real client data, private product research, and other confidential inputs must never be committed.
 
 Examples and test fixtures must use synthetic or explicitly public data. Private product documents and local user materials are kept outside Git through ignored directories.
+
+### License
+
+Copyright © 2026 the Mental LEGOs project authors. All rights reserved. This repository has not adopted an open-source license: no permission to copy, modify, distribute, or commercially use this code is granted without explicit written authorization. Third-party component notices live in `resources/licenses/`.
