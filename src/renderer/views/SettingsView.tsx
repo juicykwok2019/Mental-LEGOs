@@ -647,6 +647,7 @@ export function SettingsView() {
                   <span>
                     {item.recordedAt.slice(0, 16).replace('T', ' ')} ·{' '}
                     {(item.sizeBytes / 1024).toFixed(0)} KB
+                    {item.context && <em className="material-intent">题目：{item.context}</em>}
                     <button
                       type="button"
                       className="quiet-button intent-edit-button"

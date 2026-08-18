@@ -160,6 +160,12 @@ export function ChatView(props: ChatViewProps) {
   const [selected, setSelected] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, CandidateDraft>>({});
+  const [bubblePlayingId, setBubblePlayingId] = useState<string | null>(null);
+  const [bubblePlayingUrl, setBubblePlayingUrl] = useState<string | null>(null);
+
+  useEffect(() => () => {
+    if (bubblePlayingUrl) URL.revokeObjectURL(bubblePlayingUrl);
+  }, [bubblePlayingUrl]);
 
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' });
@@ -225,6 +231,33 @@ export function ChatView(props: ChatViewProps) {
           <div key={index} className={`bubble-row bubble-${entry.role}`}>
             <div className={`bubble bubble-kind-${entry.kind}`}>
               {entry.text}
+              {entry.recordingId && (
+                <div className="bubble-audio">
+                  <button
+                    type="button"
+                    className="quiet-button bubble-audio-button"
+                    onClick={() => {
+                      if (bubblePlayingId === entry.recordingId) {
+                        setBubblePlayingId(null);
+                        setBubblePlayingUrl(null);
+                        return;
+                      }
+                      void api.readRecording(entry.recordingId!).then((bytes) => {
+                        setBubblePlayingUrl(URL.createObjectURL(new Blob([bytes], { type: 'audio/wav' })));
+                        setBubblePlayingId(entry.recordingId!);
+                      }).catch(() => {
+                        setBubblePlayingId(null);
+                        setBubblePlayingUrl(null);
+                      });
+                    }}
+                  >
+                    {bubblePlayingId === entry.recordingId ? '收起录音' : '▶ 听这一遍录音'}
+                  </button>
+                  {bubblePlayingId === entry.recordingId && bubblePlayingUrl && (
+                    <audio className="recording-player" controls autoPlay src={bubblePlayingUrl} />
+                  )}
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -491,6 +524,16 @@ export function ChatView(props: ChatViewProps) {
             >
               满意了，提炼语言乐高
             </button>
+            {turn.mode === 'speech' && (
+              <button
+                type="button"
+                className="secondary-button"
+                disabled={busy}
+                onClick={() => props.onAction('点评这一遍试讲…', () => api.critiqueRehearsal())}
+              >
+                请求这一遍的点评
+              </button>
+            )}
             {turn.mode !== 'open' && (
               <button
                 type="button"

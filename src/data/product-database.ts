@@ -120,8 +120,14 @@ export class ProductDatabase {
     return Number(row.version ?? 0);
   }
 
+  #inTransaction = false;
+
+  // Reentrant: composite operations (e.g. merge) call transactional building
+  // blocks — inner calls join the outer transaction instead of nesting BEGIN.
   #transaction<T>(work: () => T): T {
+    if (this.#inTransaction) return work();
     this.#database.exec('BEGIN');
+    this.#inTransaction = true;
     try {
       const result = work();
       this.#database.exec('COMMIT');
@@ -129,6 +135,8 @@ export class ProductDatabase {
     } catch (error) {
       this.#database.exec('ROLLBACK');
       throw error;
+    } finally {
+      this.#inTransaction = false;
     }
   }
 
@@ -640,7 +648,8 @@ export class ProductDatabase {
   updateAttempt(
     id: string,
     patch: Partial<Pick<Attempt,
-      'state' | 'outcome' | 'responseText' | 'openingDelayMs' | 'durationMs' | 'hintLevel' | 'gap'>>,
+      'state' | 'outcome' | 'responseText' | 'openingDelayMs' | 'durationMs' | 'hintLevel' | 'gap'
+      | 'recordingSourceId'>>,
     now = nowIso(),
   ): Attempt {
     return this.#transaction(() => {
@@ -649,13 +658,39 @@ export class ProductDatabase {
       const next = attemptSchema.parse({ ...current, ...patch, updatedAt: now });
       this.#database.prepare(`
         UPDATE attempts SET state = ?, outcome = ?, response_enc = ?, opening_delay_ms = ?,
-          duration_ms = ?, hint_level = ?, gap = ?, updated_at = ?
+          duration_ms = ?, hint_level = ?, gap = ?, recording_source_id = ?, updated_at = ?
         WHERE id = ?
       `).run(
         next.state, next.outcome, this.#codec.encrypt(next.responseText), next.openingDelayMs,
-        next.durationMs, next.hintLevel, next.gap, next.updatedAt, id,
+        next.durationMs, next.hintLevel, next.gap, next.recordingSourceId, next.updatedAt, id,
       );
       return next;
+    });
+  }
+
+  sourceExists(id: string): boolean {
+    return Boolean(this.#database.prepare('SELECT id FROM sources WHERE id = ?').get(id));
+  }
+
+  // What a stored recording was for: the question of the attempt it belongs to.
+  recordingContext(sourceId: string): string | null {
+    const row = this.#database.prepare(
+      'SELECT question_id FROM attempts WHERE recording_source_id = ? LIMIT 1',
+    ).get(sourceId) as Row | undefined;
+    if (!row) return null;
+    const question = this.getQuestion(String(row.question_id));
+    return question ? question.prompt : null;
+  }
+
+  // Recording files are user-deletable; when one goes, its source row and the
+  // attempt references must not dangle.
+  deleteRecordingSource(sourceId: string): void {
+    this.#transaction(() => {
+      this.#database.prepare(
+        'UPDATE attempts SET recording_source_id = NULL WHERE recording_source_id = ?',
+      ).run(sourceId);
+      this.#database.prepare('DELETE FROM source_segments WHERE source_id = ?').run(sourceId);
+      this.#database.prepare('DELETE FROM sources WHERE id = ?').run(sourceId);
     });
   }
 
@@ -1045,6 +1080,48 @@ export class ProductDatabase {
       relation: row.relation as ModuleLink['relation'],
       direction: String(row.from_module_id) === moduleId ? 'out' : 'in',
     }));
+  }
+
+  // Merge two similar modules: the kept module gains a new confirmed version
+  // absorbing the other's language shells and triggers; the absorbed module is
+  // archived (recoverable) and the similar link between them removed.
+  mergeSimilarModules(keepId: string, absorbId: string, now = nowIso()): LegoModule {
+    return this.#transaction(() => {
+      const keep = this.getLegoModule(keepId);
+      const absorb = this.getLegoModule(absorbId);
+      if (!keep || !absorb) throw new Error('Module does not exist.');
+      if (keepId === absorbId) throw new Error('不能与自己合并。');
+      const keepVersion = keep.currentVersion ? this.getLegoVersion(keepId, keep.currentVersion) : null;
+      const absorbVersion = absorb.currentVersion
+        ? this.getLegoVersion(absorbId, absorb.currentVersion)
+        : null;
+      if (!keepVersion || !absorbVersion) throw new Error('两个模块都需要已确认的当前版本。');
+
+      const mergedShells = [...keepVersion.payload.languageShells];
+      for (const shell of absorbVersion.payload.languageShells) {
+        if (!mergedShells.includes(shell)) mergedShells.push(shell);
+      }
+      const mergedTriggers = [...keep.triggers];
+      for (const trigger of absorb.triggers) {
+        if (!mergedTriggers.includes(trigger)) mergedTriggers.push(trigger);
+      }
+
+      const version = this.addLegoVersion(keepId, {
+        ...keepVersion.payload,
+        languageShells: mergedShells.slice(0, 10),
+      }, 'user-native', { now });
+      this.#database.prepare(
+        'UPDATE lego_modules SET triggers_json = ?, updated_at = ? WHERE id = ?',
+      ).run(JSON.stringify(mergedTriggers.slice(0, 20)), now, keepId);
+      this.#indexSearchText('lego-module', keepId, `${keep.title} ${mergedTriggers.join(' ')}`);
+      const merged = this.confirmLegoVersion(keepId, version.version, now);
+      this.archiveLegoModule(absorbId, now);
+      this.#database.prepare(`
+        DELETE FROM module_links WHERE relation = 'similar-to'
+          AND ((from_module_id = ? AND to_module_id = ?) OR (from_module_id = ? AND to_module_id = ?))
+      `).run(keepId, absorbId, absorbId, keepId);
+      return merged;
+    });
   }
 
   unlinkModules(linkId: string): void {

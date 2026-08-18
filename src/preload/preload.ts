@@ -12,6 +12,7 @@ import {
   LIBRARY_DELETE_VERSION_CHANNEL,
   LIBRARY_LINK_CHANNEL,
   LIBRARY_LIST_CHANNEL,
+  LIBRARY_MERGE_CHANNEL,
   LIBRARY_RENAME_CHANNEL,
   LIBRARY_UNLINK_CHANNEL,
   LIBRARY_RESTORE_CHANNEL,
@@ -57,6 +58,7 @@ import {
   TRAINING_FOLLOW_UP_CHANNEL,
   TRAINING_GAP_CHANNEL,
   TRAINING_HINT_CHANNEL,
+  TRAINING_CRITIQUE_CHANNEL,
   TRAINING_REHEARSE_CHANNEL,
   TRAINING_SECOND_CHANNEL,
   TRAINING_START_CHANNEL,
@@ -71,6 +73,7 @@ import {
   libraryDeleteVersionInputSchema,
   libraryLinkInputSchema,
   libraryModuleDetailSchema,
+  libraryMergeInputSchema,
   libraryRenameInputSchema,
   libraryUnlinkInputSchema,
   libraryModuleSummarySchema,
@@ -113,6 +116,7 @@ import {
   type FoundationResolveAssertionInput,
   type LibraryDeleteVersionInput,
   type LibraryLinkInput,
+  type LibraryMergeInput,
   type LibraryRenameInput,
   type LibraryUnlinkInput,
   type LibraryPromoteInput,
@@ -251,6 +255,13 @@ const desktopApi: MentalLegosDesktopApi = Object.freeze({
       scenarioDeleteMaterialInputSchema.parse(input),
     );
   },
+  async mergeSimilarModules(input: LibraryMergeInput) {
+    return invokeParsed(
+      LIBRARY_MERGE_CHANNEL,
+      libraryModuleDetailSchema,
+      libraryMergeInputSchema.parse(input),
+    );
+  },
   async renameLibraryModule(input: LibraryRenameInput) {
     return invokeParsed(
       LIBRARY_RENAME_CHANNEL,
@@ -361,6 +372,9 @@ const desktopApi: MentalLegosDesktopApi = Object.freeze({
       trainingTurnStateSchema,
       trainingSecondInputSchema.parse(input),
     );
+  },
+  async critiqueRehearsal() {
+    return invokeParsed(TRAINING_CRITIQUE_CHANNEL, trainingTurnStateSchema);
   },
   async extractCandidates() {
     return invokeParsed(TRAINING_EXTRACT_CHANNEL, trainingTurnStateSchema);

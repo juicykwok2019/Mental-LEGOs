@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { z } from 'zod';
@@ -240,6 +240,7 @@ export class TrainingSessionService {
   readonly #product: ProductDatabase;
   readonly #engine: TrainingEngine;
   readonly #sessionsRoot: string;
+  readonly #mediaRoot: string | null;
   readonly #onAgentUsage: ((usage: { inputTokens: number; outputTokens: number }) => void) | null;
   #session: ActiveSession | null = null;
   #busy = false;
@@ -250,6 +251,7 @@ export class TrainingSessionService {
     runtime: TrainingRuntimeResolver;
     product: ProductDatabase;
     sessionsRoot: string;
+    mediaRoot?: string;
     onAgentUsage?: (usage: { inputTokens: number; outputTokens: number }) => void;
   }) {
     this.#agent = options.agent;
@@ -258,7 +260,38 @@ export class TrainingSessionService {
     this.#product = options.product;
     this.#engine = new TrainingEngine(options.product);
     this.#sessionsRoot = path.resolve(options.sessionsRoot);
+    this.#mediaRoot = options.mediaRoot ? path.resolve(options.mediaRoot) : null;
     this.#onAgentUsage = options.onAgentUsage ?? null;
+  }
+
+  // Register the on-device recording as a source and return its id so the
+  // attempt row can reference which audio it was spoken into.
+  async #linkRecording(
+    recordingId: string | null | undefined,
+    scenarioId: string | null,
+  ): Promise<string | null> {
+    if (!recordingId || !this.#mediaRoot) return null;
+    if (this.#product.sourceExists(recordingId)) return recordingId;
+    const mediaPath = path.join(this.#mediaRoot, `recording-${recordingId}.wav`);
+    let contentHash: string;
+    try {
+      contentHash = createHash('sha256').update(await readFile(mediaPath)).digest('hex');
+    } catch {
+      return null; // recording file already gone — nothing to link
+    }
+    this.#product.registerSource({
+      id: recordingId,
+      scenarioId,
+      scope: scenarioId ? 'scenario' : 'global',
+      kind: 'recording',
+      label: '语音回答录音',
+      intent: '',
+      contentHash,
+      mediaPath,
+      retention: 'keep',
+      authorizedAt: new Date().toISOString(),
+    });
+    return recordingId;
   }
 
   // ─── Profile ─────────────────────────────────────────────────────────────
@@ -400,6 +433,7 @@ export class TrainingSessionService {
           role: 'user',
           kind: 'response',
           text: `〔${day} · ${roundLabel}〕${attempt.responseText}`,
+          recordingId: attempt.recordingSourceId,
         });
         if (session.mode === 'speech' && attempt.durationMs && attempt.durationMs > 0) {
           session.transcript.push({
@@ -463,14 +497,18 @@ export class TrainingSessionService {
     return this.#exclusive(async () => {
       const session = this.#requireSession('first-attempt');
       if (!session.firstAttemptId) throw new Error('No first attempt is open.');
+      const recordingSourceId = await this.#linkRecording(input.recordingId, session.scenarioId);
       this.#engine.closeFirstAttempt(session.firstAttemptId, {
         outcome: input.outcome,
         responseText: input.responseText,
+        recordingSourceId,
         ...(input.openingDelayMs === null ? {} : { openingDelayMs: input.openingDelayMs }),
         ...(input.durationMs === null ? {} : { durationMs: input.durationMs }),
       });
       if (input.outcome === 'answered') {
-        session.transcript.push({ role: 'user', kind: 'response', text: input.responseText });
+        session.transcript.push({
+          role: 'user', kind: 'response', text: input.responseText, recordingId: recordingSourceId,
+        });
         // Speech rehearsal gets measurable delivery stats from the recording:
         // duration, pace, and real (timestamp-derived) pauses.
         if (session.mode === 'speech' && input.durationMs && input.durationMs > 0) {
@@ -634,19 +672,21 @@ export class TrainingSessionService {
     });
   }
 
-  async second(responseText: string): Promise<TrainingTurnState> {
+  async second(responseText: string, recordingId: string | null = null): Promise<TrainingTurnState> {
     return this.#exclusive(async () => {
       const session = this.#requireSession('assistance');
       if (!session.questionId || !session.firstAttemptId) throw new Error('No open question.');
+      const recordingSourceId = await this.#linkRecording(recordingId, session.scenarioId);
       this.#engine.recordSecondAttempt({
         questionId: session.questionId,
         firstAttemptId: session.firstAttemptId,
         responseText,
+        recordingSourceId,
       });
       session.secondResponse = responseText;
       session.phase = 'second-done';
       session.transcript.push(
-        { role: 'user', kind: 'response', text: responseText },
+        { role: 'user', kind: 'response', text: responseText, recordingId: recordingSourceId },
         { role: 'system', kind: 'status', text: '第二遍完成。可以提炼语言乐高，场景模式下也可以继续追问。' },
       );
       return Promise.resolve(this.#turnState());
@@ -678,17 +718,21 @@ export class TrainingSessionService {
       const previousResponse = session.secondResponse
         ?? this.#product.getAttempt(session.firstAttemptId)?.responseText
         ?? '';
+      const recordingSourceId = await this.#linkRecording(input.recordingId, session.scenarioId);
       this.#engine.recordSecondAttempt({
         questionId: session.questionId,
         firstAttemptId: session.firstAttemptId,
         responseText: input.responseText,
+        recordingSourceId,
         ...(input.durationMs === null || input.durationMs === undefined
           ? {}
           : { durationMs: input.durationMs }),
       });
       session.secondResponse = input.responseText;
       session.phase = 'second-done';
-      session.transcript.push({ role: 'user', kind: 'response', text: input.responseText });
+      session.transcript.push({
+        role: 'user', kind: 'response', text: input.responseText, recordingId: recordingSourceId,
+      });
       if (session.mode === 'speech') {
         if (input.durationMs && input.durationMs > 0) {
           const stats = speechStatsLine(
@@ -727,6 +771,33 @@ export class TrainingSessionService {
         text: '可以继续"再练一遍"打磨，满意了就提炼语言乐高。',
       });
       return Promise.resolve(this.#turnState());
+    });
+  }
+
+  // Speech mode: on-demand delivery critique of the latest rehearsal — manual
+  // so the fast stats-only loop stays free, feedback costs tokens only when
+  // asked for.
+  async critique(): Promise<TrainingTurnState> {
+    return this.#exclusive(async () => {
+      const session = this.#requireSession('second-done');
+      if (session.mode !== 'speech') throw new Error('单遍点评只在演讲训练中提供。');
+      const prompt = [
+        'The user rehearsed a speech segment and asked for a delivery critique.',
+        `Task: ${session.questionPrompt}`,
+        `Latest rehearsal (verbatim transcript): ${session.secondResponse ?? ''}`,
+        `Measured delivery stats: ${session.speechStats ?? '(text submission, no measured stats)'}`,
+        'In Chinese, give at most four short findings on structure (opening hook,',
+        'point separation, close), clarity, and pacing — each quoting the user\'s',
+        'own words as evidence.',
+        'Do NOT provide model wording, a rewritten script, or an outline.',
+      ].join('\n');
+      const output = await this.#runAgent(session, prompt, 4);
+      session.transcript.push({
+        role: 'coach',
+        kind: 'diagnosis',
+        text: extractFinalText(output.messages).trim(),
+      });
+      return this.#turnState();
     });
   }
 
@@ -893,13 +964,17 @@ export class TrainingSessionService {
     return this.#turnState();
   }
 
-  async answerVariation(responseText: string): Promise<TrainingTurnState> {
+  async answerVariation(
+    responseText: string,
+    recordingId: string | null = null,
+  ): Promise<TrainingTurnState> {
     return this.#exclusive(async () => {
       const session = this.#requireSession('variation');
       const questionId = session.variationQuestionId;
       const moduleId = session.confirmedModuleIds[session.confirmedModuleIds.length - 1];
       if (!questionId || !moduleId) throw new Error('No variation question is open.');
       const variationQuestion = this.#product.getQuestion(questionId);
+      const recordingSourceId = await this.#linkRecording(recordingId, session.scenarioId);
       const attempt = this.#product.createAttempt({
         id: randomUUID(),
         questionId,
@@ -907,10 +982,12 @@ export class TrainingSessionService {
         state: 'ASSISTANCE_ALLOWED',
         outcome: 'answered',
         responseText,
-        recordingSourceId: null,
+        recordingSourceId,
         hintLevel: 'none',
       });
-      session.transcript.push({ role: 'user', kind: 'response', text: responseText });
+      session.transcript.push({
+        role: 'user', kind: 'response', text: responseText, recordingId: recordingSourceId,
+      });
       const module = this.#product.getLegoModule(moduleId);
       const version = module?.currentVersion
         ? this.#product.getLegoVersion(moduleId, module.currentVersion)

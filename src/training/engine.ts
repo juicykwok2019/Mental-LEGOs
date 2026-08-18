@@ -136,6 +136,7 @@ export class TrainingEngine {
       responseText?: string;
       openingDelayMs?: number;
       durationMs?: number;
+      recordingSourceId?: string | null;
       now?: string;
     },
   ): GateView {
@@ -150,6 +151,7 @@ export class TrainingEngine {
       responseText: input.responseText ?? '',
       openingDelayMs: input.openingDelayMs ?? null,
       durationMs: input.durationMs ?? null,
+      recordingSourceId: input.recordingSourceId ?? null,
     }, input.now ?? new Date().toISOString());
     this.#database.recordPracticeEvent({
       id: randomUUID(),
@@ -219,6 +221,7 @@ export class TrainingEngine {
     firstAttemptId: string;
     responseText: string;
     durationMs?: number;
+    recordingSourceId?: string | null;
     now?: string;
   }): Attempt {
     this.assertAssistanceAllowed(input.firstAttemptId);
@@ -229,7 +232,7 @@ export class TrainingEngine {
       state: 'ASSISTANCE_ALLOWED',
       outcome: 'answered',
       responseText: input.responseText,
-      recordingSourceId: null,
+      recordingSourceId: input.recordingSourceId ?? null,
       openingDelayMs: null,
       durationMs: input.durationMs ?? null,
       hintLevel: this.#requireAttempt(input.firstAttemptId).hintLevel,

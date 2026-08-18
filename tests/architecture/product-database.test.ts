@@ -261,6 +261,63 @@ describe('formal product database', () => {
     expect(database.search('壁垒').some((hit) => hit.entityId === ids.moduleId)).toBe(false);
   });
 
+  it('merges a similar module: shells absorbed, other archived, link removed', () => {
+    const ids = seedScenarioTraining();
+    database.confirmLegoVersion(ids.moduleId, 1, NOW);
+    const other = database.createLegoCandidate({
+      id: randomUUID(),
+      scope: 'global',
+      scenarioId: null,
+      category: 'viewpoint',
+      title: '近义模块',
+      triggers: ['闭环'],
+      payload: { ...payload, languageShells: ['换个说法：壁垒的本质是闭环能不能持续。'] },
+      authorship: 'user-native',
+      evidenceSegmentIds: [],
+      now: NOW,
+    });
+    database.confirmLegoVersion(other.module.id, 1, NOW);
+    database.linkModules({
+      id: randomUUID(),
+      fromModuleId: ids.moduleId,
+      toModuleId: other.module.id,
+      relation: 'similar-to',
+    });
+
+    const merged = database.mergeSimilarModules(ids.moduleId, other.module.id, LATER);
+    const version = database.getLegoVersion(ids.moduleId, merged.currentVersion ?? 0);
+    expect(version?.payload.languageShells).toContain('换个说法：壁垒的本质是闭环能不能持续。');
+    expect(database.getLegoModule(other.module.id)?.status).toBe('archived');
+    expect(database.getLegoModule(ids.moduleId)?.triggers).toContain('闭环');
+    expect(database.listModuleLinks(ids.moduleId)).toHaveLength(0);
+  });
+
+  it('links a recording source to an attempt and cleans up on deletion', () => {
+    const ids = seedScenarioTraining();
+    const recordingId = randomUUID();
+    database.registerSource({
+      id: recordingId,
+      scenarioId: ids.scenarioId,
+      scope: 'scenario',
+      kind: 'recording',
+      label: '语音回答录音',
+      intent: '',
+      contentHash: 'b'.repeat(64),
+      mediaPath: 'X:/media/recording.wav',
+      retention: 'keep',
+      authorizedAt: NOW,
+      now: NOW,
+    });
+    database.updateAttempt(ids.attemptId, { recordingSourceId: recordingId }, LATER);
+    expect(database.getAttempt(ids.attemptId)?.recordingSourceId).toBe(recordingId);
+    expect(database.recordingContext(recordingId)).toBeTruthy();
+
+    database.deleteRecordingSource(recordingId);
+    expect(database.getAttempt(ids.attemptId)?.recordingSourceId).toBeNull();
+    expect(database.sourceExists(recordingId)).toBe(false);
+    expect(database.recordingContext(recordingId)).toBeNull();
+  });
+
   it('renames a module and keeps search in sync', () => {
     const ids = seedScenarioTraining();
     database.renameLegoModule(ids.moduleId, '化解销量质疑', LATER);

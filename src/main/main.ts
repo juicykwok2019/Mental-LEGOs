@@ -48,6 +48,7 @@ import {
   LIBRARY_DELETE_VERSION_CHANNEL,
   LIBRARY_LINK_CHANNEL,
   LIBRARY_LIST_CHANNEL,
+  LIBRARY_MERGE_CHANNEL,
   LIBRARY_RENAME_CHANNEL,
   LIBRARY_UNLINK_CHANNEL,
   LIBRARY_RESTORE_CHANNEL,
@@ -86,6 +87,7 @@ import {
   TRAINING_FOLLOW_UP_CHANNEL,
   TRAINING_GAP_CHANNEL,
   TRAINING_HINT_CHANNEL,
+  TRAINING_CRITIQUE_CHANNEL,
   TRAINING_REHEARSE_CHANNEL,
   TRAINING_SECOND_CHANNEL,
   TRAINING_START_CHANNEL,
@@ -100,6 +102,7 @@ import {
   libraryDeleteVersionInputSchema,
   libraryLinkInputSchema,
   libraryModuleDetailSchema,
+  libraryMergeInputSchema,
   libraryRenameInputSchema,
   libraryUnlinkInputSchema,
   libraryModuleSummarySchema,
@@ -322,6 +325,7 @@ async function getTrainingService(): Promise<TrainingSessionService> {
         },
         product: productDatabase,
         sessionsRoot: path.join(app.getPath('userData'), 'training-sessions'),
+        mediaRoot: path.join(app.getPath('userData'), 'media'),
       });
       return trainingService;
     })().catch((reason: unknown) => {
@@ -695,9 +699,13 @@ function registerIpcHandlers(): void {
   withService(TRAINING_REHEARSE_CHANNEL, async (service, value) => trainingTurnStateSchema.parse(
     await service.rehearse(trainingSecondInputSchema.parse(value)),
   ));
-  withService(TRAINING_SECOND_CHANNEL, async (service, value) => trainingTurnStateSchema.parse(
-    await service.second(trainingSecondInputSchema.parse(value).responseText),
+  withService(TRAINING_CRITIQUE_CHANNEL, async (service) => trainingTurnStateSchema.parse(
+    await service.critique(),
   ));
+  withService(TRAINING_SECOND_CHANNEL, async (service, value) => {
+    const input = trainingSecondInputSchema.parse(value);
+    return trainingTurnStateSchema.parse(await service.second(input.responseText, input.recordingId));
+  });
   withService(TRAINING_EXTRACT_CHANNEL, async (service) => trainingTurnStateSchema.parse(
     await service.extract(),
   ));
@@ -705,11 +713,12 @@ function registerIpcHandlers(): void {
     const input = trainingConfirmInputSchema.parse(value);
     return trainingTurnStateSchema.parse(await service.confirm(input.candidateIds, input.edits));
   });
-  withService(TRAINING_VARIATION_ANSWER_CHANNEL, async (service, value) => (
-    trainingTurnStateSchema.parse(await service.answerVariation(
-      trainingVariationAnswerInputSchema.parse(value).responseText,
-    ))
-  ));
+  withService(TRAINING_VARIATION_ANSWER_CHANNEL, async (service, value) => {
+    const input = trainingVariationAnswerInputSchema.parse(value);
+    return trainingTurnStateSchema.parse(
+      await service.answerVariation(input.responseText, input.recordingId),
+    );
+  });
   withService(TRAINING_VARIATION_SKIP_CHANNEL, async (service) => trainingTurnStateSchema.parse(
     await service.skipVariation(),
   ));
@@ -842,6 +851,12 @@ function registerIpcHandlers(): void {
     });
     return buildModuleDetail(database, input.moduleId);
   });
+  withService(LIBRARY_MERGE_CHANNEL, async (_service, value) => {
+    const input = libraryMergeInputSchema.parse(value);
+    const database = await getProductDatabase();
+    database.mergeSimilarModules(input.keepModuleId, input.absorbModuleId);
+    return buildModuleDetail(database, input.keepModuleId);
+  });
   withService(LIBRARY_RENAME_CHANNEL, async (_service, value) => {
     const input = libraryRenameInputSchema.parse(value);
     const database = await getProductDatabase();
@@ -903,17 +918,28 @@ function registerIpcHandlers(): void {
     = /^recording-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.wav$/u;
   const mediaRootPath = (): string => path.join(app.getPath('userData'), 'media');
   const listRecordingItems = async (): Promise<unknown> => {
-    const items: { recordingId: string; fileName: string; sizeBytes: number; recordedAt: string }[] = [];
+    const items: {
+      recordingId: string; fileName: string; sizeBytes: number; recordedAt: string;
+      context: string | null;
+    }[] = [];
+    let database: ProductDatabase | null = null;
+    try {
+      database = await getProductDatabase();
+    } catch {
+      // Recording management stays usable even before the training runtime is up.
+    }
     try {
       for (const entry of await readdir(mediaRootPath())) {
         const recordingId = RECORDING_FILE_PATTERN.exec(entry)?.[1];
         if (!recordingId) continue;
         const fileStat = await stat(path.join(mediaRootPath(), entry));
+        const prompt = database?.recordingContext(recordingId) ?? null;
         items.push({
           recordingId,
           fileName: entry,
           sizeBytes: fileStat.size,
           recordedAt: fileStat.mtime.toISOString(),
+          context: prompt ? (prompt.length > 60 ? `${prompt.slice(0, 60)}…` : prompt) : null,
         });
       }
     } catch {
@@ -925,6 +951,11 @@ function registerIpcHandlers(): void {
   guarded(RECORDING_LIST_CHANNEL, async () => listRecordingItems());
   guarded(RECORDING_DELETE_CHANNEL, async (value) => {
     const recordingId = z.string().uuid().parse(value);
+    try {
+      (await getProductDatabase()).deleteRecordingSource(recordingId);
+    } catch {
+      // No database yet (or unlinked recording) — the file removal is enough.
+    }
     await rm(path.join(mediaRootPath(), `recording-${recordingId}.wav`), { force: true });
     return listRecordingItems();
   });

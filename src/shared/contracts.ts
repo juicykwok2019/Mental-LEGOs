@@ -155,6 +155,7 @@ export const TRAINING_DIAGNOSE_CHANNEL = 'training:diagnose' as const;
 export const TRAINING_HINT_CHANNEL = 'training:hint' as const;
 export const TRAINING_SECOND_CHANNEL = 'training:second' as const;
 export const TRAINING_REHEARSE_CHANNEL = 'training:rehearse' as const;
+export const TRAINING_CRITIQUE_CHANNEL = 'training:critique' as const;
 export const TRAINING_EXTRACT_CHANNEL = 'training:extract' as const;
 export const TRAINING_CONFIRM_CHANNEL = 'training:confirm' as const;
 export const TRAINING_VARIATION_ANSWER_CHANNEL = 'training:variation-answer' as const;
@@ -211,6 +212,13 @@ export const LIBRARY_RESTORE_CHANNEL = 'library:restore-module' as const;
 export const LIBRARY_DELETE_MODULE_CHANNEL = 'library:delete-module' as const;
 export const LIBRARY_LINK_CHANNEL = 'library:link-modules' as const;
 export const LIBRARY_RENAME_CHANNEL = 'library:rename-module' as const;
+export const LIBRARY_MERGE_CHANNEL = 'library:merge-modules' as const;
+
+export const libraryMergeInputSchema = z.object({
+  keepModuleId: z.string().uuid(),
+  absorbModuleId: z.string().uuid(),
+});
+export type LibraryMergeInput = z.infer<typeof libraryMergeInputSchema>;
 
 export const libraryRenameInputSchema = z.object({
   moduleId: z.string().uuid(),
@@ -349,6 +357,8 @@ export const trainingTranscriptEntrySchema = z.object({
     'gap-note', 'variation-result', 'analysis',
   ]),
   text: z.string(),
+  // Set on spoken responses so the transcript can play back the recording.
+  recordingId: z.string().uuid().nullable().optional(),
 });
 
 export const trainingHintLevelSchema = z.enum(['L1', 'L2', 'L3', 'L4']);
@@ -549,6 +559,7 @@ export const recordingItemSchema = z.object({
   fileName: z.string().min(1),
   sizeBytes: z.number().int().nonnegative(),
   recordedAt: z.string(),
+  context: z.string().nullable().default(null),
 });
 export type RecordingItem = z.infer<typeof recordingItemSchema>;
 
@@ -615,6 +626,7 @@ export interface MentalLegosDesktopApi {
   getFoundationOverview(): Promise<FoundationOverview>;
   linkLibraryModules(input: LibraryLinkInput): Promise<LibraryModuleDetail>;
   renameLibraryModule(input: LibraryRenameInput): Promise<LibraryModuleDetail>;
+  mergeSimilarModules(input: LibraryMergeInput): Promise<LibraryModuleDetail>;
   unlinkLibraryModules(input: LibraryUnlinkInput): Promise<LibraryModuleDetail>;
   resolveFoundationAssertion(input: FoundationResolveAssertionInput): Promise<FoundationOverview>;
   deleteFoundationKnowledge(knowledgeId: string): Promise<FoundationOverview>;
@@ -633,6 +645,7 @@ export interface MentalLegosDesktopApi {
   requestHint(level: TrainingHintLevel): Promise<TrainingTurnState>;
   submitSecondAttempt(input: TrainingSecondInput): Promise<TrainingTurnState>;
   rehearseSpeech(input: TrainingSecondInput): Promise<TrainingTurnState>;
+  critiqueRehearsal(): Promise<TrainingTurnState>;
   extractCandidates(): Promise<TrainingTurnState>;
   confirmCandidates(input: TrainingConfirmInput): Promise<TrainingTurnState>;
   answerVariation(input: TrainingVariationAnswerInput): Promise<TrainingTurnState>;
