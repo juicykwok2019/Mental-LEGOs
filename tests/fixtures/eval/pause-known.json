@@ -1,0 +1,29 @@
+{
+  "$comment": "Suite 7 停顿检测 e2e 期望：TTS 合成语音（虚构内容）按已知静音间隔拼接。",
+  "sampleRate": 16000,
+  "totalSeconds": 11.8358125,
+  "expectedPauses": [
+    {
+      "seconds": 1.6
+    },
+    {
+      "seconds": 2
+    }
+  ],
+  "pauseThresholdSeconds": 1.2,
+  "toleranceSeconds": 0.3,
+  "phrases": [
+    {
+      "startSec": 0,
+      "durSec": 2.6945
+    },
+    {
+      "startSec": 4.2945,
+      "durSec": 2.8621875
+    },
+    {
+      "startSec": 9.1566875,
+      "durSec": 2.679125
+    }
+  ]
+}
