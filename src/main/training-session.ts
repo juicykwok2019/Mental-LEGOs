@@ -699,6 +699,9 @@ export class TrainingSessionService {
         'Every finding MUST contain a verbatim quote copied character-for-character from',
         'the user\'s answer, wrapped in 「」. Paraphrased or invented quotes are forbidden;',
         'a finding you cannot anchor with a verbatim quote must not be written.',
+        'Each quote must be a meaningful phrase (at least 4 characters), not a lone filler',
+        'word. A finding about something MISSING must still quote the user\'s words at the',
+        'exact spot where the gap occurs (e.g. what they said instead).',
         'Do NOT provide a better answer, an outline, or model wording. Diagnosis only.',
         'Reply in Chinese with at most five short findings.',
       ].join('\n');
