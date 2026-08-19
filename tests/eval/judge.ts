@@ -39,18 +39,26 @@ async function completeText(config: JudgeConfig, prompt: string): Promise<string
     },
     body: JSON.stringify({
       model: config.model,
-      max_tokens: 512,
+      // kimi-k3 是思考型模型：预算太小会被 thinking 块耗尽而没有 text 块。
+      max_tokens: 2048,
       messages: [{ role: 'user', content: prompt }],
     }),
   });
   if (!response.ok) {
     throw new Error(`Judge call failed: ${response.status} ${await response.text()}`);
   }
-  const payload = await response.json() as { content?: Array<{ type: string; text?: string }> };
-  return (payload.content ?? [])
+  const payload = await response.json() as {
+    stop_reason?: string;
+    content?: Array<{ type: string; text?: string }>;
+  };
+  const text = (payload.content ?? [])
     .filter((block) => block.type === 'text')
     .map((block) => block.text ?? '')
     .join('');
+  if (!text) {
+    throw new Error(`Judge reply had no text block (stop_reason=${payload.stop_reason ?? 'unknown'}).`);
+  }
+  return text;
 }
 
 function extractVerdictJson<T>(text: string, validate: (value: unknown) => T): T {
