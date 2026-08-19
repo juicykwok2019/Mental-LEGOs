@@ -364,6 +364,9 @@ describe('MENTAL_LEGOS_EVAL runner (Suite 1/2 rule metrics)', () => {
           candidateCount: extracted.candidates.length,
           shells,
           fidelities,
+          // 供 Judge 内核判审（判断性+蕴含）离线使用。
+          kernels: extracted.candidates.map((candidate) => candidate.semanticKernel),
+          submittedAnswer: submitted,
         });
         reporter().record('s2-shell-length', {
           id: entry.id,
@@ -441,6 +444,9 @@ describe('MENTAL_LEGOS_EVAL runner (Suite 1/2 rule metrics)', () => {
           count: setReport.count,
           distinctTypes: setReport.distinctTypes,
           leakedPrompts: setReport.leakedPrompts,
+          // 供 Judge 接地率离线判审：题目全文 + 对应材料原文。
+          prompts: promptsWith,
+          materials: pack.materials.map((material) => material.content).join('\n\n'),
         });
 
         const intentKeywords = pack.materials.flatMap((material) => material.intentKeywords);
