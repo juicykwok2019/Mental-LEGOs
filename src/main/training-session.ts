@@ -1011,7 +1011,11 @@ export class TrainingSessionService {
         '("当被追问大数字时…"), never two conflicting absolutes.',
         ...(knownObservations.length > 0
           ? [
-            'Already-known observations — do NOT restage these (skipping observations is fine):',
+            'Known active observations below. If THIS round again clearly shows one of them,',
+            'restage it with an essentially identical statement plus a fresh 「」quote from',
+            'this round —',
+            'recurrence is evidence and renews it. If it does not show this round, skip it.',
+            'Never stage a reworded variation or a contradiction of a known observation:',
             ...knownObservations.map((statement) => `- ${statement}`),
           ]
           : []),
@@ -1036,10 +1040,11 @@ export class TrainingSessionService {
         const observed = this.#recordObservations(
           pending.filter((candidate) => candidate.kind === 'profile_observation'),
         );
-        if (observed.created > 0 || observed.promoted > 0) {
+        if (observed.created > 0 || observed.promoted > 0 || observed.renewed > 0) {
           const parts: string[] = [];
           if (observed.created > 0) parts.push(`新增 ${observed.created} 条待验假设`);
           if (observed.promoted > 0) parts.push(`${observed.promoted} 条晋升为有据观察`);
+          if (observed.renewed > 0) parts.push(`${observed.renewed} 条已有观察再次出现（已补证据续期）`);
           session.transcript.push({
             role: 'system',
             kind: 'status',
@@ -1078,9 +1083,10 @@ export class TrainingSessionService {
   // 重试提炼时同一暂存行复现：同 id 建断言会撞唯一键被吞掉，不会重复计数。
   #recordObservations(
     rows: Array<{ id: string; payload: unknown }>,
-  ): { created: number; promoted: number } {
+  ): { created: number; promoted: number; renewed: number } {
     let created = 0;
     let promoted = 0;
+    let renewed = 0;
     // 去重只对活跃条目生效：归档/否认的行绝不吸收新证据（否则新观察会
     // 静默蒸发进一条永远不显示的记录里）。
     const existing = this.#product.listProfileAssertions()
@@ -1100,6 +1106,9 @@ export class TrainingSessionService {
           const updated = this.#product.reinforceProfileAssertion(match.id);
           if (before === 'pending-hypothesis' && updated.tier === 'evidenced-observation') {
             promoted += 1;
+          } else {
+            // 复现即证据：已确认/有据观察刷新时效（90 天复审自动续期）。
+            renewed += 1;
           }
         } else {
           const assertion = this.#product.createProfileAssertion({
@@ -1116,7 +1125,7 @@ export class TrainingSessionService {
         // 载荷坏了或 id 已存在（提炼重试）：丢这一条，继续。
       }
     }
-    return { created, promoted };
+    return { created, promoted, renewed };
   }
 
   async confirm(
