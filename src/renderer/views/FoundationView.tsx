@@ -130,7 +130,7 @@ export function FoundationView(props: FoundationViewProps) {
               <li key={assertion.id}>
                 <span>
                   {assertion.statement}
-                  <em className="material-intent">{tierLabel(assertion.tier)} · 证据 {assertion.evidenceCount} 轮 · {assertion.createdAt.slice(0, 10)}</em>
+                  <em className="material-intent">{tierLabel(assertion.tier)} · 证据 {assertion.evidenceCount} 轮 · {new Date(assertion.createdAt).toLocaleDateString('zh-CN')}</em>
                 </span>
                 <button
                   type="button"

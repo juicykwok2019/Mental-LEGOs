@@ -849,7 +849,7 @@ export class TrainingSessionService {
       session.transcript.push({
         role: 'system',
         kind: 'status',
-        text: '可以继续"再练一遍"打磨，满意了就提炼语言乐高；场景模式下也可以继续追问。',
+        text: '可以继续"再练一遍"打磨，满意了就提炼语言乐高（画像观察的记录与续期也在提炼时进行）；场景模式下也可以继续追问。',
       });
       return this.#turnState();
     });
