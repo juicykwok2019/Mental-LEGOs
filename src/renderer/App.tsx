@@ -30,9 +30,12 @@ const EMPTY_SEED: ProfileSeedInput = {
 };
 
 function ProfileOnboarding(props: {
+  // 同一表单承担两种功能：mode 决定标题、文案与按钮，避免"调整"看起来像初次设定。
+  mode: 'first' | 'edit';
   initial: ProfileSeedInput | null;
   onSaved(profile: ProfileState): void;
   onCancel: (() => void) | null;
+  onDirtyChange(dirty: boolean): void;
 }) {
   const [seed, setSeed] = useState<ProfileSeedInput>(props.initial ?? EMPTY_SEED);
   const [busy, setBusy] = useState(false);
@@ -41,11 +44,24 @@ function ProfileOnboarding(props: {
   const [showRestore, setShowRestore] = useState(false);
   const [restorePassword, setRestorePassword] = useState('');
 
+  // 有未保存修改时上报给外壳，导航离开前据此弹确认（操作必有显式回执）。
+  const baseline = props.initial ?? EMPTY_SEED;
+  const dirty = seed.direction !== baseline.direction
+    || seed.currentWork !== baseline.currentWork
+    || seed.targetScenarios !== baseline.targetScenarios
+    || seed.material !== baseline.material;
+  const { onDirtyChange } = props;
+  useEffect(() => {
+    onDirtyChange(dirty);
+  }, [dirty, onDirtyChange]);
+
   return (
     <div className="onboarding">
-      <h2>三句话，让出题落在你的专业上</h2>
+      <h2>{props.mode === 'edit' ? '调整画像种子' : '三句话，让出题落在你的专业上'}</h2>
       <p className="section-copy">
-        不用填长表格。画像会随着每次训练自动成长；这里只需要一个起点。
+        {props.mode === 'edit'
+          ? '这里改的是出题起点的三句话。画像观察、积木库和训练历史都不受影响。'
+          : '不用填长表格。画像会随着每次训练自动成长；这里只需要一个起点。'}
       </p>
       <label>
         <span>1. 一句话说明你的职业方向 *</span>
@@ -120,7 +136,7 @@ function ProfileOnboarding(props: {
             }).finally(() => setBusy(false));
           }}
         >
-          保存并开始
+          {props.mode === 'edit' ? '保存修改' : '保存并开始'}
         </button>
         {props.onCancel && (
           <button type="button" className="quiet-button" onClick={props.onCancel}>取消</button>
@@ -183,6 +199,8 @@ export function App() {
   const [view, setView] = useState<View>('home');
   const [profile, setProfile] = useState<ProfileState | null>(null);
   const [editingProfile, setEditingProfile] = useState(false);
+  const [profileDirty, setProfileDirty] = useState(false);
+  const [onboardingNavNotice, setOnboardingNavNotice] = useState<string | null>(null);
   const [creatingScenario, setCreatingScenario] = useState(false);
   const [speech, setSpeech] = useState<SpeechReadinessState | null>(null);
   const [turn, setTurn] = useState<TrainingTurnState | null>(null);
@@ -242,6 +260,20 @@ export function App() {
 
   const needsOnboarding = profile !== null && profile.seed === null;
 
+  // 画像编辑打开时导航不能被无声吞掉：有未保存修改先确认，没有就正常跳转；
+  // 首次设定还没保存起点时给显式提示（此时其他页面还无法使用）。
+  function navigateTo(target: View): void {
+    if (editingProfile) {
+      if (profileDirty && !window.confirm('画像修改还没有保存。放弃修改并跳转吗？')) return;
+      setEditingProfile(false);
+      setProfileDirty(false);
+    } else if (needsOnboarding) {
+      setOnboardingNavNotice('先保存画像起点（至少填第 1 句），其他页面就都可以用了。');
+      return;
+    }
+    setView(target);
+  }
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -261,7 +293,7 @@ export function App() {
               key={target}
               type="button"
               className={view === target ? 'nav-active' : ''}
-              onClick={() => setView(target)}
+              onClick={() => navigateTo(target)}
             >
               {label}
             </button>
@@ -270,7 +302,7 @@ export function App() {
             <button
               type="button"
               className={view === 'chat' ? 'nav-active nav-training' : 'nav-training'}
-              onClick={() => setView('chat')}
+              onClick={() => navigateTo('chat')}
             >
               ● 训练中
             </button>
@@ -292,14 +324,30 @@ export function App() {
       )}
 
       {needsOnboarding || editingProfile ? (
-        <ProfileOnboarding
-          initial={profile?.seed ?? null}
-          onSaved={(next) => {
-            setProfile(next);
-            setEditingProfile(false);
-          }}
-          onCancel={editingProfile ? () => setEditingProfile(false) : null}
-        />
+        <>
+          {onboardingNavNotice && (
+            <div className="resume-strip" role="alert">
+              <span>{onboardingNavNotice}</span>
+            </div>
+          )}
+          <ProfileOnboarding
+            mode={editingProfile ? 'edit' : 'first'}
+            initial={profile?.seed ?? null}
+            onSaved={(next) => {
+              setProfile(next);
+              setEditingProfile(false);
+              setProfileDirty(false);
+              setOnboardingNavNotice(null);
+            }}
+            onCancel={editingProfile
+              ? () => {
+                setEditingProfile(false);
+                setProfileDirty(false);
+              }
+              : null}
+            onDirtyChange={setProfileDirty}
+          />
+        </>
       ) : view === 'chat' && turn ? (
         <ChatView
           turn={turn}
