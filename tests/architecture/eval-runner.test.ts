@@ -43,6 +43,7 @@ import {
 import {
   scoreDemonstrationLeakage,
   scoreDiagnosisGrounding,
+  scoreNovelEnglish,
   scoreHintLadder,
   scoreQuestionLeakage,
   scoreShellFidelity,
@@ -274,6 +275,13 @@ describe('MENTAL_LEGOS_EVAL runner (Suite 1/2 rule metrics)', () => {
           leakReasons: diagnosisLeak.reasons,
           findings: grounding.findings,
         });
+        // 白话度：教练不得夹用户没说过的英文词（专有名词豁免见判分器）。
+        const plain = scoreNovelEnglish(diagnosisText, [questionPrompt, entry.answer]);
+        reporter().record('s1-plain-language', {
+          id: entry.id,
+          ok: plain.ok,
+          novelWords: plain.novelWords,
+        });
       } catch (reason) {
         reporter().record('s1-diagnosis', {
           id: entry.id,
@@ -316,6 +324,15 @@ describe('MENTAL_LEGOS_EVAL runner (Suite 1/2 rule metrics)', () => {
           ok: hints.length === 4 && ladderScore.violations.length === 0,
           violations: ladderScore.violations,
           hints,
+        });
+        const hintPlain = scoreNovelEnglish(
+          hints.map((hint) => hint.text).join('\n'),
+          [entry.question, entry.answer],
+        );
+        reporter().record('s1-plain-language', {
+          id: `${entry.id}-hints`,
+          ok: hintPlain.ok,
+          novelWords: hintPlain.novelWords,
         });
       } catch (reason) {
         reporter().record('s1-hint-ladder', {

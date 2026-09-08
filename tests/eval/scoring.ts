@@ -171,6 +171,45 @@ export function scoreHintLadder(hints: HintSample[]): HintLadderReport {
   return { violations };
 }
 
+// ------------------------------------------------- Suite 1: 白话度（新增英文词）
+
+export interface NovelEnglishReport {
+  novelWords: string[];
+  ok: boolean;
+}
+
+/** 产品术语白名单：教练输出里允许出现的英文记号。 */
+const ENGLISH_ALLOWLIST = new Set(['l1', 'l2', 'l3', 'l4', 'ai', 'asr', 'app']);
+
+/** 教练输出不得夹用户没说过的英文词（2026-09-09 用户反馈：诊断写成
+ * "过于 abrupt" 这类评审黑话，外行看不懂）。
+ *
+ * 确定性近似：只标记**小写开头的普通英文词**——首字母大写（Python、Kimi）
+ * 与全大写缩写（VP、ROI）按"专有名词/必须用英文"豁免；题目与用户原话里
+ * 出现过的英文不算新增；产品术语走白名单。深层"白话度"由 Judge rubric 兜底。 */
+export function scoreNovelEnglish(
+  coachOutput: string,
+  contextTexts: string[],
+): NovelEnglishReport {
+  const contextTokens = new Set(
+    contextTexts
+      .join(' ')
+      .toLowerCase()
+      .match(/[a-z][a-z0-9'-]*/gu) ?? [],
+  );
+  const novel = new Set<string>();
+  for (const match of coachOutput.matchAll(/[A-Za-z][A-Za-z0-9'-]*/gu)) {
+    const word = match[0];
+    if (!/^[a-z]/u.test(word)) continue; // 大写开头/全大写 → 专有名词豁免
+    const lowered = word.toLowerCase();
+    if (lowered.length < 2) continue;
+    if (ENGLISH_ALLOWLIST.has(lowered)) continue;
+    if (contextTokens.has(lowered)) continue;
+    novel.add(word);
+  }
+  return { novelWords: [...novel], ok: novel.size === 0 };
+}
+
 // ------------------------------------------------- Suite 2: 外壳保真度
 
 /** 语言外壳对第二遍原文的字符 n-gram 包含度（0..1）。

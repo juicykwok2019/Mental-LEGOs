@@ -216,7 +216,7 @@ export function extractFinalText(messages: unknown[]): string {
 // Provider 输出是敌意输入：kimi 等模型偶发未转义引号、字符串内裸换行、
 // 尾逗号（2026-08-18 冒烟轮实测三处失败同此根因）。先按常见毛病修复
 // 再解析，修不好才抛错。
-function repairJsonCandidate(raw: string): string {
+export function repairJsonCandidate(raw: string): string {
   let out = '';
   let inString = false;
   for (let index = 0; index < raw.length; index += 1) {
@@ -702,6 +702,12 @@ export class TrainingSessionService {
         'Each quote must be a meaningful phrase (at least 4 characters), not a lone filler',
         'word. A finding about something MISSING must still quote the user\'s words at the',
         'exact spot where the gap occurs (e.g. what they said instead).',
+        'Voice: a professional coach speaking to the user face-to-face, in plain spoken',
+        'Chinese. Do NOT use English words except inside quotes of the user\'s own words,',
+        'or proper nouns / names that have no common Chinese form. Do NOT use reviewer',
+        'jargon (结构断层、收敛、闭环、颗粒度 and the like). Every finding must be',
+        'understandable to someone outside the user\'s industry and make clear what to do',
+        'differently next time. Plain does not mean sloppy — keep it precise and professional.',
         'Do NOT provide a better answer, an outline, or model wording. Diagnosis only.',
         'Reply in Chinese with at most five short findings.',
       ].join('\n');
@@ -738,6 +744,9 @@ export class TrainingSessionService {
         `Question: ${session.questionPrompt}`,
         ladder[level],
         'Give ONLY this level. Never include higher-level help. Reply in Chinese, max 120 words.',
+        'Plain spoken Chinese, as a coach talking face-to-face: no English words except',
+        'quoting the user or necessary proper nouns; no reviewer jargon; precise but',
+        'understandable to a layman.',
       ].join('\n');
       const output = await this.#runAgent(session, prompt, 4);
       session.transcript.push({

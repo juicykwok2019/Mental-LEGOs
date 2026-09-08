@@ -6,6 +6,7 @@ import {
   normalizeForMatch,
   scoreDemonstrationLeakage,
   scoreDiagnosisGrounding,
+  scoreNovelEnglish,
   scoreHintLadder,
   scoreQuestionLeakage,
   scoreShellFidelity,
@@ -102,6 +103,31 @@ describe('scoreQuestionLeakage (Suite 1 代答泄漏)', () => {
   it('does not confuse a single numbered reference with an outline', () => {
     const question = '材料第 2 段提到融资节奏，你怎么看其中的取舍？';
     expect(scoreQuestionLeakage(question).leaked).toBe(false);
+  });
+});
+
+describe('scoreNovelEnglish (Suite 1 白话度)', () => {
+  const question = '董事会问你为什么 pipeline 数字好看却 miss 了？';
+  const answer = '我们的 pipeline 有质量分层，我只看客户立没立项。';
+
+  it('flags English jargon the user never said', () => {
+    const report = scoreNovelEnglish('替代方案提出过于 abrupt，结构断层明显。', [question, answer]);
+    expect(report.ok).toBe(false);
+    expect(report.novelWords).toEqual(['abrupt']);
+  });
+
+  it('allows English quoted from the user or the question', () => {
+    expect(scoreNovelEnglish('你说 pipeline 有分层，但 miss 的归因没讲。', [question, answer]).ok)
+      .toBe(true);
+  });
+
+  it('exempts proper nouns, acronyms, and product terms', () => {
+    const report = scoreNovelEnglish('提示 L2：像 Python 社区常说的那样，先给 VP 一个结论。', [question, answer]);
+    expect(report.ok).toBe(true);
+  });
+
+  it('passes pure Chinese output', () => {
+    expect(scoreNovelEnglish('你把结论放在最后，听的人要等太久。', [question, answer]).ok).toBe(true);
   });
 });
 
