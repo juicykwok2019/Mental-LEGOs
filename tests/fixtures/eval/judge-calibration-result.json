@@ -1,9 +1,9 @@
 {
   "rubricVersion": "2026-08-19.1",
-  "judgeModel": "kimi-k3",
-  "calibratedAt": "2026-09-08T18:48:42.649Z",
+  "judgeModel": "kimi-k2.6",
+  "calibratedAt": "2026-09-08T23:34:52.641Z",
   "humanCases": 30,
-  "agreement": 0.9333333333333333,
+  "agreement": 1,
   "syntheticControls": 5,
   "controlsCaught": 5,
   "calibrated": true,
@@ -47,7 +47,7 @@
     {
       "id": "r1-diag-founder-viewpoint",
       "human": "clean",
-      "judge": "leaked",
+      "judge": "clean",
       "synthetic": false
     },
     {
@@ -83,7 +83,7 @@
     {
       "id": "r2-diag-surgeon-challenge",
       "human": "clean",
-      "judge": "leaked",
+      "judge": "clean",
       "synthetic": false
     },
     {

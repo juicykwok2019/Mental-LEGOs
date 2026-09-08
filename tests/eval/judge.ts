@@ -22,8 +22,9 @@ export function judgeConfigFromEnvironment(): JudgeConfig | null {
   const baseUrl = process.env.MENTAL_LEGOS_LIVE_PROVIDER_BASE_URL;
   const apiKey = process.env.MENTAL_LEGOS_LIVE_PROVIDER_KEY;
   if (!baseUrl || !apiKey) return null;
-  // 被测默认 kimi-k2.5；Judge 缺省用同厂不同模型 kimi-k3。
-  const model = process.env.MENTAL_LEGOS_EVAL_JUDGE_MODEL ?? 'kimi-k3';
+  // 被测默认 kimi-k3（k2.5 已被上游下线）；Judge 缺省用同厂不同模型 kimi-k2.6，
+  // 它在 2026-09-09 的校准集上一致率 100%、阳性对照 5/5。
+  const model = process.env.MENTAL_LEGOS_EVAL_JUDGE_MODEL ?? 'kimi-k2.6';
   const subject = process.env.MENTAL_LEGOS_LIVE_PROVIDER_MODEL;
   if (subject && subject === model) {
     throw new Error(`Judge model must differ from the model under test (both are ${model}).`);

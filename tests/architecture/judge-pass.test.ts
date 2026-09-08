@@ -8,7 +8,7 @@
 // 结果写回该轮目录的 judge-*.jsonl 与 judge-summary.json。
 //
 // 门控：MENTAL_LEGOS_EVAL=1 + live 提供方环境 + Judge 模型
-// （MENTAL_LEGOS_EVAL_JUDGE_MODEL，缺省 kimi-k3，必须不同于被测模型）。
+// （MENTAL_LEGOS_EVAL_JUDGE_MODEL，缺省 kimi-k2.6，必须不同于被测模型）。
 // MENTAL_LEGOS_EVAL_RUN 指定轮次目录名，缺省取最新一轮。
 import { readdirSync, readFileSync, writeFileSync, appendFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
