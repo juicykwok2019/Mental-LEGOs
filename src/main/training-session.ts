@@ -171,6 +171,24 @@ export function buildVariationJudgementPrompt(input: {
   ].join('\n');
 }
 
+// 第二遍与无限复练共用的对比点评 prompt（每一遍都有诊断，两处不得漂移）。
+function buildProgressNotePrompt(
+  question: string,
+  previousResponse: string,
+  newResponse: string,
+): string {
+  return [
+    'The user re-attempted the same question to polish their spoken answer.',
+    `Question: ${question}`,
+    `Previous attempt: ${previousResponse || '(none)'}`,
+    `New attempt: ${newResponse}`,
+    'In Chinese, give at most three short findings: what improved and what still',
+    'sticks, each quoting the user\'s own words as evidence.',
+    'Do NOT provide a better answer, an outline, or model wording — the user',
+    'decides for themselves when the answer is good enough.',
+  ].join('\n');
+}
+
 // 画像观察的候选载荷：一句话 + 内嵌逐字引用（详见 extract 的观察规则）。
 const observationPayloadSchema = z.object({
   statement: z.string().trim().min(4).max(500),
@@ -796,6 +814,7 @@ export class TrainingSessionService {
     return this.#exclusive(async () => {
       const session = this.#requireSession('assistance');
       if (!session.questionId || !session.firstAttemptId) throw new Error('No open question.');
+      const previousResponse = this.#product.getAttempt(session.firstAttemptId)?.responseText ?? '';
       const recordingSourceId = await this.#linkRecording(recordingId, session.scenarioId);
       this.#engine.recordSecondAttempt({
         questionId: session.questionId,
@@ -805,11 +824,29 @@ export class TrainingSessionService {
       });
       session.secondResponse = responseText;
       session.phase = 'second-done';
-      session.transcript.push(
-        { role: 'user', kind: 'response', text: responseText, recordingId: recordingSourceId },
-        { role: 'system', kind: 'status', text: '第二遍完成。可以提炼语言乐高，场景模式下也可以继续追问。' },
-      );
-      return Promise.resolve(this.#turnState());
+      session.transcript.push({
+        role: 'user', kind: 'response', text: responseText, recordingId: recordingSourceId,
+      });
+      // 每一遍都有诊断（2026-09-09 用户决策）：第二遍与复练同一套对比点评，
+      // 练到用户满意为止，提炼永远由用户主动发起。
+      if (session.mode !== 'speech') {
+        const output = await this.#runAgent(
+          session,
+          buildProgressNotePrompt(session.questionPrompt ?? '', previousResponse, responseText),
+          4,
+        );
+        session.transcript.push({
+          role: 'coach',
+          kind: 'diagnosis',
+          text: extractFinalText(output.messages).trim(),
+        });
+      }
+      session.transcript.push({
+        role: 'system',
+        kind: 'status',
+        text: '可以继续"再练一遍"打磨，满意了就提炼语言乐高；场景模式下也可以继续追问。',
+      });
+      return this.#turnState();
     });
   }
 
@@ -868,17 +905,11 @@ export class TrainingSessionService {
           });
         }
       } else {
-        const prompt = [
-          'The user re-attempted the same question to polish their spoken answer.',
-          `Question: ${session.questionPrompt}`,
-          `Previous attempt: ${previousResponse || '(none)'}`,
-          `New attempt: ${input.responseText}`,
-          'In Chinese, give at most three short findings: what improved and what still',
-          'sticks, each quoting the user\'s own words as evidence.',
-          'Do NOT provide a better answer, an outline, or model wording — the user',
-          'decides for themselves when the answer is good enough.',
-        ].join('\n');
-        const output = await this.#runAgent(session, prompt, 4);
+        const output = await this.#runAgent(
+          session,
+          buildProgressNotePrompt(session.questionPrompt ?? '', previousResponse, input.responseText),
+          4,
+        );
         session.transcript.push({
           role: 'coach',
           kind: 'diagnosis',
