@@ -27,6 +27,7 @@ export function LibraryView() {
   const [linkTarget, setLinkTarget] = useState('');
   const [renaming, setRenaming] = useState(false);
   const [renameDraft, setRenameDraft] = useState('');
+  const [mergeConfirmId, setMergeConfirmId] = useState<string | null>(null);
   const [linkRelation, setLinkRelation] = useState<'composes-with' | 'similar-to' | 'conflicts-with' | 'precedes'>('composes-with');
 
   async function refresh(): Promise<void> {
@@ -195,7 +196,7 @@ export function LibraryView() {
               {detail.links.length > 0 && <span className="count-pill">{detail.links.length}</span>}
             </h3>
             <p className="block-hint">
-              积木之间怎么拼：可组合=常一起使用；相似=表达相近的判断；互斥=立场冲突不宜同场；
+              积木之间怎么拼：可组合=常一起使用；相似=表达相近的判断（可一键合并去重）；互斥=立场冲突不宜同场；
               先于=通常先说这块再说那块。这些关系会真实参与训练：开放训练可能出一道
               需要组合调用某对"可组合"积木的题（对应掌握九阶中的"组合运用"）；
               演讲骨架组装时会把可组合的放进相邻要点、遵守先后顺序、避免互斥积木同场。
@@ -207,19 +208,59 @@ export function LibraryView() {
                     <span>
                       <em className="scope-tag">{relationLabel(link.relation)}</em>
                       {link.otherTitle}
+                      {link.relation === 'similar-to' && mergeConfirmId === link.id && (
+                        <em className="material-intent">
+                          合并=本模块新增一个版本吸收【{link.otherTitle}】的语言外壳与触发线索，
+                          对方转入"已归档"（可恢复），相似关系解除。
+                        </em>
+                      )}
                     </span>
-                    <button
-                      type="button"
-                      className="quiet-button"
-                      disabled={working}
-                      onClick={() => void step(async () => {
-                        setDetail(await window.mentalLegos.unlinkLibraryModules({
-                          moduleId: detail.id, linkId: link.id,
-                        }));
-                      })}
-                    >
-                      解除
-                    </button>
+                    <span className="phase-actions">
+                      {link.relation === 'similar-to' && (
+                        mergeConfirmId === link.id ? (
+                          <>
+                            <button
+                              type="button"
+                              className="quiet-button intent-edit-button"
+                              disabled={working}
+                              onClick={() => void step(async () => {
+                                setDetail(await window.mentalLegos.mergeSimilarModules({
+                                  keepModuleId: detail.id, absorbModuleId: link.otherModuleId,
+                                }));
+                                setMergeConfirmId(null);
+                                setNotice(`✓ 已合并——本模块生成了吸收【${link.otherTitle}】外壳的新版本，对方已归档。`);
+                              })}
+                            >
+                              确认合并
+                            </button>
+                            <button type="button" className="quiet-button" onClick={() => setMergeConfirmId(null)}>
+                              取消
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            className="quiet-button intent-edit-button"
+                            disabled={working}
+                            onClick={() => setMergeConfirmId(link.id)}
+                          >
+                            合并到本模块…
+                          </button>
+                        )
+                      )}
+                      <button
+                        type="button"
+                        className="quiet-button"
+                        disabled={working}
+                        onClick={() => void step(async () => {
+                          setDetail(await window.mentalLegos.unlinkLibraryModules({
+                            moduleId: detail.id, linkId: link.id,
+                          }));
+                        })}
+                      >
+                        解除
+                      </button>
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -513,6 +554,7 @@ export function LibraryView() {
                   setArchiveConfirm(false);
                   setModuleDeleteConfirm(false);
                   setRenaming(false);
+                  setMergeConfirmId(null);
                   window.mentalLegos.getLibraryModule(module.id)
                     .then(setDetail)
                     .catch((reason: unknown) => setError(messageFrom(reason)));
