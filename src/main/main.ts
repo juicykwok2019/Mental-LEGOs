@@ -994,6 +994,8 @@ function registerIpcHandlers(): void {
     service: TrainingSessionService,
   ): Promise<unknown> => {
     const database = await getProductDatabase();
+    // 读路径顺手做时效复审：过期的已确认事实降回待复核（惰性扫描，表很小）。
+    database.sweepStaleAssertions();
     const assertions = [
       ...database.listProfileAssertions('candidate'),
       ...database.listProfileAssertions('confirmed'),
@@ -1027,7 +1029,11 @@ function registerIpcHandlers(): void {
   withService(FOUNDATION_RESOLVE_ASSERTION_CHANNEL, async (service, value) => {
     const input = foundationResolveAssertionInputSchema.parse(value);
     const database = await getProductDatabase();
-    database.resolveProfileAssertion(input.assertionId, input.resolution);
+    if (input.resolution === 'retired') {
+      database.archiveProfileAssertion(input.assertionId);
+    } else {
+      database.resolveProfileAssertion(input.assertionId, input.resolution);
+    }
     return buildFoundationOverview(service);
   });
   withService(FOUNDATION_DELETE_KNOWLEDGE_CHANNEL, async (service, value) => {

@@ -371,6 +371,37 @@ describe('formal product database', () => {
     expect(() => database.resolveProfileAssertion(assertion.id, 'rejected')).toThrow('candidate');
   });
 
+  it('lets the user retire any assertion, and ages stale confirmed facts back to review', () => {
+    const assertion = database.createProfileAssertion({
+      id: randomUUID(),
+      tier: 'evidenced-observation',
+      statement: '结论习惯放在最后才说',
+      evidenceSegmentIds: [],
+      now: NOW,
+    });
+    database.resolveProfileAssertion(assertion.id, 'confirmed', LATER);
+
+    // 90 天内：不动。
+    const soon = new Date(new Date(LATER).getTime() + 30 * 86_400_000).toISOString();
+    expect(database.sweepStaleAssertions(soon)).toBe(0);
+
+    // 90 天无新证据：降回"有据观察 · 待复核"，停用于出题。
+    const stale = new Date(new Date(LATER).getTime() + 91 * 86_400_000).toISOString();
+    expect(database.sweepStaleAssertions(stale)).toBe(1);
+    const demoted = database.listProfileAssertions('candidate')
+      .find((entry) => entry.id === assertion.id);
+    expect(demoted?.tier).toBe('evidenced-observation');
+    expect(database.listProfileAssertions('confirmed')
+      .some((entry) => entry.id === assertion.id)).toBe(false);
+
+    // 「不再是我」：任何状态可归档，且留下删除同意记录。
+    database.archiveProfileAssertion(assertion.id, stale);
+    expect(database.listProfileAssertions('archived')
+      .some((entry) => entry.id === assertion.id)).toBe(true);
+    expect(database.listConsentEvents(`profile:${assertion.id}`)
+      .some((event) => event.action === 'deletion')).toBe(true);
+  });
+
   it('promotes a hypothesis to evidenced observation on reinforcement, and no further', () => {
     const assertion = database.createProfileAssertion({
       id: randomUUID(),

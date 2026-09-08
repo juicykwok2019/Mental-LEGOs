@@ -612,6 +612,48 @@ export class ProductDatabase {
     });
   }
 
+  // 「不再是我」（产品决策 2026-09-09）：关于用户的断言，用户永远有一票
+  // 否决——任何状态都可随时归档，归档即停用于一切 prompt。
+  archiveProfileAssertion(id: string, now = nowIso()): void {
+    this.#transaction(() => {
+      const row = this.#database.prepare('SELECT status FROM profile_assertions WHERE id = ?').get(id) as
+        | Row
+        | undefined;
+      if (!row) throw new Error('Profile assertion does not exist.');
+      if (String(row.status) === 'archived') return;
+      this.#database.prepare(
+        'UPDATE profile_assertions SET status = ?, updated_at = ? WHERE id = ?',
+      ).run('archived', now, id);
+      this.#recordConsent({
+        id: randomUUID(),
+        action: 'deletion',
+        objectRef: `profile:${id}`,
+        scope: 'global',
+        decision: 'granted',
+        occurredAt: now,
+      });
+    });
+  }
+
+  // 时效复审（产品决策 2026-09-09）：已确认事实 90 天无新证据 → 降回
+  // "有据观察 · 待复核"，停用于出题，等用户续期或移除。证据强化与确认
+  // 都会刷新 updated_at，等于自动续期——画像跟着现在的用户走，不固化。
+  sweepStaleAssertions(now = nowIso(), maxAgeDays = 90): number {
+    const cutoff = new Date(new Date(now).getTime() - maxAgeDays * 86_400_000).toISOString();
+    return this.#transaction(() => {
+      const rows = this.#database.prepare(`
+        SELECT id FROM profile_assertions
+        WHERE status = 'confirmed' AND tier = 'confirmed-fact' AND updated_at < ?
+      `).all(cutoff) as Row[];
+      for (const row of rows) {
+        this.#database.prepare(
+          'UPDATE profile_assertions SET status = ?, tier = ?, updated_at = ? WHERE id = ?',
+        ).run('candidate', 'evidenced-observation', now, String(row.id));
+      }
+      return rows.length;
+    });
+  }
+
   // ─── Questions, attempts, diagnostics ────────────────────────────────────
 
   createQuestion(

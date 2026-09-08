@@ -286,7 +286,8 @@ export type FoundationOverview = z.infer<typeof foundationOverviewSchema>;
 
 export const foundationResolveAssertionInputSchema = z.object({
   assertionId: z.string().uuid(),
-  resolution: z.enum(['confirmed', 'rejected']),
+  // retired = 已确认后的「不再是我」：随时移除，停用于一切 prompt。
+  resolution: z.enum(['confirmed', 'rejected', 'retired']),
 });
 export type FoundationResolveAssertionInput = z.infer<typeof foundationResolveAssertionInputSchema>;
 

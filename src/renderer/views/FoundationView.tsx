@@ -83,6 +83,8 @@ export function FoundationView(props: FoundationViewProps) {
         <p className="block-hint">
           训练中系统对你形成的判断，分三层：待验假设（还没证据）→ 有据观察（有训练证据）→
           已确认事实（你亲手确认）。只有你确认过的才会当作事实使用；不准的直接点"不是我"。
+          观察不是永久的：已确认的事实 90 天没有新证据会自动回到这里待你复核；
+          任何一条都可以随时点"不再是我"移除——表达习惯会变，画像跟着现在的你走。
         </p>
         {candidates.length === 0 && confirmed.length === 0 && (
           <p className="block-hint">还没有观察。完成几轮训练后，系统的观察会出现在这里等你复核。</p>
@@ -129,6 +131,16 @@ export function FoundationView(props: FoundationViewProps) {
                   {assertion.statement}
                   <em className="material-intent">{tierLabel(assertion.tier)} · {assertion.createdAt.slice(0, 10)}</em>
                 </span>
+                <button
+                  type="button"
+                  className="quiet-button"
+                  disabled={working}
+                  onClick={() => void step(() => window.mentalLegos.resolveFoundationAssertion({
+                    assertionId: assertion.id, resolution: 'retired',
+                  }))}
+                >
+                  不再是我
+                </button>
               </li>
             ))}
           </ul>

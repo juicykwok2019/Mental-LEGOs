@@ -420,6 +420,8 @@ export class TrainingSessionService {
   // ─── Profile ─────────────────────────────────────────────────────────────
 
   profileState(): ProfileState {
+    // 时效复审的惰性触发点：过期的已确认事实在这里降回待复核。
+    this.#product.sweepStaleAssertions();
     const seed = this.#product.getProfileSeed();
     return {
       seed: seed
@@ -994,6 +996,11 @@ export class TrainingSessionService {
         'verbatim quote from the user\'s answers in 「」 as evidence — no quote, no observation.',
         'FORBIDDEN in observations: personality or emotion inference, and any private facts',
         '(salary, employer names, health, third-party names). Observe the speaking, not the person.',
+        'Observations MUST be mutually consistent and consistent with the known list below:',
+        'never stage two that contradict each other. If this round contradicts a known',
+        'observation, stage NOTHING about it — the review flow handles change. When a',
+        'behavior depends on context, put the condition inside the one sentence',
+        '("当被追问大数字时…"), never two conflicting absolutes.',
         ...(knownObservations.length > 0
           ? [
             'Already-known observations — do NOT restage these (skipping observations is fine):',
