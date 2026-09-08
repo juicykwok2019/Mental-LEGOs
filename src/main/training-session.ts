@@ -172,10 +172,13 @@ export function buildVariationJudgementPrompt(input: {
 }
 
 // 第二遍与无限复练共用的对比点评 prompt（每一遍都有诊断，两处不得漂移）。
+// knownHabits=可靠层级的画像观察（已确认/有据）：本遍再犯时当场点醒
+// （产品决策 2026-09-09），但记录与续期仍只在提炼步进行。
 function buildProgressNotePrompt(
   question: string,
   previousResponse: string,
   newResponse: string,
+  knownHabits: string[] = [],
 ): string {
   return [
     'The user re-attempted the same question to polish their spoken answer.',
@@ -184,6 +187,15 @@ function buildProgressNotePrompt(
     `New attempt: ${newResponse}`,
     'In Chinese, give at most three short findings: what improved and what still',
     'sticks, each quoting the user\'s own words as evidence.',
+    ...(knownHabits.length > 0
+      ? [
+        'Known expression habits of this user (from their reviewed profile):',
+        ...knownHabits.map((statement) => `- ${statement.slice(0, 80)}`),
+        'If the NEW attempt clearly shows one of these habits again, append exactly one',
+        'extra line: 「注意：你的已知习惯又出现了——<习惯>」 with a verbatim quote from',
+        'the new attempt as evidence. If none clearly shows, do not mention them at all.',
+      ]
+      : []),
     'Do NOT provide a better answer, an outline, or model wording — the user',
     'decides for themselves when the answer is good enough.',
   ].join('\n');
@@ -837,7 +849,9 @@ export class TrainingSessionService {
       if (session.mode !== 'speech') {
         const output = await this.#runAgent(
           session,
-          buildProgressNotePrompt(session.questionPrompt ?? '', previousResponse, responseText),
+          buildProgressNotePrompt(
+            session.questionPrompt ?? '', previousResponse, responseText, this.#reliableHabits(),
+          ),
           4,
         );
         session.transcript.push({
@@ -912,7 +926,9 @@ export class TrainingSessionService {
       } else {
         const output = await this.#runAgent(
           session,
-          buildProgressNotePrompt(session.questionPrompt ?? '', previousResponse, input.responseText),
+          buildProgressNotePrompt(
+            session.questionPrompt ?? '', previousResponse, input.responseText, this.#reliableHabits(),
+          ),
           4,
         );
         session.transcript.push({
@@ -1079,6 +1095,15 @@ export class TrainingSessionService {
       }
       return this.#turnState();
     });
+  }
+
+  // 可靠层级的已知习惯（已确认/有据），供每遍对比点评当场点醒。
+  #reliableHabits(): string[] {
+    return this.#product.listProfileAssertions()
+      .filter((assertion) => (assertion.status === 'candidate' || assertion.status === 'confirmed')
+        && (assertion.tier === 'confirmed-fact' || assertion.tier === 'evidenced-observation'))
+      .slice(0, 8)
+      .map((assertion) => assertion.statement);
   }
 
   // 观察载荷同样是敌意输入：单条不合格丢一条，绝不影响提炼主流程。
