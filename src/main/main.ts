@@ -999,13 +999,18 @@ function registerIpcHandlers(): void {
     const assertions = [
       ...database.listProfileAssertions('candidate'),
       ...database.listProfileAssertions('confirmed'),
-    ].map((assertion) => ({
-      id: assertion.id,
-      tier: assertion.tier,
-      statement: assertion.statement,
-      status: assertion.status as 'candidate' | 'confirmed',
-      createdAt: assertion.createdAt,
-    }));
+    ]
+      // 待验假设满 2 轮独立证据才进入复核视野；之前只在系统内部积累。
+      .filter((assertion) => assertion.tier !== 'pending-hypothesis'
+        || assertion.evidenceSegmentIds.length >= 2)
+      .map((assertion) => ({
+        id: assertion.id,
+        tier: assertion.tier,
+        statement: assertion.statement,
+        status: assertion.status as 'candidate' | 'confirmed',
+        createdAt: assertion.createdAt,
+        evidenceCount: assertion.evidenceSegmentIds.length,
+      }));
     const knowledge = [
       ...database.listKnowledge({ status: 'confirmed' }),
       ...database.listKnowledge({ status: 'candidate' }),

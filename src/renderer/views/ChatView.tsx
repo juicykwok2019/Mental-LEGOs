@@ -365,16 +365,29 @@ export function ChatView(props: ChatViewProps) {
                   </label>
                 );
               })}
-              <button
-                type="button"
-                disabled={busy || selected.length === 0 || editingId !== null}
-                onClick={() => props.onAction('确认写入…', () => api.confirmCandidates({
-                  candidateIds: selected,
-                  edits: buildEdits(),
-                }))}
-              >
-                确认选中的 {selected.length} 个模块
-              </button>
+              <div className="phase-actions">
+                <button
+                  type="button"
+                  disabled={busy || selected.length === 0 || editingId !== null}
+                  onClick={() => props.onAction('确认写入…', () => api.confirmCandidates({
+                    candidateIds: selected,
+                    edits: buildEdits(),
+                  }))}
+                >
+                  确认选中的 {selected.length} 个模块
+                </button>
+                <button
+                  type="button"
+                  className="quiet-button"
+                  disabled={busy || editingId !== null}
+                  onClick={() => props.onAction('结束本轮…', () => api.confirmCandidates({
+                    candidateIds: [],
+                    edits: {},
+                  }))}
+                >
+                  本轮不收纳
+                </button>
+              </div>
             </div>
           </div>
         )}

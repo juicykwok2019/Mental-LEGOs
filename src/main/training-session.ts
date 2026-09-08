@@ -435,7 +435,10 @@ export class TrainingSessionService {
       confirmedAssertions: this.#product.listProfileAssertions('confirmed')
         .slice(0, 20)
         .map((assertion) => assertion.statement),
-      pendingObservationCount: this.#product.listProfileAssertions('candidate').length,
+      pendingObservationCount: this.#product.listProfileAssertions('candidate')
+        .filter((assertion) => assertion.tier !== 'pending-hypothesis'
+          || assertion.evidenceSegmentIds.length >= 2)
+        .length,
       moduleCount: this.#product.listLegoModules({ status: 'confirmed' }).length,
       knowledgeGapCount: this.#product.countKnowledgeGaps(),
     };
@@ -1032,12 +1035,14 @@ export class TrainingSessionService {
         // （产品决策 2026-09-09：确认才使用，二次独立证据晋升有据观察）。
         const observed = this.#recordObservations(
           pending.filter((candidate) => candidate.kind === 'profile_observation'),
+          session.firstAttemptId,
         );
-        if (observed.created > 0 || observed.promoted > 0 || observed.renewed > 0) {
+        if (observed.noted > 0 || observed.surfaced > 0 || observed.promoted > 0 || observed.renewed > 0) {
           const parts: string[] = [];
-          if (observed.created > 0) parts.push(`新增 ${observed.created} 条待验假设`);
+          if (observed.noted > 0) parts.push(`记下 ${observed.noted} 条新观察线索（满两轮独立证据才会请你复核）`);
+          if (observed.surfaced > 0) parts.push(`${observed.surfaced} 条线索已满两轮证据，进入待复核`);
           if (observed.promoted > 0) parts.push(`${observed.promoted} 条晋升为有据观察`);
-          if (observed.renewed > 0) parts.push(`${observed.renewed} 条已有观察再次出现（已补证据续期）`);
+          if (observed.renewed > 0) parts.push(`${observed.renewed} 条已有观察再次出现（已续期）`);
           session.transcript.push({
             role: 'system',
             kind: 'status',
@@ -1076,8 +1081,11 @@ export class TrainingSessionService {
   // 重试提炼时同一暂存行复现：同 id 建断言会撞唯一键被吞掉，不会重复计数。
   #recordObservations(
     rows: Array<{ id: string; payload: unknown }>,
-  ): { created: number; promoted: number; renewed: number } {
-    let created = 0;
+    evidenceAttemptId: string | null,
+  ): { noted: number; surfaced: number; promoted: number; renewed: number } {
+    const evidence = evidenceAttemptId ? [evidenceAttemptId] : [];
+    let noted = 0;
+    let surfaced = 0;
     let promoted = 0;
     let renewed = 0;
     // 去重只对活跃条目生效：归档/否认的行绝不吸收新证据（否则新观察会
@@ -1095,10 +1103,15 @@ export class TrainingSessionService {
         if (match) {
           // 同一次提炼里连发两条相似观察不算独立证据，不触发晋升。
           if (createdNow.has(match.id)) continue;
-          const before = match.tier;
-          const updated = this.#product.reinforceProfileAssertion(match.id);
-          if (before === 'pending-hypothesis' && updated.tier === 'evidenced-observation') {
-            promoted += 1;
+          const before = match;
+          const updated = this.#product.reinforceProfileAssertion(match.id, evidence);
+          if (before.tier === 'pending-hypothesis') {
+            if (updated.tier === 'evidenced-observation') {
+              promoted += 1; // 满 4 轮独立证据，自动晋升有据观察
+            } else if (updated.evidenceSegmentIds.length === 2) {
+              surfaced += 1; // 满 2 轮，首次进入待复核视野
+            }
+            // 2→3 轮之间的积累静默进行，不打扰用户。
           } else {
             // 复现即证据：已确认/有据观察刷新时效（90 天复审自动续期）。
             renewed += 1;
@@ -1108,17 +1121,17 @@ export class TrainingSessionService {
             id: row.id,
             tier: 'pending-hypothesis',
             statement,
-            evidenceSegmentIds: [],
+            evidenceSegmentIds: evidence,
           });
           existing.push(assertion);
           createdNow.add(assertion.id);
-          created += 1;
+          noted += 1;
         }
       } catch {
         // 载荷坏了或 id 已存在（提炼重试）：丢这一条，继续。
       }
     }
-    return { created, promoted, renewed };
+    return { noted, surfaced, promoted, renewed };
   }
 
   async confirm(
@@ -1178,7 +1191,9 @@ export class TrainingSessionService {
       session.transcript.push({
         role: 'system',
         kind: 'committed',
-        text: `已确认并写入 ${materializedIds.length} 个模块，安排了首次复现。`,
+        text: materializedIds.length > 0
+          ? `已确认并写入 ${materializedIds.length} 个模块，安排了首次复现。`
+          : '本轮未收纳模块——不是每一轮都需要入库，练习记录与画像观察都已保留。',
       });
       if (materializedIds.length === 0) {
         session.phase = 'round-complete';

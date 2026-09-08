@@ -81,8 +81,9 @@ export function FoundationView(props: FoundationViewProps) {
           {overview.assertions.length > 0 && <span className="count-pill">{overview.assertions.length}</span>}
         </h3>
         <p className="block-hint">
-          训练中系统对你形成的判断，分三层：待验假设（还没证据）→ 有据观察（有训练证据）→
-          已确认事实（你亲手确认）。只有你确认过的才会当作事实使用；不准的直接点"不是我"。
+          训练中系统对你形成的判断，按证据逐级晋升：观察线索先在后台积累，
+          满 2 轮独立证据才会出现在这里请你复核（待验假设）；满 4 轮自动晋升"有据观察"；
+          "已确认事实"只能由你亲手点。只有确认过的才会当作事实用于出题；不准的直接点"不是我"。
           观察不是永久的：已确认的事实 90 天没有新证据会自动回到这里待你复核；
           任何一条都可以随时点"不再是我"移除——表达习惯会变，画像跟着现在的你走。
         </p>
@@ -95,7 +96,7 @@ export function FoundationView(props: FoundationViewProps) {
               <li key={assertion.id}>
                 <span>
                   {assertion.statement}
-                  <em className="material-intent">{tierLabel(assertion.tier)} · 待你复核</em>
+                  <em className="material-intent">{tierLabel(assertion.tier)} · 证据 {assertion.evidenceCount} 轮 · 待你复核</em>
                 </span>
                 <span className="phase-actions">
                   <button
@@ -129,7 +130,7 @@ export function FoundationView(props: FoundationViewProps) {
               <li key={assertion.id}>
                 <span>
                   {assertion.statement}
-                  <em className="material-intent">{tierLabel(assertion.tier)} · {assertion.createdAt.slice(0, 10)}</em>
+                  <em className="material-intent">{tierLabel(assertion.tier)} · 证据 {assertion.evidenceCount} 轮 · {assertion.createdAt.slice(0, 10)}</em>
                 </span>
                 <button
                   type="button"

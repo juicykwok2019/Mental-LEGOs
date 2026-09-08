@@ -262,6 +262,8 @@ export const foundationAssertionSchema = z.object({
   statement: z.string().min(1),
   status: z.enum(['candidate', 'confirmed']),
   createdAt: z.string(),
+  // 独立证据轮数（以作答为锚）：满 2 轮才进待复核，满 4 轮自动晋升有据。
+  evidenceCount: z.number().int().nonnegative(),
 });
 export type FoundationAssertion = z.infer<typeof foundationAssertionSchema>;
 

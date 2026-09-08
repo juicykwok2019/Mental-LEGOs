@@ -402,19 +402,25 @@ describe('formal product database', () => {
       .some((event) => event.action === 'deletion')).toBe(true);
   });
 
-  it('promotes a hypothesis to evidenced observation on reinforcement, and no further', () => {
+  it('promotes a hypothesis only after four rounds of evidence, and no further', () => {
     const assertion = database.createProfileAssertion({
       id: randomUUID(),
       tier: 'pending-hypothesis',
       statement: '压力追问下习惯以「呃」开场',
-      evidenceSegmentIds: [],
+      evidenceSegmentIds: [randomUUID()],
       now: NOW,
     });
-    const promoted = database.reinforceProfileAssertion(assertion.id, [], LATER);
-    expect(promoted.tier).toBe('evidenced-observation');
-    expect(promoted.status).toBe('candidate');
-    // 再次强化只补证据，不再晋升——"已确认事实"只能由用户亲手确认。
-    const again = database.reinforceProfileAssertion(assertion.id, [], LATER);
+    // 第 2、3 轮证据：仍是待验假设（满 2 轮进入待复核，但层级不变）。
+    const two = database.reinforceProfileAssertion(assertion.id, [randomUUID()], LATER);
+    expect(two.tier).toBe('pending-hypothesis');
+    expect(two.evidenceSegmentIds).toHaveLength(2);
+    const three = database.reinforceProfileAssertion(assertion.id, [randomUUID()], LATER);
+    expect(three.tier).toBe('pending-hypothesis');
+    // 第 4 轮：自动晋升有据观察；再强化只补证据不再晋升。
+    const four = database.reinforceProfileAssertion(assertion.id, [randomUUID()], LATER);
+    expect(four.tier).toBe('evidenced-observation');
+    expect(four.status).toBe('candidate');
+    const again = database.reinforceProfileAssertion(assertion.id, [randomUUID()], LATER);
     expect(again.tier).toBe('evidenced-observation');
     expect(again.statement).toBe('压力追问下习惯以「呃」开场');
   });

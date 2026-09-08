@@ -590,13 +590,15 @@ export class ProductDatabase {
         | Row
         | undefined;
       if (!row) throw new Error('Profile assertion does not exist.');
-      const tier = String(row.tier) === 'pending-hypothesis'
-        ? 'evidenced-observation'
-        : String(row.tier);
       const evidence = [...new Set([
         ...parseStringArray(row.evidence_segment_ids_json),
         ...evidenceSegmentIds,
       ])];
+      // 阶梯（产品决策 2026-09-09）：待验假设满 4 轮独立证据（2 轮进入待复核
+      // + 再 2 轮）才自动晋升"有据观察"；"已确认事实"永远只能用户手动。
+      const tier = String(row.tier) === 'pending-hypothesis' && evidence.length >= 4
+        ? 'evidenced-observation'
+        : String(row.tier);
       this.#database.prepare(
         'UPDATE profile_assertions SET tier = ?, evidence_segment_ids_json = ?, updated_at = ? WHERE id = ?',
       ).run(tier, JSON.stringify(evidence), now, id);
