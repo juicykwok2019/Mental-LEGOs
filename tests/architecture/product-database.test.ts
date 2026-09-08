@@ -292,6 +292,72 @@ describe('formal product database', () => {
     expect(database.listModuleLinks(ids.moduleId)).toHaveLength(0);
   });
 
+  it('refuses a merge that has no confirmed pair to work from', () => {
+    const ids = seedScenarioTraining();
+    database.confirmLegoVersion(ids.moduleId, 1, NOW);
+    const candidate = database.createLegoCandidate({
+      id: randomUUID(),
+      scope: 'global',
+      scenarioId: null,
+      category: 'viewpoint',
+      title: '尚未确认的近义模块',
+      triggers: ['闭环'],
+      payload,
+      authorship: 'agent-candidate',
+      evidenceSegmentIds: [],
+      now: NOW,
+    });
+
+    expect(() => database.mergeSimilarModules(ids.moduleId, ids.moduleId, LATER)).toThrow();
+    // The other side is still a candidate, so there is no wording to absorb yet.
+    expect(() => database.mergeSimilarModules(ids.moduleId, candidate.module.id, LATER)).toThrow();
+    expect(database.getLegoModule(candidate.module.id)?.status).toBe('candidate');
+    expect(database.getLegoModule(ids.moduleId)?.currentVersion).toBe(1);
+  });
+
+  it('leaves the merged-away module recoverable and untouched relations alone', () => {
+    const ids = seedScenarioTraining();
+    database.confirmLegoVersion(ids.moduleId, 1, NOW);
+    const makeConfirmed = (title: string, shell: string): string => {
+      const created = database.createLegoCandidate({
+        id: randomUUID(),
+        scope: 'global',
+        scenarioId: null,
+        category: 'viewpoint',
+        title,
+        triggers: [],
+        payload: { ...payload, languageShells: [shell] },
+        authorship: 'user-native',
+        evidenceSegmentIds: [],
+        now: NOW,
+      });
+      database.confirmLegoVersion(created.module.id, 1, NOW);
+      return created.module.id;
+    };
+    const twinId = makeConfirmed('近义模块', '换个说法：壁垒的本质是闭环能不能持续。');
+    const partnerId = makeConfirmed('搭档模块', '再补一句：所以先看闭环。');
+    database.linkModules({
+      id: randomUUID(), fromModuleId: ids.moduleId, toModuleId: twinId, relation: 'similar-to',
+    });
+    database.linkModules({
+      id: randomUUID(), fromModuleId: ids.moduleId, toModuleId: partnerId, relation: 'composes-with',
+    });
+
+    database.mergeSimilarModules(ids.moduleId, twinId, LATER);
+
+    // The library screen promises the absorbed brick is recoverable...
+    database.restoreLegoModule(twinId, LATER);
+    expect(database.getLegoModule(twinId)?.status).toBe('confirmed');
+    // ...that older wording is versioned rather than overwritten...
+    expect(database.getLegoVersion(ids.moduleId, 1)?.payload.languageShells)
+      .toEqual(payload.languageShells);
+    // ...and that only the similar link dissolves.
+    const links = database.listModuleLinks(ids.moduleId);
+    expect(links).toHaveLength(1);
+    expect(links[0]?.relation).toBe('composes-with');
+    expect(links[0]?.otherModuleId).toBe(partnerId);
+  });
+
   it('links a recording source to an attempt and cleans up on deletion', () => {
     const ids = seedScenarioTraining();
     const recordingId = randomUUID();
