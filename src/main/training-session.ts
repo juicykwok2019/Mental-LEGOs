@@ -994,40 +994,33 @@ export class TrainingSessionService {
         'Each language shell MUST be one complete, independently speakable sentence of',
         'roughly 15-120 characters — never a fragment shorter than a full clause.',
         'Granularity bar: one communication task, reusable across questions, speakable in 5-30 seconds.',
-        'ALSO stage at most two profile observations from this round with the same tool:',
-        'kind "profile_observation", scope "personal", payload {"statement":"..."},',
-        'provenance {"source_refs":[],"method":"practice-observation","generated_by":"mental-legos-agent"},',
-        `idempotency_key "observe-${session.id.slice(0, 8)}-<n>".`,
-        'An observation is ONE plain-Chinese sentence about HOW the user expresses themselves',
-        '(a habit, strength, or recurring gap visible in this round — e.g. conclusions arriving',
-        'last, hedging under pressure, strong with concrete numbers), and it MUST embed a',
-        'verbatim quote from the user\'s answers in 「」 as evidence — no quote, no observation.',
-        'FORBIDDEN in observations: personality or emotion inference, and any private facts',
-        '(salary, employer names, health, third-party names). Observe the speaking, not the person.',
-        'Observations MUST be mutually consistent and consistent with the known list below:',
-        'never stage two that contradict each other. If this round contradicts a known',
-        'observation, stage NOTHING about it — the review flow handles change. When a',
-        'behavior depends on context, put the condition inside the one sentence',
-        '("当被追问大数字时…"), never two conflicting absolutes.',
+        'ALSO stage profile observations with the same tool: kind "profile_observation",',
+        'scope "personal", payload {"statement":"..."}, provenance {"source_refs":[],',
+        '"method":"practice-observation","generated_by":"mental-legos-agent"},',
+        `idempotency_key "observe-${session.id.slice(0, 8)}-<n>". Rules:`,
+        '- At most two. Each is ONE plain-Chinese sentence about HOW the user speaks',
+        '  (habit / strength / recurring gap) and MUST contain a verbatim 「」quote from',
+        '  this round. No quote, no entry.',
+        '- Never: personality or emotion inference; private facts (salary, employers,',
+        '  health, names); two entries that contradict; reworded variants of known',
+        '  entries. Context-dependent behavior goes in one conditional sentence.',
         ...(knownObservations.length > 0
           ? [
-            'Known active observations below. If THIS round again clearly shows one of them,',
-            'restage it with an essentially identical statement plus a fresh 「」quote from',
-            'this round —',
-            'recurrence is evidence and renews it. If it does not show this round, skip it.',
-            'Never stage a reworded variation or a contradiction of a known observation:',
-            ...knownObservations.map((statement) => `- ${statement}`),
+            '- Known entries below: if this round clearly shows one AGAIN, restage it with',
+            '  the same statement plus a fresh quote (that renews it); otherwise skip it.',
+            ...knownObservations.map((statement) => `  [known] ${statement.slice(0, 80)}`),
           ]
           : []),
         ...(deniedObservations.length > 0
           ? [
-            'The user has explicitly DENIED these — never stage these or near-equivalents:',
-            ...deniedObservations.map((statement) => `- ${statement}`),
+            '- The user denied these — never stage them or near-equivalents again:',
+            ...deniedObservations.map((statement) => `  [denied] ${statement.slice(0, 80)}`),
           ]
           : []),
         'After submitting, reply in Chinese with a one-line summary per candidate.',
       ].join('\n');
-      await this.#runAgent(session, prompt, 8);
+      // 预算 8→10：提炼现在要提交积木+观察两类候选，留足工具调用轮次。
+      await this.#runAgent(session, prompt, 10);
 
       const repository = new GovernanceRepository(session.governanceDatabasePath);
       try {
