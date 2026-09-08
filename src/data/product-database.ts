@@ -578,6 +578,40 @@ export class ProductDatabase {
     });
   }
 
+  // 二次独立证据出现时的自动晋升（产品决策 2026-09-09）：待验假设 →
+  // 有据观察到此为止；"已确认事实"只能由用户在个人底座亲手确认。
+  reinforceProfileAssertion(
+    id: string,
+    evidenceSegmentIds: string[] = [],
+    now = nowIso(),
+  ): ProfileAssertion {
+    return this.#transaction(() => {
+      const row = this.#database.prepare('SELECT * FROM profile_assertions WHERE id = ?').get(id) as
+        | Row
+        | undefined;
+      if (!row) throw new Error('Profile assertion does not exist.');
+      const tier = String(row.tier) === 'pending-hypothesis'
+        ? 'evidenced-observation'
+        : String(row.tier);
+      const evidence = [...new Set([
+        ...parseStringArray(row.evidence_segment_ids_json),
+        ...evidenceSegmentIds,
+      ])];
+      this.#database.prepare(
+        'UPDATE profile_assertions SET tier = ?, evidence_segment_ids_json = ?, updated_at = ? WHERE id = ?',
+      ).run(tier, JSON.stringify(evidence), now, id);
+      return profileAssertionSchema.parse({
+        id: row.id,
+        tier,
+        statement: this.#codec.decrypt(String(row.statement_enc)),
+        evidenceSegmentIds: evidence,
+        status: String(row.status),
+        createdAt: row.created_at,
+        updatedAt: now,
+      });
+    });
+  }
+
   // ─── Questions, attempts, diagnostics ────────────────────────────────────
 
   createQuestion(

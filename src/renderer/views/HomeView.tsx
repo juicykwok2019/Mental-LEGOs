@@ -10,6 +10,7 @@ export interface HomeViewProps {
   onCreateScenario(): void;
   onEditProfile(): void;
   onOpenAbout(): void;
+  onOpenFoundation(): void;
 }
 
 export function HomeView(props: HomeViewProps) {
@@ -35,6 +36,13 @@ export function HomeView(props: HomeViewProps) {
           已确认模块 {props.profile.moduleCount} · 画像观察 {props.profile.confirmedAssertions.length}
           {props.profile.knowledgeGapCount > 0 && ` · 知识缺口 ${props.profile.knowledgeGapCount}`}
         </p>
+        {props.profile.pendingObservationCount > 0 && (
+          <p className="home-line">
+            <button type="button" className="quiet-button" onClick={props.onOpenFoundation}>
+              {props.profile.pendingObservationCount} 条画像观察待复核 →
+            </button>
+          </p>
+        )}
       </section>
 
       <section className="home-entries">

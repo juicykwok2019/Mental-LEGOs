@@ -171,6 +171,39 @@ export function buildVariationJudgementPrompt(input: {
   ].join('\n');
 }
 
+// 画像观察的候选载荷：一句话 + 内嵌逐字引用（详见 extract 的观察规则）。
+const observationPayloadSchema = z.object({
+  statement: z.string().trim().min(4).max(500),
+});
+
+// 观察语句的相似判定（确定性）：归一化后互相包含，或字符 2-gram 包含度
+// ≥0.45（中文措辞漂移下 3-gram 过碎）。相似=同一条观察 → 补证据而非新建；
+// 跨轮重复出现即为晋升"有据观察"的依据。近义反转（"最前"vs"最后"）这类
+// 语义边界交给 agent 的"勿重复已知观察"指令与人工复核兜底。
+export function similarObservationStatements(a: string, b: string): boolean {
+  const normalize = (value: string): string => value
+    .replace(/[\p{P}\p{S}\p{Z}\s]/gu, '')
+    .toLowerCase();
+  const na = normalize(a);
+  const nb = normalize(b);
+  if (na.length === 0 || nb.length === 0) return false;
+  if (na.includes(nb) || nb.includes(na)) return true;
+  const grams = (value: string): Set<string> => {
+    const set = new Set<string>();
+    for (let index = 0; index + 2 <= value.length; index += 1) set.add(value.slice(index, index + 2));
+    return set;
+  };
+  const [small, large] = na.length <= nb.length ? [na, nb] : [nb, na];
+  const smallGrams = grams(small);
+  if (smallGrams.size === 0) return false;
+  const largeGrams = grams(large);
+  let hits = 0;
+  for (const gram of smallGrams) {
+    if (largeGrams.has(gram)) hits += 1;
+  }
+  return hits / smallGrams.size >= 0.45;
+}
+
 const candidatePayloadSchema = z.object({
   title: z.string(),
   category: z.string().default('viewpoint'),
@@ -382,6 +415,7 @@ export class TrainingSessionService {
       confirmedAssertions: this.#product.listProfileAssertions('confirmed')
         .slice(0, 20)
         .map((assertion) => assertion.statement),
+      pendingObservationCount: this.#product.listProfileAssertions('candidate').length,
       moduleCount: this.#product.listLegoModules({ status: 'confirmed' }).length,
       knowledgeGapCount: this.#product.countKnowledgeGaps(),
     };
@@ -896,6 +930,10 @@ export class TrainingSessionService {
         ? this.#product.getAttempt(session.firstAttemptId)
         : null;
       const scope = session.mode === 'open' ? 'personal' : 'scenario';
+      const knownObservations = this.#product.listProfileAssertions()
+        .filter((assertion) => assertion.status !== 'rejected')
+        .slice(0, 10)
+        .map((assertion) => assertion.statement);
       const prompt = [
         'Compare the two attempts and extract at most two candidate language LEGO modules.',
         `Question: ${session.questionPrompt}`,
@@ -915,6 +953,22 @@ export class TrainingSessionService {
         'Each language shell MUST be one complete, independently speakable sentence of',
         'roughly 15-120 characters — never a fragment shorter than a full clause.',
         'Granularity bar: one communication task, reusable across questions, speakable in 5-30 seconds.',
+        'ALSO stage at most two profile observations from this round with the same tool:',
+        'kind "profile_observation", scope "personal", payload {"statement":"..."},',
+        'provenance {"source_refs":[],"method":"practice-observation","generated_by":"mental-legos-agent"},',
+        `idempotency_key "observe-${session.id.slice(0, 8)}-<n>".`,
+        'An observation is ONE plain-Chinese sentence about HOW the user expresses themselves',
+        '(a habit, strength, or recurring gap visible in this round — e.g. conclusions arriving',
+        'last, hedging under pressure, strong with concrete numbers), and it MUST embed a',
+        'verbatim quote from the user\'s answers in 「」 as evidence — no quote, no observation.',
+        'FORBIDDEN in observations: personality or emotion inference, and any private facts',
+        '(salary, employer names, health, third-party names). Observe the speaking, not the person.',
+        ...(knownObservations.length > 0
+          ? [
+            'Already-known observations — do NOT restage these (skipping observations is fine):',
+            ...knownObservations.map((statement) => `- ${statement}`),
+          ]
+          : []),
         'After submitting, reply in Chinese with a one-line summary per candidate.',
       ].join('\n');
       await this.#runAgent(session, prompt, 8);
@@ -922,7 +976,24 @@ export class TrainingSessionService {
       const repository = new GovernanceRepository(session.governanceDatabasePath);
       try {
         const pending = repository.listPendingCandidates(session.workspaceSessionId);
-        session.candidates = candidatesFromPending(pending);
+        session.candidates = candidatesFromPending(
+          pending.filter((candidate) => candidate.kind === 'language_module'),
+        );
+        // 画像观察不走训练确认流：以"待验假设"直接落库，去个人底座复核
+        // （产品决策 2026-09-09：确认才使用，二次独立证据晋升有据观察）。
+        const observed = this.#recordObservations(
+          pending.filter((candidate) => candidate.kind === 'profile_observation'),
+        );
+        if (observed.created > 0 || observed.promoted > 0) {
+          const parts: string[] = [];
+          if (observed.created > 0) parts.push(`新增 ${observed.created} 条待验假设`);
+          if (observed.promoted > 0) parts.push(`${observed.promoted} 条晋升为有据观察`);
+          session.transcript.push({
+            role: 'system',
+            kind: 'status',
+            text: `画像观察：${parts.join('，')}——在「个人底座」等你复核。只有你确认过的才会用于出题。`,
+          });
+        }
       } finally {
         repository.close();
       }
@@ -949,6 +1020,49 @@ export class TrainingSessionService {
       }
       return this.#turnState();
     });
+  }
+
+  // 观察载荷同样是敌意输入：单条不合格丢一条，绝不影响提炼主流程。
+  // 重试提炼时同一暂存行复现：同 id 建断言会撞唯一键被吞掉，不会重复计数。
+  #recordObservations(
+    rows: Array<{ id: string; payload: unknown }>,
+  ): { created: number; promoted: number } {
+    let created = 0;
+    let promoted = 0;
+    const existing = this.#product.listProfileAssertions()
+      .filter((assertion) => assertion.status !== 'rejected');
+    const createdNow = new Set<string>();
+    for (const row of rows.slice(0, 2)) {
+      try {
+        const statement = observationPayloadSchema.parse(row.payload).statement.trim();
+        const match = existing.find((assertion) => (
+          assertion.id !== row.id
+          && similarObservationStatements(assertion.statement, statement)
+        ));
+        if (match) {
+          // 同一次提炼里连发两条相似观察不算独立证据，不触发晋升。
+          if (createdNow.has(match.id)) continue;
+          const before = match.tier;
+          const updated = this.#product.reinforceProfileAssertion(match.id);
+          if (before === 'pending-hypothesis' && updated.tier === 'evidenced-observation') {
+            promoted += 1;
+          }
+        } else {
+          const assertion = this.#product.createProfileAssertion({
+            id: row.id,
+            tier: 'pending-hypothesis',
+            statement,
+            evidenceSegmentIds: [],
+          });
+          existing.push(assertion);
+          createdNow.add(assertion.id);
+          created += 1;
+        }
+      } catch {
+        // 载荷坏了或 id 已存在（提炼重试）：丢这一条，继续。
+      }
+    }
+    return { created, promoted };
   }
 
   async confirm(

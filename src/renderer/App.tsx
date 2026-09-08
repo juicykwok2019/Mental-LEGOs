@@ -392,6 +392,7 @@ export function App() {
           busy={busy}
           onOpenAbout={() => setView('about')}
           onEditProfile={() => setEditingProfile(true)}
+          onOpenFoundation={() => setView('foundation')}
           onCreateScenario={() => {
             setCreatingScenario(true);
             setView('scenarios');

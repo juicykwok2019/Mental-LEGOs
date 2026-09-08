@@ -13,6 +13,7 @@ import {
   extractFinalText,
   normalizeQuestionType,
   parseJsonReply,
+  similarObservationStatements,
   TrainingSessionService,
   type TrainingAgentRunner,
 } from '../../src/main/training-session';
@@ -444,6 +445,19 @@ describe('training session v2 orchestration', () => {
     expect(parseJsonReply('noise {"a": 1} trailing', schema)).toEqual({ a: 1 });
     expect(() => parseJsonReply('no json here', schema)).toThrow('no JSON');
     expect(extractFinalText([resultMessage('x')])).toBe('x');
+  });
+
+  it('matches similar observation statements but not different ones', () => {
+    // 措辞漂移仍算同一条观察（补证据晋升），不同行为绝不合并。
+    expect(similarObservationStatements(
+      '压力追问下习惯以「呃」开场',
+      '面对压力追问时，习惯用「呃」来开场缓冲',
+    )).toBe(true);
+    expect(similarObservationStatements(
+      '结论习惯放在最后才说',
+      '证据类问题回答得最稳',
+    )).toBe(false);
+    expect(similarObservationStatements('', '任意内容')).toBe(false);
   });
 
   it('repairs the provider JSON defects seen in the first smoke round', () => {

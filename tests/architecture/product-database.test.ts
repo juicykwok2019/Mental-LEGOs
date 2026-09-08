@@ -371,6 +371,23 @@ describe('formal product database', () => {
     expect(() => database.resolveProfileAssertion(assertion.id, 'rejected')).toThrow('candidate');
   });
 
+  it('promotes a hypothesis to evidenced observation on reinforcement, and no further', () => {
+    const assertion = database.createProfileAssertion({
+      id: randomUUID(),
+      tier: 'pending-hypothesis',
+      statement: '压力追问下习惯以「呃」开场',
+      evidenceSegmentIds: [],
+      now: NOW,
+    });
+    const promoted = database.reinforceProfileAssertion(assertion.id, [], LATER);
+    expect(promoted.tier).toBe('evidenced-observation');
+    expect(promoted.status).toBe('candidate');
+    // 再次强化只补证据，不再晋升——"已确认事实"只能由用户亲手确认。
+    const again = database.reinforceProfileAssertion(assertion.id, [], LATER);
+    expect(again.tier).toBe('evidenced-observation');
+    expect(again.statement).toBe('压力追问下习惯以「呃」开场');
+  });
+
   it('supports mastery progression, regression, and due scheduling', () => {
     const ids = seedScenarioTraining();
     database.confirmLegoVersion(ids.moduleId, 1, NOW);

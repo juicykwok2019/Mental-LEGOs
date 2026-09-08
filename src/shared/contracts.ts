@@ -293,6 +293,8 @@ export type FoundationResolveAssertionInput = z.infer<typeof foundationResolveAs
 export const profileStateSchema = z.object({
   seed: profileSeedInputSchema.nullable(),
   confirmedAssertions: z.array(z.string()),
+  // 待复核的画像观察数——首页据此给显式提醒（观察生成不允许是静默功能）。
+  pendingObservationCount: z.number().int().nonnegative(),
   moduleCount: z.number().int().nonnegative(),
   knowledgeGapCount: z.number().int().nonnegative(),
 });
