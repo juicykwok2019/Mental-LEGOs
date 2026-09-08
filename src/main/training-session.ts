@@ -963,8 +963,16 @@ export class TrainingSessionService {
         ? this.#product.getAttempt(session.firstAttemptId)
         : null;
       const scope = session.mode === 'open' ? 'personal' : 'scenario';
-      const knownObservations = this.#product.listProfileAssertions()
-        .filter((assertion) => assertion.status !== 'rejected')
+      // 三种历史各有语义：活跃（待复核/已确认）=勿重复；rejected（"不是我"）
+      // =用户否认过的永久禁区；archived（"不再是我"=过时）=退出全部清单，
+      // 习惯若真回来允许重新观察、走全新假设→复核循环。
+      const allAssertions = this.#product.listProfileAssertions();
+      const knownObservations = allAssertions
+        .filter((assertion) => assertion.status === 'candidate' || assertion.status === 'confirmed')
+        .slice(0, 10)
+        .map((assertion) => assertion.statement);
+      const deniedObservations = allAssertions
+        .filter((assertion) => assertion.status === 'rejected')
         .slice(0, 10)
         .map((assertion) => assertion.statement);
       const prompt = [
@@ -1005,6 +1013,12 @@ export class TrainingSessionService {
           ? [
             'Already-known observations — do NOT restage these (skipping observations is fine):',
             ...knownObservations.map((statement) => `- ${statement}`),
+          ]
+          : []),
+        ...(deniedObservations.length > 0
+          ? [
+            'The user has explicitly DENIED these — never stage these or near-equivalents:',
+            ...deniedObservations.map((statement) => `- ${statement}`),
           ]
           : []),
         'After submitting, reply in Chinese with a one-line summary per candidate.',
@@ -1067,8 +1081,10 @@ export class TrainingSessionService {
   ): { created: number; promoted: number } {
     let created = 0;
     let promoted = 0;
+    // 去重只对活跃条目生效：归档/否认的行绝不吸收新证据（否则新观察会
+    // 静默蒸发进一条永远不显示的记录里）。
     const existing = this.#product.listProfileAssertions()
-      .filter((assertion) => assertion.status !== 'rejected');
+      .filter((assertion) => assertion.status === 'candidate' || assertion.status === 'confirmed');
     const createdNow = new Set<string>();
     for (const row of rows.slice(0, 2)) {
       try {
