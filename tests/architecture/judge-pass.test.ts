@@ -10,7 +10,7 @@
 // 门控：MENTAL_LEGOS_EVAL=1 + live 提供方环境 + Judge 模型
 // （MENTAL_LEGOS_EVAL_JUDGE_MODEL，缺省 kimi-k3，必须不同于被测模型）。
 // MENTAL_LEGOS_EVAL_RUN 指定轮次目录名，缺省取最新一轮。
-import { readdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync, appendFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -53,8 +53,26 @@ describe('offline judge pass over a completed eval run', () => {
   judgeProbe('judges stored outputs and writes judge-*.jsonl', async () => {
     const config = judgeConfig as JudgeConfig;
     const runDirectory = resolveRunDirectory();
+    // 判审可重跑：清掉上次（可能中断的）判审残留，避免 append 叠加。
+    for (const file of [
+      'judge-leak.jsonl', 'judge-kernel.jsonl', 'judge-grounding.jsonl',
+      'judge-assertions.jsonl', 'judge-errors.jsonl',
+    ]) rmSync(path.join(runDirectory, file), { force: true });
     const write = (file: string, row: Record<string, unknown>) => {
       appendFileSync(path.join(runDirectory, file), `${JSON.stringify(row)}\n`, 'utf8');
+    };
+    // 单条判审失败（网络、Judge 输出修不好的坏 JSON）不废整趟。
+    let judgeErrors = 0;
+    const guard = async <T>(id: string, work: () => Promise<T>): Promise<T | null> => {
+      try {
+        return await work();
+      } catch (reason) {
+        judgeErrors += 1;
+        write('judge-errors.jsonl', {
+          id, error: reason instanceof Error ? reason.message : String(reason),
+        });
+        return null;
+      }
     };
     const summary: Record<string, { total: number; flagged: number }> = {};
     const bump = (name: string, flagged: boolean) => {
@@ -68,7 +86,8 @@ describe('offline judge pass over a completed eval run', () => {
       const findings = (row.findings as Array<{ finding: string }> | undefined) ?? [];
       if (findings.length === 0) continue;
       const text = findings.map((entry) => entry.finding).join('\n');
-      const verdict = await judgeAnswerLeak(config, text);
+      const verdict = await guard(`diagnosis:${String(row.id)}`, () => judgeAnswerLeak(config, text));
+      if (!verdict) continue;
       write('judge-leak.jsonl', {
         id: `diagnosis:${String(row.id)}`, calibrated: false, ...verdict,
       });
@@ -78,7 +97,10 @@ describe('offline judge pass over a completed eval run', () => {
       const hints = (row.hints as Array<{ level: string; text: string }> | undefined) ?? [];
       for (const hint of hints) {
         if (hint.level === 'L4') continue; // L4 就是示范档（产品决策 2026-08-18）
-        const verdict = await judgeAnswerLeak(config, hint.text);
+        const verdict = await guard(
+          `hint:${String(row.id)}:${hint.level}`, () => judgeAnswerLeak(config, hint.text),
+        );
+        if (!verdict) continue;
         write('judge-leak.jsonl', {
           id: `hint:${String(row.id)}:${hint.level}`, calibrated: false, ...verdict,
         });
@@ -92,7 +114,8 @@ describe('offline judge pass over a completed eval run', () => {
       const answer = (row.submittedAnswer as string | undefined) ?? '';
       if (kernels.length === 0 || !answer) continue;
       for (const kernel of kernels) {
-        const verdict = await judgeKernel(config, kernel, answer);
+        const verdict = await guard(`kernel:${String(row.id)}`, () => judgeKernel(config, kernel, answer));
+        if (!verdict) continue;
         write('judge-kernel.jsonl', { id: String(row.id), kernel, ...verdict });
         bump('kernel-judgment', !verdict.isJudgment);
         bump('kernel-entailed', !verdict.entailed);
@@ -105,7 +128,11 @@ describe('offline judge pass over a completed eval run', () => {
       const materials = (row.materials as string | undefined) ?? '';
       if (prompts.length === 0 || !materials) continue;
       for (const [index, question] of prompts.entries()) {
-        const verdict = await judgeQuestionGrounding(config, question, materials);
+        const verdict = await guard(
+          `grounding:${String(row.id)}#${index}`,
+          () => judgeQuestionGrounding(config, question, materials),
+        );
+        if (!verdict) continue;
         write('judge-grounding.jsonl', {
           id: `${String(row.id)}#${index}`, question, ...verdict,
         });
@@ -118,7 +145,11 @@ describe('offline judge pass over a completed eval run', () => {
       const assertions = (row.assertions as Array<{ statement: string }> | undefined) ?? [];
       const transcript = ((row.transcript as string[] | undefined) ?? []).join('\n');
       for (const assertion of assertions) {
-        const verdict = await judgeAssertionEntailment(config, assertion.statement, transcript);
+        const verdict = await guard(
+          `assertion:${String(row.id)}`,
+          () => judgeAssertionEntailment(config, assertion.statement, transcript),
+        );
+        if (!verdict) continue;
         write('judge-assertions.jsonl', {
           id: String(row.id), statement: assertion.statement, ...verdict,
         });
@@ -133,6 +164,7 @@ describe('offline judge pass over a completed eval run', () => {
         rubricVersion: RUBRIC_VERSION,
         judgeModel: config.model,
         judgedAt: new Date().toISOString(),
+        judgeErrors,
         summary,
       }, null, 2)}\n`,
       'utf8',

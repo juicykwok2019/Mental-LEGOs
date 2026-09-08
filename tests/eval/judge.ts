@@ -8,6 +8,8 @@
 // Judge 只评存量文本，不跑产品流程，因此直连 anthropic-messages 端点
 // （不经 Agent 沙箱），只在评测环境使用。
 
+import { repairJsonCandidate } from '../../src/main/training-session';
+
 export const RUBRIC_VERSION = '2026-08-19.1';
 
 export interface JudgeConfig {
@@ -65,7 +67,13 @@ function extractVerdictJson<T>(text: string, validate: (value: unknown) => T): T
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
   if (start < 0 || end <= start) throw new Error('Judge reply contained no JSON.');
-  return validate(JSON.parse(text.slice(start, end + 1)));
+  const candidate = text.slice(start, end + 1);
+  // Judge 输出同样是敌意输入：坏 JSON 先修再判。
+  try {
+    return validate(JSON.parse(candidate));
+  } catch {
+    return validate(JSON.parse(repairJsonCandidate(candidate)));
+  }
 }
 
 // ---------------------------------------------------------------- rubrics
