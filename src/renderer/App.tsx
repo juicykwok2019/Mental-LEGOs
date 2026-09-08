@@ -272,6 +272,11 @@ export function App() {
       return;
     }
     setView(target);
+    // 首页的画像统计（观察数/模块数/缺口数）可能被其他页面的操作改过
+    // （个人底座确认或移除观察、积木库归档等），回首页时重新拉取。
+    if (target === 'home') {
+      window.mentalLegos.getProfile().then(setProfile).catch(() => undefined);
+    }
   }
 
   return (
