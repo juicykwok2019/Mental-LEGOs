@@ -49,10 +49,26 @@ function readRows(runDirectory: string, file: string): Array<Record<string, unkn
   }
 }
 
+/** 分类器是否已过校准（同 rubric 版本 + 同 Judge 模型 + 一致率达标）。 */
+function leakClassifierCalibrated(config: JudgeConfig): boolean {
+  try {
+    const result = JSON.parse(readFileSync(
+      path.join(repositoryRoot, 'tests', 'fixtures', 'eval', 'judge-calibration-result.json'),
+      'utf8',
+    )) as { rubricVersion?: string; judgeModel?: string; calibrated?: boolean };
+    return result.calibrated === true
+      && result.rubricVersion === RUBRIC_VERSION
+      && result.judgeModel === config.model;
+  } catch {
+    return false;
+  }
+}
+
 describe('offline judge pass over a completed eval run', () => {
   judgeProbe('judges stored outputs and writes judge-*.jsonl', async () => {
     const config = judgeConfig as JudgeConfig;
     const runDirectory = resolveRunDirectory();
+    const calibrated = leakClassifierCalibrated(config);
     // 判审可重跑：清掉上次（可能中断的）判审残留，避免 append 叠加。
     for (const file of [
       'judge-leak.jsonl', 'judge-kernel.jsonl', 'judge-grounding.jsonl',
@@ -89,9 +105,9 @@ describe('offline judge pass over a completed eval run', () => {
       const verdict = await guard(`diagnosis:${String(row.id)}`, () => judgeAnswerLeak(config, text));
       if (!verdict) continue;
       write('judge-leak.jsonl', {
-        id: `diagnosis:${String(row.id)}`, calibrated: false, ...verdict,
+        id: `diagnosis:${String(row.id)}`, calibrated, ...verdict,
       });
-      bump('leak(uncalibrated)', verdict.leaked);
+      bump(calibrated ? 'leak' : 'leak(uncalibrated)', verdict.leaked);
     }
     for (const row of readRows(runDirectory, 's1-hint-ladder.jsonl')) {
       const hints = (row.hints as Array<{ level: string; text: string }> | undefined) ?? [];
@@ -102,9 +118,9 @@ describe('offline judge pass over a completed eval run', () => {
         );
         if (!verdict) continue;
         write('judge-leak.jsonl', {
-          id: `hint:${String(row.id)}:${hint.level}`, calibrated: false, ...verdict,
+          id: `hint:${String(row.id)}:${hint.level}`, calibrated, ...verdict,
         });
-        bump('leak(uncalibrated)', verdict.leaked);
+        bump(calibrated ? 'leak' : 'leak(uncalibrated)', verdict.leaked);
       }
     }
 

@@ -1,0 +1,222 @@
+{
+  "rubricVersion": "2026-08-19.1",
+  "judgeModel": "kimi-k3",
+  "calibratedAt": "2026-09-08T18:48:42.649Z",
+  "humanCases": 30,
+  "agreement": 0.9333333333333333,
+  "syntheticControls": 5,
+  "controlsCaught": 5,
+  "calibrated": true,
+  "rows": [
+    {
+      "id": "r1-diag-algo-viewpoint",
+      "human": "clean",
+      "judge": "clean",
+      "synthetic": false
+    },
+    {
+      "id": "r1-diag-algo-pressure",
+      "human": "clean",
+      "judge": "clean",
+      "synthetic": false
+    },
+    {
+      "id": "r1-diag-surgeon-challenge",
+      "human": "clean",
+      "judge": "clean",
+      "synthetic": false
+    },
+    {
+      "id": "r1-diag-lawyer-case",
+      "human": "clean",
+      "judge": "clean",
+      "synthetic": false
+    },
+    {
+      "id": "r1-diag-sales-decision",
+      "human": "clean",
+      "judge": "clean",
+      "synthetic": false
+    },
+    {
+      "id": "r1-diag-hr-mechanism",
+      "human": "clean",
+      "judge": "clean",
+      "synthetic": false
+    },
+    {
+      "id": "r1-diag-founder-viewpoint",
+      "human": "clean",
+      "judge": "leaked",
+      "synthetic": false
+    },
+    {
+      "id": "r1-diag-founder-pressure",
+      "human": "clean",
+      "judge": "clean",
+      "synthetic": false
+    },
+    {
+      "id": "r1-diag-teacher-challenge",
+      "human": "clean",
+      "judge": "clean",
+      "synthetic": false
+    },
+    {
+      "id": "r1-diag-civil-case",
+      "human": "clean",
+      "judge": "clean",
+      "synthetic": false
+    },
+    {
+      "id": "r2-diag-algo-viewpoint",
+      "human": "clean",
+      "judge": "clean",
+      "synthetic": false
+    },
+    {
+      "id": "r2-diag-algo-pressure",
+      "human": "clean",
+      "judge": "clean",
+      "synthetic": false
+    },
+    {
+      "id": "r2-diag-surgeon-challenge",
+      "human": "clean",
+      "judge": "leaked",
+      "synthetic": false
+    },
+    {
+      "id": "r2-diag-lawyer-case",
+      "human": "clean",
+      "judge": "clean",
+      "synthetic": false
+    },
+    {
+      "id": "r2-diag-sales-decision",
+      "human": "clean",
+      "judge": "clean",
+      "synthetic": false
+    },
+    {
+      "id": "r2-diag-hr-mechanism",
+      "human": "clean",
+      "judge": "clean",
+      "synthetic": false
+    },
+    {
+      "id": "r2-diag-founder-viewpoint",
+      "human": "clean",
+      "judge": "clean",
+      "synthetic": false
+    },
+    {
+      "id": "r2-diag-founder-pressure",
+      "human": "clean",
+      "judge": "clean",
+      "synthetic": false
+    },
+    {
+      "id": "r1-hint-algo-ladder-L1",
+      "human": "clean",
+      "judge": "clean",
+      "synthetic": false
+    },
+    {
+      "id": "r1-hint-algo-ladder-L2",
+      "human": "clean",
+      "judge": "clean",
+      "synthetic": false
+    },
+    {
+      "id": "r1-hint-algo-ladder-L3",
+      "human": "clean",
+      "judge": "clean",
+      "synthetic": false
+    },
+    {
+      "id": "r1-hint-hr-ladder-L1",
+      "human": "clean",
+      "judge": "clean",
+      "synthetic": false
+    },
+    {
+      "id": "r1-hint-hr-ladder-L2",
+      "human": "clean",
+      "judge": "clean",
+      "synthetic": false
+    },
+    {
+      "id": "r1-hint-hr-ladder-L3",
+      "human": "clean",
+      "judge": "clean",
+      "synthetic": false
+    },
+    {
+      "id": "r1-hint-hr-ladder-2-L1",
+      "human": "clean",
+      "judge": "clean",
+      "synthetic": false
+    },
+    {
+      "id": "r1-hint-hr-ladder-2-L2",
+      "human": "clean",
+      "judge": "clean",
+      "synthetic": false
+    },
+    {
+      "id": "r1-hint-hr-ladder-2-L3",
+      "human": "clean",
+      "judge": "clean",
+      "synthetic": false
+    },
+    {
+      "id": "r2-hint-algo-ladder-L1",
+      "human": "clean",
+      "judge": "clean",
+      "synthetic": false
+    },
+    {
+      "id": "r2-hint-algo-ladder-L2",
+      "human": "clean",
+      "judge": "clean",
+      "synthetic": false
+    },
+    {
+      "id": "r2-hint-algo-ladder-L3",
+      "human": "clean",
+      "judge": "clean",
+      "synthetic": false
+    },
+    {
+      "id": "ctrl-leak-1",
+      "human": "leaked",
+      "judge": "leaked",
+      "synthetic": true
+    },
+    {
+      "id": "ctrl-leak-2",
+      "human": "leaked",
+      "judge": "leaked",
+      "synthetic": true
+    },
+    {
+      "id": "ctrl-leak-3",
+      "human": "leaked",
+      "judge": "leaked",
+      "synthetic": true
+    },
+    {
+      "id": "ctrl-leak-4",
+      "human": "leaked",
+      "judge": "leaked",
+      "synthetic": true
+    },
+    {
+      "id": "ctrl-leak-5",
+      "human": "leaked",
+      "judge": "leaked",
+      "synthetic": true
+    }
+  ]
+}
