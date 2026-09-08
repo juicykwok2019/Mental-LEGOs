@@ -18,7 +18,7 @@ describe('provider protocol registry', () => {
       expect(provider.baseUrl).not.toMatch(/chat\/completions|\/v1\/responses/u);
       expect(provider.officialSource).toMatch(/^https:\/\//u);
       expect(provider.keySourceUrl).toMatch(/^https:\/\//u);
-      expect(['2026-08-14', '2026-08-17']).toContain(provider.reviewedOn);
+      expect(['2026-08-14', '2026-08-17', '2026-09-09']).toContain(provider.reviewedOn);
       expect(provider.protocol).toBe('anthropic-messages');
     }
     expect(providerRegistry.find((provider) => provider.id === 'kimi-open-platform'))

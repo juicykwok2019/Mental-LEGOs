@@ -58,8 +58,11 @@ export const providerRegistry = Object.freeze([
     displayName: 'Kimi 开放平台（API Key / 按量计费）',
     baseUrl: 'https://api.moonshot.cn/anthropic',
     protocol: 'anthropic-messages',
+    // kimi-k2.5 was retired upstream (the endpoint answers 404 "Not found the
+    // model kimi-k2.5 or Permission denied"), and the settings screen prefills
+    // the first entry — so a stale head here hands every new Kimi user a model
+    // that cannot answer. Re-probed 2026-09-09: the four below all resolve.
     recommendedModels: [
-      'kimi-k2.5',
       'kimi-k3',
       'kimi-k2.7-code',
       'kimi-k2.7-code-highspeed',
@@ -69,7 +72,7 @@ export const providerRegistry = Object.freeze([
     officialSource: 'https://platform.kimi.com/docs/guide/claude-code-kimi',
     keySourceLabel: 'Kimi 开放平台 API Key',
     keySourceUrl: 'https://platform.kimi.com/console/api-keys',
-    reviewedOn: '2026-08-17',
+    reviewedOn: '2026-09-09',
     billingNotice: '使用 Kimi 开放平台余额并按量计费；开放平台官方 Anthropic 兼容端点，无需本地协议转换。',
     usageNotice: 'Official Moonshot Anthropic-compatible endpoint with pay-as-you-go Open Platform keys; Kimi Code subscription keys are a separate restricted product and are not supported.',
   },
