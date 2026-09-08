@@ -43,12 +43,23 @@ const KNOWLEDGE_KIND_LABELS: Record<string, string> = {
   'assumption': '待思考',
 };
 
+// Where a version's wording came from.
+const AUTHORSHIP_LABELS: Record<string, string> = {
+  'user-native': '本人表达',
+  'co-extracted': '共同提炼',
+  'agent-candidate': '助手草拟',
+};
+
 const RELATION_LABELS: Record<string, string> = {
   'composes-with': '可组合',
   'similar-to': '相似',
   'conflicts-with': '互斥',
   'precedes': '先于',
 };
+
+export function authorshipLabel(authorship: string): string {
+  return AUTHORSHIP_LABELS[authorship] ?? authorship;
+}
 
 export function relationLabel(relation: string): string {
   return RELATION_LABELS[relation] ?? relation;

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import type { LibraryModuleDetail, LibraryModuleSummary } from '../../shared/contracts';
-import { categoryLabel, relationLabel, stageLabel } from '../labels';
+import { authorshipLabel, categoryLabel, relationLabel, stageLabel } from '../labels';
 
 function messageFrom(reason: unknown): string {
   return reason instanceof Error ? reason.message : '发生了未知错误。';
@@ -317,7 +317,7 @@ export function LibraryView() {
                       v{entry.version}
                       {entry.isCurrent && '（当前）'}
                       {' · '}{entry.createdAt.slice(0, 10)}
-                      {' · '}{entry.authorship === 'user' ? '本人表达' : entry.authorship}
+                      {' · '}{authorshipLabel(entry.authorship)}
                     </span>
                     {versionToDelete === entry.version ? (
                       <span className="phase-actions">
