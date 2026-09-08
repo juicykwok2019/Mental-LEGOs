@@ -1023,6 +1023,10 @@ export class TrainingSessionService {
         '- Never: personality or emotion inference; private facts (salary, employers,',
         '  health, names); two entries that contradict; reworded variants of known',
         '  entries. Context-dependent behavior goes in one conditional sentence.',
+        '- Granularity: an observation names a stable HABIT, not this round's incident',
+        '  (habit: "数字纪律弱——口径、推算与总数常对不上"; incident: "这轮总数与算式矛盾").',
+        '  If this round shows the same underlying habit as a known entry through a',
+        '  different example, restage that known entry — never coin a sibling.',
         ...(knownObservations.length > 0
           ? [
             '- Known entries below: if this round clearly shows one AGAIN, restage it with',
