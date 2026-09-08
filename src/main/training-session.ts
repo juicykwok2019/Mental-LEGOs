@@ -1043,10 +1043,14 @@ export class TrainingSessionService {
           if (observed.surfaced > 0) parts.push(`${observed.surfaced} 条线索已满两轮证据，进入待复核`);
           if (observed.promoted > 0) parts.push(`${observed.promoted} 条晋升为有据观察`);
           if (observed.renewed > 0) parts.push(`${observed.renewed} 条已有观察再次出现（已续期）`);
+          // 只有真的有待复核项时才引导去个人底座；纯续期/纯记线索无需动作。
+          const needsReview = observed.surfaced > 0 || observed.promoted > 0;
           session.transcript.push({
             role: 'system',
             kind: 'status',
-            text: `画像观察：${parts.join('，')}——在「个人底座」等你复核。只有你确认过的才会用于出题。`,
+            text: `画像观察：${parts.join('，')}${needsReview
+              ? '——在「个人底座」等你复核。只有你确认过的才会用于出题。'
+              : '。'}`,
           });
         }
       } finally {
@@ -1148,6 +1152,16 @@ export class TrainingSessionService {
       const known = new Set(session.candidates.map((candidate) => candidate.id));
       for (const id of candidateIds) {
         if (!known.has(id)) throw new Error('Unknown candidate id.');
+      }
+      // 本轮不收纳：不碰治理提交，直接收轮（候选留在暂存区自然过期）。
+      if (candidateIds.length === 0) {
+        session.phase = 'round-complete';
+        session.transcript.push({
+          role: 'system',
+          kind: 'committed',
+          text: '本轮未收纳模块——不是每一轮都需要入库，练习记录与画像观察都已保留。',
+        });
+        return this.#turnState();
       }
       // The governance kernel merges these onto the stored payload at commit,
       // so the user's final wording is exactly what materializes.

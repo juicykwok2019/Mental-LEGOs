@@ -345,7 +345,8 @@ export const trainingCandidateEditSchema = z.object({
 export type TrainingCandidateEdit = z.infer<typeof trainingCandidateEditSchema>;
 
 export const trainingConfirmInputSchema = z.object({
-  candidateIds: z.array(z.string().min(1).max(100)).min(1).max(10),
+  // 空数组=本轮不收纳（合法路径）：不是每一轮都需要入库。
+  candidateIds: z.array(z.string().min(1).max(100)).max(10),
   edits: z.record(z.string(), trainingCandidateEditSchema).default({}),
 });
 export type TrainingConfirmInput = z.infer<typeof trainingConfirmInputSchema>;
