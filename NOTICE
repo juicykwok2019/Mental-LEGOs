@@ -1,0 +1,23 @@
+Mental LEGOs
+Copyright (c) 2026 Mental LEGOs Contributors
+
+The MIT licence in LICENSE covers the source code of this project only.
+Third-party components carry their own terms and are not relicensed by it.
+
+- The Claude Agent SDK and the `claude.exe` binary the installer ships are
+  proprietary to Anthropic PBC. A build distributed to other people must meet
+  Anthropic's terms: the binary unmodified, every end user on their own
+  credential, no usage paid for or intermediated on their behalf.
+- The local speech model weights (SenseVoiceSmall, FunASR Model Open Source
+  License Agreement) and the sandboxed Bash runtime are fetched by each user
+  from their upstream publishers, verified by size and SHA-256. They are
+  neither committed to this repository nor bundled into the installer.
+- Attribution notices for everything shipped inside the installer live in
+  resources/licenses/.
+
+If you fork this project and distribute a build of it, meeting those terms is
+your responsibility.
+
+Full survey, including the licence spread across the dependency tree and the
+hash evidence that the Claude binary ships unmodified:
+docs/third-party-licenses.md
