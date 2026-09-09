@@ -10,7 +10,7 @@
 
 ### 当前版本
 
-**0.2.0**（定档标签 `v0.2.0`——含 Phase 2/3/4 全部功能、两天真机验收打磨与安全修复；上一定档为 `v0.1.0-phase1`）。
+**0.2.1**（定档标签 `v0.2.1`——评测驱动的修复与真机走查：画像观察的完整生命周期、相似积木合并、以及一轮全量评测查出的模型下线与判分缺陷；上一定档为 `v0.2.0`）。
 
 ### 下载与安装
 
@@ -194,7 +194,7 @@ The goal is not to let AI answer on the user's behalf. It is to help the user bu
 
 ### Current version
 
-**0.2.0** (tag `v0.2.0` — all Phase 2/3/4 features, two days of live-acceptance polish, and the security fixes; the previous milestone was `v0.1.0-phase1`).
+**0.2.1** (tag `v0.2.1` — evaluation-driven fixes and live walkthroughs: the full lifecycle for profile observations, merging similar bricks, and the retired-model and scoring defects a full evaluation round turned up; the previous milestone was `v0.2.0`).
 
 ### Download and install
 
