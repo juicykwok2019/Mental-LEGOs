@@ -60,7 +60,7 @@ npm run make
 
 ### 项目状态
 
-截至 2026-09-10（v0.2.1），PRD 规划的四个阶段在单机可行范围内**已全部交付**。完整训练闭环已在真实 Provider（Kimi 开放平台官方 Anthropic 端点）上端到端验证，全部新增攻击面经过安全审查，并已跑过一轮全量评测（见上文「评测」）。
+截至 2026-09-10（v0.2.1），PRD 规划的四个阶段在单机可行范围内**已全部交付**。完整训练闭环已在真实 Provider（Kimi 开放平台官方 Anthropic 端点）上端到端验证，全部新增攻击面经过安全审查，并已跑过一轮全量评测（见下文「评测」）。
 
 **已交付功能一览**：
 
@@ -83,7 +83,7 @@ npm run make
 
 **路线图（后续版本）**
 
-- 评测常态化：季度性重标 Judge 校准集、每轮 10% 判分盲复核、逐版本成本基线跟踪（体系本身已落地，见上文「评测」一节）；
+- 评测常态化：季度性重标 Judge 校准集、每轮 10% 判分盲复核、逐版本成本基线跟踪（体系本身已落地，见下文「评测」一节）；
 - 北极星指标沉淀：应用内「现实使用上报」积累周级数据，追踪现实世界无提示调用率——这是产品指标，评测集测不了；
 - 云端语音接入、公开演讲视频分析；
 - 跨设备同步、Web / 移动伴随端、可信评审者反馈。
@@ -289,7 +289,7 @@ User data lives in `%APPDATA%\Mental LEGOs` — entirely on-device, never upload
 
 ### Status
 
-As of 2026-09-10 (v0.2.1) all four PRD phases are **delivered within single-machine scope**. The full training loop is verified end to end against a real provider (the Kimi Open Platform official Anthropic endpoint), every newly added attack surface has passed a security review, and a full evaluation round has been run (see "Evals" above).
+As of 2026-09-10 (v0.2.1) all four PRD phases are **delivered within single-machine scope**. The full training loop is verified end to end against a real provider (the Kimi Open Platform official Anthropic endpoint), every newly added attack surface has passed a security review, and a full evaluation round has been run (see "Evals" below).
 
 **Shipped features at a glance**:
 
@@ -312,7 +312,7 @@ Details (the training loop, granularity rules, security boundaries) follow below
 
 **Roadmap**
 
-- Evals as routine: quarterly re-labelling of the judge calibration set, a blind 10% re-check of judged cases each round, and a cost baseline tracked per version (the harness itself is built — see "Evals" above);
+- Evals as routine: quarterly re-labelling of the judge calibration set, a blind 10% re-check of judged cases each round, and a cost baseline tracked per version (the harness itself is built — see "Evals" below);
 - Earning the north-star metric: an in-app "used it for real" report accumulating week-scale data on unprompted real-world recall — a product metric, not something an eval set can measure;
 - Cloud speech integration and public-speaking video analysis;
 - Cross-device sync, web / mobile companions, trusted-reviewer feedback.
