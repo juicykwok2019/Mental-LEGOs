@@ -1,7 +1,7 @@
 {
-  "rubricVersion": "2026-08-19.1",
+  "rubricVersion": "2026-09-09.1",
   "judgeModel": "kimi-k2.6",
-  "calibratedAt": "2026-09-08T23:34:52.641Z",
+  "calibratedAt": "2026-09-09T14:29:28.736Z",
   "humanCases": 30,
   "agreement": 1,
   "syntheticControls": 5,
