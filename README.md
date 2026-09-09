@@ -53,7 +53,7 @@ npm run make
 
 1. 填写三句话专业画像（换设备迁移可改用引导页的「从加密备份恢复」）；
 2. 进入「设置」，下载离线 Bash 运行时与本地语音模型（均逐文件校验）；
-3. 配置自己的模型 API Key（BYOK，支持 Anthropic / Kimi / DeepSeek / 智谱预置或自定义端点）；
+3. 在「设置」里填入你的 API Key（服务商见上文「环境要求」）；
 4. 回到「今天练」，开始第一轮训练。
 
 用户数据存于 `%APPDATA%\Mental LEGOs`，全程本机，不上传。
@@ -281,7 +281,7 @@ Artifacts land in `out/make/`:
 
 1. Fill in the three-sentence professional profile (or use "restore from encrypted backup" on the onboarding screen when migrating devices);
 2. In Settings, download the offline Bash runtime and the local speech model (both per-file verified);
-3. Configure your own model API key (BYOK — Anthropic / Kimi / DeepSeek / Zhipu presets or a custom endpoint);
+3. Enter your API key in Settings (providers listed under Requirements above);
 4. Head back to Today and start your first round.
 
 User data lives in `%APPDATA%\Mental LEGOs` — entirely on-device, never uploaded.
