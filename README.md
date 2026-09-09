@@ -162,6 +162,33 @@ OpenAI Chat Completions 本地转换器保留为备用通道，面向未来只�
 - 候选事实、画像观察和语言模块必须经过用户确认（可先编辑），才能成为正式资产；
 - 破坏性操作必须先展示影响范围，再获得用户明确确认；每次删除记入确认事件，可审计。
 
+### 评测
+
+v0.2.1 全量轮（2026-09-09，被测 `kimi-k3`，判审 `kimi-k2.6`，525 次调用 / 3 小时 26 分）：
+
+| 测什么 | 结果 |
+|---|---|
+| 闭环完成率 | **100%**（20/20） |
+| 诊断扎根于转写（严格口径） | **95.8%**（46/48） |
+| 提示阶梯纪律 / 出题合规 | **100%** / **100%** |
+| 提示注入抵抗 · 跨场景泄漏 | **0 例** · **0 例** |
+| 场景题接地率（判审） | **96.4%**（81/84） |
+| 提炼内核发明立场（判审，零容忍） | **0 / 62** |
+| 变式判定与人工金标签一致率 | **85.0%**（40 条全集） |
+
+完整结果、判审 rubric 的可信度边界、以及本轮"三个产品不达标里有两个是指标自己错了"的复盘，见
+[`docs/evaluation-report.md`](docs/evaluation-report.md)；方法论与"刻意不测什么"见
+[`docs/evaluation-plan.md`](docs/evaluation-plan.md)。
+
+语料、人工金标签与判分库都在仓库里，自带 provider key 即可复跑：
+
+```bash
+export MENTAL_LEGOS_EVAL=1
+export MENTAL_LEGOS_LIVE_PROVIDER_BASE_URL=... MENTAL_LEGOS_LIVE_PROVIDER_KEY=... MENTAL_LEGOS_LIVE_PROVIDER_MODEL=...
+npm run eval            # 八个 Suite（默认 20% 抽样冒烟；MENTAL_LEGOS_EVAL_SAMPLE=1 跑全量）
+npm run eval:calibrate  # 金标签校准 + 构造违规对照
+```
+
 ### 开发与验证
 
 面向修改代码的开发者（安装包构建见上文"下载与安装"）：
@@ -345,6 +372,35 @@ Professional materials, recordings, transcripts, personal profiles, and API cred
 - The agent only receives authorized copies or excerpts in a per-session workspace (long materials are excerpted with the window disclosed to the user); it does not scan the user's computer or directly open the formal database;
 - User confirmation (with optional editing) is required before candidate facts, profile observations, or language modules become formal assets;
 - Destructive actions require a preview and explicit confirmation; every deletion is recorded as an auditable consent event.
+
+### Evals
+
+Full round for v0.2.1 (2026-09-09 — `kimi-k3` under test, `kimi-k2.6` judging, 525 calls over 3 h 26 min):
+
+| Measure | Result |
+|---|---|
+| Closed-loop completion | **100%** (20/20) |
+| Diagnosis grounded in the transcript (strict) | **95.8%** (46/48) |
+| Hint-ladder discipline / question form | **100%** / **100%** |
+| Prompt-injection resistance · cross-scenario leakage | **0 landed** · **0 leaks** |
+| Scenario question grounding (judged) | **96.4%** (81/84) |
+| Invented stances in extracted kernels (judged, zero tolerance) | **0 / 62** |
+| Variation judgement vs human gold labels | **85.0%** (all 40) |
+
+Full results, what each judge rubric is and is not worth, and a post-mortem on the two of
+three apparent product failures that turned out to be the metric's fault:
+[`docs/evaluation-report.md`](docs/evaluation-report.md). Method and the deliberate
+non-goals: [`docs/evaluation-plan.md`](docs/evaluation-plan.md).
+
+The corpus, the human gold labels and the scoring library are in this repository — bring your
+own provider key and re-run it:
+
+```bash
+export MENTAL_LEGOS_EVAL=1
+export MENTAL_LEGOS_LIVE_PROVIDER_BASE_URL=... MENTAL_LEGOS_LIVE_PROVIDER_KEY=... MENTAL_LEGOS_LIVE_PROVIDER_MODEL=...
+npm run eval            # eight suites (20% smoke by default; MENTAL_LEGOS_EVAL_SAMPLE=1 for the full round)
+npm run eval:calibrate  # gold-label calibration + planted violations
+```
 
 ### Develop and verify
 
