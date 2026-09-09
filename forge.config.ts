@@ -49,7 +49,13 @@ const config: ForgeConfig = {
     // 装到 %LOCALAPPDATA%，那是它免管理员、能自动更新的前提。所以"装到哪"
     // 只能写在图里。图由 scripts/make-installer-gif.py 生成（一次性资产，
     // 不参与构建）。
-    new MakerSquirrel({ loadingGif: path.resolve(__dirname, 'assets/installer-loading.gif') }),
+    new MakerSquirrel({
+      loadingGif: path.resolve(__dirname, 'assets/installer-loading.gif'),
+      // 开始菜单里那层文件夹叫 Programs\<authors>\。package.json 的 author 是
+      // "Mental LEGOs Contributors"（作为包元数据没问题），但用户在开始菜单里
+      // 该看到的是产品名。
+      authors: 'Mental LEGOs',
+    }),
     new MakerZIP({}, ['win32']),
   ],
   plugins: [
