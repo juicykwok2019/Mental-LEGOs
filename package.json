@@ -2,6 +2,7 @@
   "name": "mental-legos",
   "productName": "Mental LEGOs",
   "version": "0.2.1",
+  "license": "MIT",
   "description": "Local-first language LEGO training for professional spoken communication.",
   "author": "Mental LEGOs Contributors",
   "main": ".vite/build/main.js",

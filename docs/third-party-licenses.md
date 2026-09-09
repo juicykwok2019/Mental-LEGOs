@@ -98,15 +98,22 @@ something this document can settle.
 
 ## 4. This project's own licence
 
-The source is public and readable. It is **not** open-source licensed: see
-[`../README.md`](../README.md#许可证) — copyright is reserved, and no rights to
-copy, modify, redistribute or use commercially are granted without written
-permission.
+This project's source is released under the **MIT License** — see
+[`../LICENSE`](../LICENSE). Use it, change it, ship it, sell it; keep the
+copyright notice.
 
-Source-available and open-source are different things, and the distinction is
-worth keeping straight: a reader who sees "open source" reasonably infers rights
-to fork, modify and redistribute that this licence does not grant.
+**MIT covers this project's code and nothing else.** It does not and cannot
+relicense the components in §2 and §3: those keep their own terms, and a
+permissive licence on the code around them changes none of them. Concretely, if
+you fork this and distribute a build of it:
 
-Adopting a permissive licence later would be unobstructed by anything in §1 — a
-proprietary dependency does not prevent licensing one's own code — but anyone
-forking this project would still have to meet the terms in §3 themselves.
+- the Claude Agent SDK and the `claude.exe` inside the installer stay proprietary
+  to Anthropic, and §3's conditions become yours to meet — unmodified binary,
+  each end user on their own credential, no intermediated usage;
+- the model weights and Bash runtime stay outside both the repository and the
+  installer, so keep them that way, or take on redistributing them yourself;
+- the attribution notices in `resources/licenses/` ship with the build.
+
+Nothing in §1 obstructed this choice: a proprietary dependency never prevented
+licensing one's own code, it only means a fork inherits the dependency's terms
+along with the code.
