@@ -9,6 +9,10 @@ import { FuseV1Options, FuseVersion } from '@electron/fuses';
 
 const config: ForgeConfig = {
   packagerConfig: {
+    // 应用图标：可执行文件、任务栏、以及安装时建的桌面/开始菜单快捷方式都用它。
+    // 由 scripts/make-logo.py 生成（一次性资产，不参与构建），七个尺寸各自
+    // 原生绘制而非从大图缩。
+    icon: path.resolve(__dirname, 'assets/icon'),
     asar: {
       unpack: '**/*.{node,dll}',
     },

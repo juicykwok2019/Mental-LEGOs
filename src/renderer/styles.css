@@ -38,6 +38,15 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   margin: 0 auto;
 }
 
+/* 标志与标题并排；标志对齐到标题那一行，不跟着 eyebrow 往上跑。 */
+.brand {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+}
+
+.brand svg { flex: none; margin-bottom: 2px; }
+
 .eyebrow, .step-label {
   margin: 0 0 9px;
   color: #596654;
