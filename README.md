@@ -222,7 +222,11 @@ npm run package && npm run probe:packaged:windows   # 打包形态冒烟验证
 
 ### 许可证
 
-版权所有 © 2026 Mental LEGOs 项目作者，保留所有权利（All Rights Reserved）。本仓库暂未采用开源许可证：在获得明确书面授权前，不授予复制、修改、分发或商用本代码的许可。第三方组件的许可声明见 `resources/licenses/`。
+版权所有 © 2026 Mental LEGOs 项目作者，保留所有权利（All Rights Reserved）。**源码公开可审阅，但本仓库未采用开源许可证**：在获得明确书面授权前，不授予复制、修改、分发或商用本代码的许可。
+
+第三方组件的署名声明见 [`resources/licenses/`](resources/licenses/)；依赖树的许可分布、安装包到底再分发了什么、以及内置 Claude Code 的条款逐条对照，见 [`docs/third-party-licenses.md`](docs/third-party-licenses.md)。
+
+几个要点：依赖树中**无 GPL / AGPL / LGPL**；模型权重与沙箱 Bash 运行时**不入库也不随包**，由用户显式下载并逐文件校验；安装包内置的 `claude.exe` 与 npm 官方分发**逐字节一致**（SHA-256 三处互验，启动时校验），全程 BYOK——密钥存于 Windows 凭据管理器，本项目不代付、不转售、不代理任何用量。
 
 ---
 
@@ -448,4 +452,8 @@ Examples and test fixtures must use synthetic or explicitly public data. Private
 
 ### License
 
-Copyright © 2026 the Mental LEGOs project authors. All rights reserved. This repository has not adopted an open-source license: no permission to copy, modify, distribute, or commercially use this code is granted without explicit written authorization. Third-party component notices live in `resources/licenses/`.
+Copyright © 2026 the Mental LEGOs project authors. All rights reserved. **The source is public and readable, but this repository has not adopted an open-source license**: no permission to copy, modify, distribute, or commercially use this code is granted without explicit written authorization.
+
+Attribution notices live in [`resources/licenses/`](resources/licenses/). For the licence spread across the dependency tree, what the installer actually redistributes, and a condition-by-condition read of the terms for shipping Claude Code inside a product, see [`docs/third-party-licenses.md`](docs/third-party-licenses.md).
+
+The short version: **no GPL / AGPL / LGPL** anywhere in the tree; model weights and the sandboxed Bash runtime are **neither committed nor bundled** — each user fetches them explicitly, verified file by file; and the `claude.exe` inside the installer is **byte-for-byte the one npm publishes** (one SHA-256 checked in three places, verified again at startup). BYOK throughout — keys stay in the Windows Credential Manager, and this project never pays for, resells, or intermediates anyone's usage.
