@@ -60,7 +60,7 @@ npm run make
 
 ### 项目状态
 
-截至 2026-08-18，PRD 规划的四个阶段在单机可行范围内**已全部交付**。完整训练闭环已在真实 Provider（Kimi 开放平台官方 Anthropic 端点）上端到端验证，全部新增攻击面经过安全审查。
+截至 2026-09-10（v0.2.1），PRD 规划的四个阶段在单机可行范围内**已全部交付**。完整训练闭环已在真实 Provider（Kimi 开放平台官方 Anthropic 端点）上端到端验证，全部新增攻击面经过安全审查，并已跑过一轮全量评测（见上文「评测」）。
 
 **已交付功能一览**：
 
@@ -68,10 +68,11 @@ npm run make
 - **场景**——导入 JD、简历等材料（PDF / Word / 文本 / 录音），生成针对性问题逐题训练，事后复盘沉淀场景积木；
 - **演讲**——每遍试讲给实测数据（时长 / 语速 / 停顿），用自己的积木组装讲稿骨架，可压缩、扩展、换听众；
 - **积木库**——模块 = 语义内核 + 逻辑骨架 + 语言外壳 + 触发线索；支持编辑、版本、关系（组合出题、相似合并）与分层删除；
-- **个人底座**——系统对你的全部了解：画像观察逐条复核（确认 / 驳回）、知识沉淀与缺口，可查可删；
+- **个人底座**——系统对你的全部了解：画像观察逐条复核（确认 / 驳回）、知识沉淀与缺口，可查可删；观察走完整证据阶梯（1 轮线索 → 2 轮待复核 → 4 轮升有据），复现即续期，每遍对比点评会点醒已知习惯，也可以「本轮不收纳」；
 - **本地语音**——SenseVoice 本机转写，录音随处可回放自评，音频不出设备；
 - **隐私**——字段级加密落盘、分层删除、口令加密导出、换设备恢复、原始用量展示；
-- **模型接入**——BYOK；Anthropic / Kimi / DeepSeek / 智谱官方兼容端点预置 + 自定义，配真实能力认证。
+- **模型接入**——BYOK；Anthropic / Kimi / DeepSeek / 智谱官方兼容端点预置 + 自定义，配真实能力认证；
+- **评测体系**——八个 Suite 的规则判分 + 四条 Judge rubric（每条都有构造违规样本证明它会响），语料、40 条人工金标签与判分库全部入库，`npm run eval` 可复跑。
 
 细节（训练闭环、粒度规则、安全边界）见下文各节与 `docs/`。
 
@@ -288,7 +289,7 @@ User data lives in `%APPDATA%\Mental LEGOs` — entirely on-device, never upload
 
 ### Status
 
-As of 2026-08-18 all four PRD phases are **delivered within single-machine scope**. The full training loop is verified end to end against a real provider (the Kimi Open Platform official Anthropic endpoint), and every newly added attack surface has passed a security review.
+As of 2026-09-10 (v0.2.1) all four PRD phases are **delivered within single-machine scope**. The full training loop is verified end to end against a real provider (the Kimi Open Platform official Anthropic endpoint), every newly added attack surface has passed a security review, and a full evaluation round has been run (see "Evals" above).
 
 **Shipped features at a glance**:
 
@@ -296,10 +297,11 @@ As of 2026-08-18 all four PRD phases are **delivered within single-machine scope
 - **Scenarios** — import materials (PDF / Word / text / audio), generate targeted questions, train them one by one, then review the real event into scenario bricks;
 - **Speech** — every rehearsal gets measured stats (duration / pace / pauses); assemble a speech skeleton from your own bricks, then compress, expand, or re-frame it for a new audience;
 - **Brick library** — a module is kernel + skeleton + shells + triggers; edit, version, relate (composition questions, similar-merge), and delete in layers;
-- **Personal foundation** — everything the system knows about you: review each observation (confirm / reject), browse and prune the knowledge base and gaps;
+- **Personal foundation** — everything the system knows about you: review each observation (confirm / reject), browse and prune the knowledge base and gaps; observations climb an evidence ladder (one round a hint, two under review, four evidenced), recurrence renews them, per-round critiques name habits already on record, and any round can be left uncollected;
 - **Local speech** — SenseVoice on-device transcription; recordings replay anywhere for self-review; audio never leaves the device;
 - **Privacy** — field-level encryption at rest, layered deletion, password-sealed export, cross-device restore, raw usage display;
-- **Providers** — BYOK; Anthropic / Kimi / DeepSeek / Zhipu official presets plus custom endpoints, with real capability certification.
+- **Providers** — BYOK; Anthropic / Kimi / DeepSeek / Zhipu official presets plus custom endpoints, with real capability certification;
+- **Evaluation harness** — eight rule-scored suites plus four judge rubrics, each with planted violations proving it fires; the corpus, forty human gold labels and the scorers are all committed, and `npm run eval` re-runs them.
 
 Details (the training loop, granularity rules, security boundaries) follow below and in `docs/`.
 
