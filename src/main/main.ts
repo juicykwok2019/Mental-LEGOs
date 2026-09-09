@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -23,6 +24,7 @@ import { ProviderCertificationService } from './provider-certification';
 import { ProviderConfigurationService } from './provider-configuration';
 import { ProviderSettingsStore } from './provider-settings-store';
 import { SpeechService } from './speech-service';
+import { resolveSquirrelAction } from './windows-installer';
 import { TrainingSessionService } from './training-session';
 import { UsageLedger } from './usage-ledger';
 import { loadVaultDataKeyProvider } from '../data/data-key';
@@ -1197,7 +1199,36 @@ async function createMainWindow(): Promise<void> {
   await mainWindow.loadURL(PACKAGED_RENDERER_URL);
 }
 
+// 安装器用 --squirrel-* 参数运行主程序时，走的不是正常启动流程（详见
+// windows-installer.ts）：建好快捷方式就退出，否则装机过程中会弹出产品窗口。
+function handleSquirrelEvent(): boolean {
+  const action = resolveSquirrelAction(process.argv, process.execPath, process.platform);
+  if (!action) return false;
+  if (action.updateArgs) {
+    try {
+      spawn(action.updateExe, action.updateArgs, { detached: true, stdio: 'ignore' }).unref();
+    } catch {
+      // Update.exe 不在预期位置时不阻塞退出：少一个快捷方式，好过卡住安装。
+    }
+  }
+  // 留一点时间让 Update.exe 把快捷方式落地，再退出。
+  setTimeout(() => app.quit(), 1000);
+  return true;
+}
+
+const startedByInstaller = handleSquirrelEvent();
+// 本地优先：所有数据在一个 SQLite 库里，两个实例同时写会互相踩。
+const hasSingleInstanceLock = startedByInstaller || app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) app.quit();
+
+app.on('second-instance', () => {
+  if (!mainWindow) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.focus();
+});
+
 app.whenReady().then(async () => {
+  if (startedByInstaller || !hasSingleInstanceLock) return;
   registerPackagedRendererProtocol();
   const runtimePaths = getAgentRuntimePaths();
   credentialVault = new CredentialVault(runtimePaths.credentialVaultPath);
