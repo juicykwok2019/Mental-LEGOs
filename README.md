@@ -23,13 +23,13 @@
 
 #### 安装说明 · SmartScreen 提示
 
-本应用是**个人开源实现**，未购买商业 CA 代码签名证书。因此在 Windows 上首次运行安装包时，SmartScreen 可能弹出蓝色提示「**Windows 已保护你的电脑**」（英文系统显示 *Windows protected your PC*）。
+本应用由个人开发，**未购买商业 CA 代码签名证书**。因此在 Windows 上首次运行安装包时，SmartScreen 可能弹出蓝色提示「**Windows 已保护你的电脑**」（英文系统显示 *Windows protected your PC*）。
 
 这是**所有未签名应用的正常现象，与软件是否安全无关**。继续安装：
 
 > 点击「**更多信息 / More info**」→「**仍要运行 / Run anyway**」即可。
 
-如果仍不放心，本项目**源码完全公开**——你可以自行审阅，或直接从源码构建（见下）。训练数据全程留在本机，唯一出境的是你自己配置的 API Key 发往你自选的模型服务。
+如果仍不放心，本项目**源码完全公开可审阅**——你可以逐行读过，或直接从源码自行构建（见下）。训练数据全程留在本机，唯一出境的是你自己配置的 API Key 发往你自选的模型服务。
 
 **从源码构建**
 
@@ -247,13 +247,13 @@ Grab the latest `Mental.LEGOs-<version>.Setup.exe` from [GitHub Releases](https:
 
 #### Install note · SmartScreen
 
-This is a **personal open-source build** with no commercial CA code-signing certificate, so the first run on Windows may raise the blue SmartScreen prompt *Windows protected your PC*.
+This is built by one person and carries **no commercial CA code-signing certificate**, so the first run on Windows may raise the blue SmartScreen prompt *Windows protected your PC*.
 
 That prompt appears for **every unsigned application and says nothing about whether the software is safe**. To continue:
 
 > Click **More info** → **Run anyway**.
 
-If you would rather not, the **source is fully public** — read it, or build it yourself (below). Training data never leaves the machine; the only thing that goes out is your own API key, to the provider you chose.
+If you would rather not, the **full source is public and readable** — go through it, or build it yourself (below). Training data never leaves the machine; the only thing that goes out is your own API key, to the provider you chose.
 
 **Build from source**
 
