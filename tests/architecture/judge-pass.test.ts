@@ -64,6 +64,25 @@ function leakClassifierCalibrated(config: JudgeConfig): boolean {
   }
 }
 
+// 每条判审都是独立的一次调用，彼此不依赖。逐条串行时一轮全量要两小时以上
+// （2026-09-09 撞满 60 分钟测试超时，s8 断言一条没跑到），小并发跑完即可。
+const JUDGE_CONCURRENCY = 4;
+
+async function inPool<T>(items: T[], work: (item: T) => Promise<void>): Promise<void> {
+  let cursor = 0;
+  const lanes = Array.from(
+    { length: Math.min(JUDGE_CONCURRENCY, items.length) },
+    async () => {
+      while (cursor < items.length) {
+        const index = cursor;
+        cursor += 1;
+        await work(items[index]!);
+      }
+    },
+  );
+  await Promise.all(lanes);
+}
+
 describe('offline judge pass over a completed eval run', () => {
   judgeProbe('judges stored outputs and writes judge-*.jsonl', async () => {
     const config = judgeConfig as JudgeConfig;
@@ -98,80 +117,75 @@ describe('offline judge pass over a completed eval run', () => {
     };
 
     // ── s1 代答泄漏分类（诊断 + 提示阶梯；未校准，仅参考）─────────────
-    for (const row of readRows(runDirectory, 's1-diagnosis.jsonl')) {
-      const findings = (row.findings as Array<{ finding: string }> | undefined) ?? [];
-      if (findings.length === 0) continue;
-      const text = findings.map((entry) => entry.finding).join('\n');
-      const verdict = await guard(`diagnosis:${String(row.id)}`, () => judgeAnswerLeak(config, text));
-      if (!verdict) continue;
-      write('judge-leak.jsonl', {
-        id: `diagnosis:${String(row.id)}`, calibrated, ...verdict,
-      });
+    const leakTasks = [
+      ...readRows(runDirectory, 's1-diagnosis.jsonl').map((row) => ({
+        id: `diagnosis:${String(row.id)}`,
+        text: ((row.findings as Array<{ finding: string }> | undefined) ?? [])
+          .map((entry) => entry.finding).join('\n'),
+      })),
+      ...readRows(runDirectory, 's1-hint-ladder.jsonl').flatMap((row) => (
+        ((row.hints as Array<{ level: string; text: string }> | undefined) ?? [])
+          .filter((hint) => hint.level !== 'L4') // L4 就是示范档（产品决策 2026-08-18）
+          .map((hint) => ({ id: `hint:${String(row.id)}:${hint.level}`, text: hint.text }))
+      )),
+    ].filter((task) => task.text.length > 0);
+    await inPool(leakTasks, async (task) => {
+      const verdict = await guard(task.id, () => judgeAnswerLeak(config, task.text));
+      if (!verdict) return;
+      write('judge-leak.jsonl', { id: task.id, calibrated, ...verdict });
       bump(calibrated ? 'leak' : 'leak(uncalibrated)', verdict.leaked);
-    }
-    for (const row of readRows(runDirectory, 's1-hint-ladder.jsonl')) {
-      const hints = (row.hints as Array<{ level: string; text: string }> | undefined) ?? [];
-      for (const hint of hints) {
-        if (hint.level === 'L4') continue; // L4 就是示范档（产品决策 2026-08-18）
-        const verdict = await guard(
-          `hint:${String(row.id)}:${hint.level}`, () => judgeAnswerLeak(config, hint.text),
-        );
-        if (!verdict) continue;
-        write('judge-leak.jsonl', {
-          id: `hint:${String(row.id)}:${hint.level}`, calibrated, ...verdict,
-        });
-        bump(calibrated ? 'leak' : 'leak(uncalibrated)', verdict.leaked);
-      }
-    }
+    });
 
     // ── s2 内核判断性 + 蕴含 ────────────────────────────────────────────
-    for (const row of readRows(runDirectory, 's2-shell-fidelity.jsonl')) {
-      const kernels = (row.kernels as string[] | undefined) ?? [];
+    const kernelTasks = readRows(runDirectory, 's2-shell-fidelity.jsonl').flatMap((row) => {
       const answer = (row.submittedAnswer as string | undefined) ?? '';
-      if (kernels.length === 0 || !answer) continue;
-      for (const kernel of kernels) {
-        const verdict = await guard(`kernel:${String(row.id)}`, () => judgeKernel(config, kernel, answer));
-        if (!verdict) continue;
-        write('judge-kernel.jsonl', { id: String(row.id), kernel, ...verdict });
-        bump('kernel-judgment', !verdict.isJudgment);
-        bump('kernel-entailed', !verdict.entailed);
-      }
-    }
+      if (!answer) return [];
+      return ((row.kernels as string[] | undefined) ?? [])
+        .map((kernel) => ({ id: String(row.id), kernel, answer }));
+    });
+    await inPool(kernelTasks, async (task) => {
+      const verdict = await guard(
+        `kernel:${task.id}`, () => judgeKernel(config, task.kernel, task.answer),
+      );
+      if (!verdict) return;
+      write('judge-kernel.jsonl', { id: task.id, kernel: task.kernel, ...verdict });
+      bump('kernel-judgment', !verdict.isJudgment);
+      bump('kernel-entailed', !verdict.entailed);
+    });
 
     // ── s4 接地率 ──────────────────────────────────────────────────────
-    for (const row of readRows(runDirectory, 's4-question-set.jsonl')) {
-      const prompts = (row.prompts as string[] | undefined) ?? [];
+    const groundingTasks = readRows(runDirectory, 's4-question-set.jsonl').flatMap((row) => {
       const materials = (row.materials as string | undefined) ?? '';
-      if (prompts.length === 0 || !materials) continue;
-      for (const [index, question] of prompts.entries()) {
-        const verdict = await guard(
-          `grounding:${String(row.id)}#${index}`,
-          () => judgeQuestionGrounding(config, question, materials),
-        );
-        if (!verdict) continue;
-        write('judge-grounding.jsonl', {
-          id: `${String(row.id)}#${index}`, question, ...verdict,
-        });
-        bump('grounding', !verdict.grounded);
-      }
-    }
+      if (!materials) return [];
+      return ((row.prompts as string[] | undefined) ?? []).map((question, index) => ({
+        id: `${String(row.id)}#${index}`, question, materials,
+      }));
+    });
+    await inPool(groundingTasks, async (task) => {
+      const verdict = await guard(
+        `grounding:${task.id}`,
+        () => judgeQuestionGrounding(config, task.question, task.materials),
+      );
+      if (!verdict) return;
+      write('judge-grounding.jsonl', { id: task.id, question: task.question, ...verdict });
+      bump('grounding', !verdict.grounded);
+    });
 
     // ── s8 断言蕴含（虚构率）────────────────────────────────────────────
-    for (const row of readRows(runDirectory, 's8-assertions.jsonl')) {
-      const assertions = (row.assertions as Array<{ statement: string }> | undefined) ?? [];
+    const assertionTasks = readRows(runDirectory, 's8-assertions.jsonl').flatMap((row) => {
       const transcript = ((row.transcript as string[] | undefined) ?? []).join('\n');
-      for (const assertion of assertions) {
-        const verdict = await guard(
-          `assertion:${String(row.id)}`,
-          () => judgeAssertionEntailment(config, assertion.statement, transcript),
-        );
-        if (!verdict) continue;
-        write('judge-assertions.jsonl', {
-          id: String(row.id), statement: assertion.statement, ...verdict,
-        });
-        bump('assertion-entailed', !verdict.entailed);
-      }
-    }
+      return ((row.assertions as Array<{ statement: string }> | undefined) ?? [])
+        .map((assertion) => ({ id: String(row.id), statement: assertion.statement, transcript }));
+    });
+    await inPool(assertionTasks, async (task) => {
+      const verdict = await guard(
+        `assertion:${task.id}`,
+        () => judgeAssertionEntailment(config, task.statement, task.transcript),
+      );
+      if (!verdict) return;
+      write('judge-assertions.jsonl', { id: task.id, statement: task.statement, ...verdict });
+      bump('assertion-entailed', !verdict.entailed);
+    });
 
     const judged = Object.values(summary).reduce((total, entry) => total + entry.total, 0);
     writeFileSync(
@@ -190,5 +204,5 @@ describe('offline judge pass over a completed eval run', () => {
       console.log(`  ${name}: flagged ${entry.flagged}/${entry.total}`);
     }
     expect(judged).toBeGreaterThan(0);
-  }, 3_600_000);
+  }, 21_600_000);
 });
