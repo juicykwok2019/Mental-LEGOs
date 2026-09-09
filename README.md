@@ -14,7 +14,7 @@
 
 ### 下载与安装
 
-前往 [GitHub Releases](https://github.com/juicykwok2019/Mental-LEGOs/releases/latest) 下载最新版 `Mental LEGOs-<版本> Setup.exe`，双击安装。首次运行的 SmartScreen 提示见下方[安装说明](#安装说明--smartscreen-提示)。
+前往 [GitHub Releases](https://github.com/juicykwok2019/Mental-LEGOs/releases/latest) 下载最新版 `Mental.LEGOs-<版本>.Setup.exe`，双击安装。首次运行的 SmartScreen 提示见下方[安装说明](#安装说明--smartscreen-提示)。
 
 **环境要求**
 
@@ -238,7 +238,7 @@ The goal is not to let AI answer on the user's behalf. It is to help the user bu
 
 ### Download and install
 
-Grab the latest `Mental LEGOs-<version> Setup.exe` from [GitHub Releases](https://github.com/juicykwok2019/Mental-LEGOs/releases/latest) and double-click it. For the SmartScreen prompt on first run, see [the note below](#install-note--smartscreen).
+Grab the latest `Mental.LEGOs-<version>.Setup.exe` from [GitHub Releases](https://github.com/juicykwok2019/Mental-LEGOs/releases/latest) and double-click it. For the SmartScreen prompt on first run, see [the note below](#install-note--smartscreen).
 
 **Requirements**
 
