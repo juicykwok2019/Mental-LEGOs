@@ -42,8 +42,11 @@ async function completeText(config: JudgeConfig, prompt: string): Promise<string
     },
     body: JSON.stringify({
       model: config.model,
-      // kimi-k3 是思考型模型：预算太小会被 thinking 块耗尽而没有 text 块。
-      max_tokens: 2048,
+      // 判审模型都是思考型：预算太小会被 thinking 块耗尽而没有 text 块。
+      // 2048 在 2026-09-09 全量轮上丢了 12 条判审（stop_reason=max_tokens，
+      // 材料长的接地题与断言题最容易撞上）；裁决 JSON 本身只有几十 token，
+      // 富余的预算全花在思考上，调高的成本可以忽略。
+      max_tokens: 4096,
       messages: [{ role: 'user', content: prompt }],
     }),
   });
