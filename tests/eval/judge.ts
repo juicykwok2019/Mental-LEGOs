@@ -10,7 +10,7 @@
 
 import { repairJsonCandidate } from '../../src/main/training-session';
 
-export const RUBRIC_VERSION = '2026-08-19.1';
+export const RUBRIC_VERSION = '2026-09-09.1';
 
 export interface JudgeConfig {
   baseUrl: string;
@@ -199,9 +199,12 @@ export async function judgeQuestionGrounding(
   const prompt = [
     `[rubric ${RUBRIC_VERSION} / grounding]`,
     '审计场景出题是否扎根于用户授权的材料。下面是材料全文与一道题。',
-    '如果题目明显依据材料中的具体内容（人物、数字、事件、诉求、风险点），',
-    'grounded=true 并摘出它依据的那一句材料原文；如果题目是不看材料也能出的',
-    '泛泛之问，grounded=false。',
+    '判断的是【题目取材于哪里】，不是【材料里有没有这道题的答案】——好的追问',
+    '往往正是要求对方补充材料里没写的东西（备选方案、测算依据、后续打算），',
+    '这不影响它扎根于材料。',
+    '如果题目引用或延伸了材料中的具体内容（人物、项目名、数字、事件、诉求、',
+    '风险点），grounded=true 并摘出它依据的那一句材料原文；只有当题目换成任何',
+    '别的材料都照样能问、与本材料的具体内容无关时，grounded=false。',
     '--- 材料开始 ---',
     materials,
     '--- 材料结束 ---',

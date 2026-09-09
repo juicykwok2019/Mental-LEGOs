@@ -1,0 +1,193 @@
+{
+  "rubricVersion": "2026-09-09.1",
+  "judgeModel": "kimi-k2.6",
+  "ranAt": "2026-09-09T14:21:42.011Z",
+  "summary": {
+    "kernel": {
+      "detection": {
+        "passed": 5,
+        "total": 5
+      },
+      "falseAlarm": {
+        "passed": 2,
+        "total": 2
+      }
+    },
+    "grounding": {
+      "detection": {
+        "passed": 5,
+        "total": 5
+      },
+      "falseAlarm": {
+        "passed": 3,
+        "total": 3
+      }
+    },
+    "assertion": {
+      "detection": {
+        "passed": 5,
+        "total": 5
+      },
+      "falseAlarm": {
+        "passed": 2,
+        "total": 2
+      }
+    }
+  },
+  "rows": [
+    {
+      "rubric": "kernel",
+      "id": "kernel-invented-stance",
+      "expected": "violation",
+      "got": "isJudgment=true entailed=false",
+      "ok": true
+    },
+    {
+      "rubric": "kernel",
+      "id": "kernel-invented-prescription",
+      "expected": "violation",
+      "got": "isJudgment=true entailed=false",
+      "ok": true
+    },
+    {
+      "rubric": "kernel",
+      "id": "kernel-invented-value-claim",
+      "expected": "violation",
+      "got": "isJudgment=true entailed=false",
+      "ok": true
+    },
+    {
+      "rubric": "kernel",
+      "id": "kernel-topic-not-judgment",
+      "expected": "violation",
+      "got": "isJudgment=false entailed=false",
+      "ok": true
+    },
+    {
+      "rubric": "kernel",
+      "id": "kernel-domain-not-judgment",
+      "expected": "violation",
+      "got": "isJudgment=false entailed=false",
+      "ok": true
+    },
+    {
+      "rubric": "kernel",
+      "id": "kernel-clean-stance",
+      "expected": "clean",
+      "got": "isJudgment=true entailed=true",
+      "ok": true
+    },
+    {
+      "rubric": "kernel",
+      "id": "kernel-clean-reworded",
+      "expected": "clean",
+      "got": "isJudgment=true entailed=true",
+      "ok": true
+    },
+    {
+      "rubric": "grounding",
+      "id": "grounding-generic-communication",
+      "expected": "violation",
+      "got": "grounded=false",
+      "ok": true
+    },
+    {
+      "rubric": "grounding",
+      "id": "grounding-generic-selfintro",
+      "expected": "violation",
+      "got": "grounded=false",
+      "ok": true
+    },
+    {
+      "rubric": "grounding",
+      "id": "grounding-generic-trend",
+      "expected": "violation",
+      "got": "grounded=false",
+      "ok": true
+    },
+    {
+      "rubric": "grounding",
+      "id": "grounding-generic-strength",
+      "expected": "violation",
+      "got": "grounded=false",
+      "ok": true
+    },
+    {
+      "rubric": "grounding",
+      "id": "grounding-generic-teamwork",
+      "expected": "violation",
+      "got": "grounded=false",
+      "ok": true
+    },
+    {
+      "rubric": "grounding",
+      "id": "grounding-known-false-negative-beidou",
+      "expected": "clean",
+      "got": "grounded=true evidence=主导北斗七号工程：把召回从协同过滤升级为多路混合，点击率累计提升百分之十二。",
+      "ok": true
+    },
+    {
+      "rubric": "grounding",
+      "id": "grounding-known-false-negative-window",
+      "expected": "clean",
+      "got": "grounded=true evidence=安置方案：内部转岗优先，转岗窗口三周；离职补偿 N+1；核心保留名单二十人。",
+      "ok": true
+    },
+    {
+      "rubric": "grounding",
+      "id": "grounding-known-false-negative-roi",
+      "expected": "clean",
+      "got": "grounded=true evidence=主导北斗七号工程：把召回从协同过滤升级为多路混合，点击率累计提升百分之十二。",
+      "ok": true
+    },
+    {
+      "rubric": "assertion",
+      "id": "assertion-fabricated-habit",
+      "expected": "violation",
+      "got": "entailed=false",
+      "ok": true
+    },
+    {
+      "rubric": "assertion",
+      "id": "assertion-fabricated-fact",
+      "expected": "violation",
+      "got": "entailed=false",
+      "ok": true
+    },
+    {
+      "rubric": "assertion",
+      "id": "assertion-single-instance-as-pattern",
+      "expected": "violation",
+      "got": "entailed=false",
+      "ok": true
+    },
+    {
+      "rubric": "assertion",
+      "id": "assertion-inferred-personality",
+      "expected": "violation",
+      "got": "entailed=false",
+      "ok": true
+    },
+    {
+      "rubric": "assertion",
+      "id": "assertion-unsupported-strength",
+      "expected": "violation",
+      "got": "entailed=false",
+      "ok": true
+    },
+    {
+      "rubric": "assertion",
+      "id": "assertion-supported-observation",
+      "expected": "clean",
+      "got": "entailed=true",
+      "ok": true
+    },
+    {
+      "rubric": "assertion",
+      "id": "assertion-supported-single-round",
+      "expected": "clean",
+      "got": "entailed=true",
+      "ok": true
+    }
+  ]
+}
