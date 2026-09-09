@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
-import { access, readFile } from 'node:fs/promises';
+import { access, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { clearTimeout, setTimeout } from 'node:timers';
 
@@ -23,10 +24,16 @@ if (mainBundle.includes('createRequire)({}.url)') || mainBundle.includes('create
   );
 }
 
+// 自己的用户数据目录：一来不碰使用者的真实档案（设置、积木库、凭据都在
+// 那里），二来单实例锁是按 userData 划分的——不隔离的话，只要本机开着这个
+// 应用，冒烟启动的实例就抢不到锁、直接退出，看起来像启动失败。
+const userDataDirectory = await mkdtemp(path.join(tmpdir(), 'mental-legos-smoke-'));
+
 await new Promise((resolve, reject) => {
   const child = spawn(executablePath, [
     '--disable-error-dialogs',
     '--smoke-test',
+    `--user-data-dir=${userDataDirectory}`,
     // Squirrel 装完后就是用这个参数启动应用的。当成生命周期事件处理会让应用
     // 装完即退，所以正常启动路径必须带着它跑一遍。
     '--squirrel-firstrun',
@@ -92,6 +99,10 @@ await new Promise((resolve, reject) => {
       stdout,
       stderr,
     ].filter(Boolean).join('\n')));
+  });
+}).finally(async () => {
+  await rm(userDataDirectory, { recursive: true, force: true }).catch(() => {
+    // 临时目录清不掉不该让冒烟失败——它在系统临时区，下次开机会被回收。
   });
 });
 
