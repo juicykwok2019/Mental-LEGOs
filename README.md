@@ -8,6 +8,8 @@
 
 产品目标不是让 AI 代替用户回答，而是帮助用户建立真正属于自己的语言——**不再从零思考表达，拼装你的认知积木**——使其能够在面试、会议、谈判、客户沟通、专业演讲和现场问答中自然调用。
 
+![「今天练」界面：系统基于你的画像出一道题，先自己答、后得辅助；下方是到期该复现的积木](docs/screenshots/today.png)
+
 ### 当前版本
 
 **0.2.1**（定档标签 `v0.2.1`——评测驱动的修复与真机走查：画像观察的完整生命周期、相似积木合并、以及一轮全量评测查出的模型下线与判分缺陷；上一定档为 `v0.2.0`）。
@@ -236,6 +238,8 @@ MIT 只覆盖本项目自己的代码（另见 [`NOTICE`](NOTICE)）。**第三�
 Mental LEGOs (心智乐高) is a local-first training system for turning personal knowledge, experience, and professional judgment into reusable spoken-language modules that can be recalled and recombined under time or evaluation pressure.
 
 The goal is not to let AI answer on the user's behalf. It is to help the user build language that becomes genuinely available in interviews, meetings, negotiations, client conversations, professional presentations, and live Q&A — never thinking from zero again, assembling your own cognitive bricks instead.
+
+![The Today screen: a question drawn from your profile — answer first, get help after; below it, the bricks due for recall](docs/screenshots/today.png)
 
 ### Current version
 
