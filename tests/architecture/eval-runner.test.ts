@@ -585,7 +585,9 @@ describe('MENTAL_LEGOS_EVAL runner (Suite 1/2 rule metrics)', () => {
         const budget = scoreTimeBudget(outline, duration);
         reporter().record('s7-time-budget', {
           id: caseId,
-          ok: budget.withinTolerance,
+          // 只在标题写一句"（5 分钟）"、正文各节没有时间预算的骨架，加和
+          // 恰好等于目标却没有真正分配过时间——要求至少两节才算数。
+          ok: budget.withinTolerance && budget.sections.length >= 2,
           totalMinutes: budget.totalMinutes,
           sections: budget.sections,
         });

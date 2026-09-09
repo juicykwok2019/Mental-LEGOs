@@ -85,6 +85,31 @@ describe('scoreTimeBudget (时间预算加和)', () => {
     expect(report.withinTolerance).toBe(true);
   });
 
+  it('ignores a whole-talk duration repeated in the title and the total line', () => {
+    // 2026-09-09 全量轮里真实出现的形状：标题、各节、结尾合计三处都写了时长，
+    // 只剔除一个重复值不够，整份骨架被误判为 20 分钟。
+    const outline = [
+      '# 演讲骨架：垂类 SaaS 的交付确定性（5 分钟）',
+      '## 一、开场钩子（0:00–0:40，40 秒）',
+      '## 二、要点 1：大厂进来又出去（0:40–1:40，60 秒）',
+      '## 三、要点 2：交付确定性（1:40–3:10，90 秒）',
+      '## 四、要点 3：风险由条款兜底（3:10–4:20，70 秒）',
+      '## 五、收尾落点（4:20–5:00，40 秒）',
+      '- 时间合计：40+60+90+70+40 = 300 秒 = 5 分钟。',
+    ].join('\n');
+    const report = scoreTimeBudget(outline, 5);
+    expect(report.totalMinutes).toBeCloseTo(5, 5);
+    expect(report.sections).toHaveLength(5);
+    expect(report.withinTolerance).toBe(true);
+  });
+
+  it('does not let a title-only duration masquerade as a budget', () => {
+    // 正文一节都没标时间时，加和恰好等于目标只是因为标题被算了进来。
+    const report = scoreTimeBudget('# 季度经营会汇报骨架（5 分钟）\n一、开场\n二、要点\n三、收尾', 5);
+    expect(report.sections).toHaveLength(1);
+    expect(report.withinTolerance).toBe(true);
+  });
+
   it('resolves the two-value ambiguity toward the target', () => {
     // "总时长 5 分钟 + 正文 5 分钟"：目标 5 时按剔除总行解释——
     const asTotal = scoreTimeBudget('总时长 5 分钟\n正文 5 分钟', 5);

@@ -88,9 +88,13 @@ export function scoreTimeBudget(
     values.push(Number.parseFloat(match[1] ?? '0') / 60);
   }
 
-  // 大纲里可能夹一行"总时长 X 分钟"造成重复计数。两种解释都算：
-  // 全部相加，或剔除一个"约等于其余之和"的候选总时长值——哪种命中
-  // 目标容差就采信哪种；都不命中时取相对误差较小的一种。
+  // 大纲里可能夹一行"总时长 X 分钟"造成重复计数。三种解释都算，取相对
+  // 误差最小的一种：
+  //   (1) 全部相加；
+  //   (2) 剔除一个"约等于其余之和"的候选总时长值；
+  //   (3) 剔除所有"约等于目标时长"的值——真实骨架常把整场时长写进标题
+  //       （「# 演讲骨架：…（5 分钟）」）又在结尾写一行「合计 = 5 分钟」，
+  //       此时重复项不止一个，(2) 只剔一个不够。
   const sum = (list: number[]): number => list.reduce((acc, value) => acc + value, 0);
   const interpretations: number[][] = [values];
   if (values.length >= 2) {
@@ -101,6 +105,12 @@ export function scoreTimeBudget(
         interpretations.push(values.filter((_, i) => i !== index));
         break;
       }
+    }
+    const isTargetSized = (value: number): boolean => targetMinutes > 0
+      && Math.abs(value - targetMinutes) / targetMinutes <= 0.05;
+    const withoutTotals = values.filter((value) => !isTargetSized(value));
+    if (withoutTotals.length > 0 && withoutTotals.length < values.length) {
+      interpretations.push(withoutTotals);
     }
   }
   const scored = interpretations.map((sections) => {
