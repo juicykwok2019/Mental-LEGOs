@@ -36,3 +36,7 @@ Thumbs.db
 .idea/
 .vscode/
 *.local
+
+# Local handoff notes: internal working context, mirrors the session memory.
+# Deliberately not published — it records what was rejected and what went wrong.
+/HANDOFF.md
