@@ -70,7 +70,8 @@ npm run make
 
 **路线图（后续版本）**
 
-- 系统化评测体系（设计见 [`docs/evaluation-plan.md`](docs/evaluation-plan.md)）；
+- 评测常态化：季度性重标 Judge 校准集、每轮 10% 判分盲复核、逐版本成本基线跟踪（体系本身已落地，见上文「评测」一节）；
+- 北极星指标沉淀：应用内「现实使用上报」积累周级数据，追踪现实世界无提示调用率——这是产品指标，评测集测不了；
 - 云端语音接入、公开演讲视频分析；
 - 跨设备同步、Web / 移动伴随端、可信评审者反馈。
 
@@ -281,7 +282,8 @@ Details (the training loop, granularity rules, security boundaries) follow below
 
 **Roadmap**
 
-- A systematic evaluation harness (design in [`docs/evaluation-plan.md`](docs/evaluation-plan.md));
+- Evals as routine: quarterly re-labelling of the judge calibration set, a blind 10% re-check of judged cases each round, and a cost baseline tracked per version (the harness itself is built — see "Evals" above);
+- Earning the north-star metric: an in-app "used it for real" report accumulating week-scale data on unprompted real-world recall — a product metric, not something an eval set can measure;
 - Cloud speech integration and public-speaking video analysis;
 - Cross-device sync, web / mobile companions, trusted-reviewer feedback.
 
