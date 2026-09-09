@@ -46,9 +46,11 @@ def main() -> None:
     draw.line((left, 140, WIDTH - 44, 140), fill="#ddd8cb", width=1)
 
     draw.text((left, 158), "正在安装…", font=font(YAHEI, 17), fill=DEEP)
+    # 路径写用户在资源管理器里真会看到的样子——%LOCALAPPDATA% 是开发者的写法。
+    # 图是静态的，装机时才知道用户名，所以那一段留成占位。
     draw.text((left, 190), "安装位置", font=font(YAHEI, 13), fill=FAINT)
-    draw.text((left, 208), "%LOCALAPPDATA%\\mental_legos",
-              font=font("C:/Windows/Fonts/consola.ttf", 14), fill=MUTED)
+    draw.text((left, 208), "C:\\Users\\你的用户名\\AppData\\Local\\mental_legos",
+              font=font(YAHEI, 13), fill=MUTED)
     draw.text((left, 232), "按用户安装，不需要管理员权限",
               font=font(YAHEI, 12), fill=FAINT)
 
