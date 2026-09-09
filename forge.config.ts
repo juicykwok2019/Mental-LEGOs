@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import type { ForgeConfig } from '@electron-forge/shared-types';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
@@ -39,7 +41,11 @@ const config: ForgeConfig = {
   },
   rebuildConfig: {},
   makers: [
-    new MakerSquirrel({}),
+    // Squirrel 的安装窗口只有这一张图，没有文字区域也没有路径选择——它固定
+    // 装到 %LOCALAPPDATA%，那是它免管理员、能自动更新的前提。所以"装到哪"
+    // 只能写在图里。图由 scripts/make-installer-gif.py 生成（一次性资产，
+    // 不参与构建）。
+    new MakerSquirrel({ loadingGif: path.resolve(__dirname, 'assets/installer-loading.gif') }),
     new MakerZIP({}, ['win32']),
   ],
   plugins: [
