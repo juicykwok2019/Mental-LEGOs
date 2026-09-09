@@ -14,14 +14,26 @@
 
 ### 下载与安装
 
-暂无公开发布渠道，需从源码构建。
+前往 [GitHub Releases](https://github.com/juicykwok2019/Mental-LEGOs/releases/latest) 下载最新版 `Mental LEGOs-<版本> Setup.exe`，双击安装。首次运行的 SmartScreen 提示见下方[安装说明](#安装说明--smartscreen-提示)。
 
 **环境要求**
 
 - Windows 10 / 11（x64）
-- Node.js ≥ 22 与 npm
+- 自备一个模型服务的 API Key（BYOK，支持 Anthropic / Kimi / DeepSeek / 智谱预置或自定义 Anthropic 兼容端点）
 
-**构建安装包**
+#### 安装说明 · SmartScreen 提示
+
+本应用是**个人开源实现**，未购买商业 CA 代码签名证书。因此在 Windows 上首次运行安装包时，SmartScreen 可能弹出蓝色提示「**Windows 已保护你的电脑**」（英文系统显示 *Windows protected your PC*）。
+
+这是**所有未签名应用的正常现象，与软件是否安全无关**。继续安装：
+
+> 点击「**更多信息 / More info**」→「**仍要运行 / Run anyway**」即可。
+
+如果仍不放心，本项目**源码完全公开**——你可以自行审阅，或直接从源码构建（见下）。训练数据全程留在本机，唯一出境的是你自己配置的 API Key 发往你自选的模型服务。
+
+**从源码构建**
+
+需 Node.js ≥ 22 与 npm。
 
 ```bash
 git clone https://github.com/juicykwok2019/Mental-LEGOs.git
@@ -226,14 +238,26 @@ The goal is not to let AI answer on the user's behalf. It is to help the user bu
 
 ### Download and install
 
-No public release channel yet — build from source.
+Grab the latest `Mental LEGOs-<version> Setup.exe` from [GitHub Releases](https://github.com/juicykwok2019/Mental-LEGOs/releases/latest) and double-click it. For the SmartScreen prompt on first run, see [the note below](#install-note--smartscreen).
 
 **Requirements**
 
 - Windows 10 / 11 (x64)
-- Node.js ≥ 22 with npm
+- An API key of your own (BYOK — Anthropic / Kimi / DeepSeek / Zhipu presets, or any Anthropic-compatible endpoint)
 
-**Build the installer**
+#### Install note · SmartScreen
+
+This is a **personal open-source build** with no commercial CA code-signing certificate, so the first run on Windows may raise the blue SmartScreen prompt *Windows protected your PC*.
+
+That prompt appears for **every unsigned application and says nothing about whether the software is safe**. To continue:
+
+> Click **More info** → **Run anyway**.
+
+If you would rather not, the **source is fully public** — read it, or build it yourself (below). Training data never leaves the machine; the only thing that goes out is your own API key, to the provider you chose.
+
+**Build from source**
+
+Needs Node.js ≥ 22 with npm.
 
 ```bash
 git clone https://github.com/juicykwok2019/Mental-LEGOs.git
