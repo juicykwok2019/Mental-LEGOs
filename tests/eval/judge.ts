@@ -140,6 +140,54 @@ export async function judgeKernel(
   });
 }
 
+export interface ShellVerdict {
+  faithful: boolean;
+  kind: 'verbatim' | 'reworded' | 'diluted' | 'invented';
+  reason: string;
+}
+
+/** Suite 2 外壳可信度：换个说法说同一件事是产品要的（用户在练可复用的表达，
+ * 不是背诵原话），所以逐字包含度当不了门禁。真正不能容忍的是两件事——把
+ * 用户具体的判断稀释成谁都能说的通用格言，以及替换掉他的专业词汇。 */
+export async function judgeShellFaithfulness(
+  config: JudgeConfig,
+  shell: string,
+  userAnswer: string,
+): Promise<ShellVerdict> {
+  const prompt = [
+    `[rubric ${RUBRIC_VERSION} / shell]`,
+    '口语表达训练产品会把"语言外壳"存进用户的积木库，标为"你自己的原话"，',
+    '并在组装演讲骨架时引用。请判断这条外壳相对用户的回答属于哪一类：',
+    '- verbatim：基本逐字来自用户的回答。',
+    '- reworded：换了说法，但讲的是用户已经表达过的同一件事，具体程度和',
+    '  专业词汇都保住了。这是合格的——产品要的就是可复用的说法。',
+    '- diluted：把用户具体的判断/机制稀释成了谁都能说的通用道理或鸡汤，',
+    '  用户的专业性和具体性丢失了。不合格。',
+    '- invented：引入了用户没有表达过的判断或事实，或者换掉了用户的专业',
+    '  词汇（例如把算法负责人说的"实验"改成"案子"）。不合格。',
+    'faithful 在 verbatim/reworded 时为 true，在 diluted/invented 时为 false。',
+    `外壳：${shell}`,
+    '--- 用户回答开始 ---',
+    userAnswer,
+    '--- 用户回答结束 ---',
+    '只回复 JSON：{"kind":"verbatim|reworded|diluted|invented","faithful":true|false,"reason":"一句中文"}',
+  ].join('\n');
+  const text = await completeText(config, prompt);
+  return extractVerdictJson(text, (value) => {
+    const v = value as { kind?: unknown; faithful?: unknown; reason?: unknown };
+    const kind = String(v.kind ?? '');
+    if (!['verbatim', 'reworded', 'diluted', 'invented'].includes(kind)) {
+      throw new Error('shell verdict malformed');
+    }
+    return {
+      kind: kind as ShellVerdict['kind'],
+      // kind 是主判定：模型偶尔会把两个字段填得自相矛盾，以 kind 为准。
+      faithful: kind === 'verbatim' || kind === 'reworded',
+      reason: String(v.reason ?? ''),
+    };
+  });
+}
+
 export interface GroundingVerdict { grounded: boolean; evidence: string }
 
 /** Suite 4 接地率：这道场景题必须能标注出它依据的材料句。 */

@@ -21,6 +21,7 @@ import {
   judgeConfigFromEnvironment,
   judgeKernel,
   judgeQuestionGrounding,
+  judgeShellFaithfulness,
   RUBRIC_VERSION,
   type JudgeConfig,
 } from '../eval/judge';
@@ -91,7 +92,7 @@ describe('offline judge pass over a completed eval run', () => {
     // 判审可重跑：清掉上次（可能中断的）判审残留，避免 append 叠加。
     for (const file of [
       'judge-leak.jsonl', 'judge-kernel.jsonl', 'judge-grounding.jsonl',
-      'judge-assertions.jsonl', 'judge-errors.jsonl',
+      'judge-assertions.jsonl', 'judge-shells.jsonl', 'judge-errors.jsonl',
     ]) rmSync(path.join(runDirectory, file), { force: true });
     const write = (file: string, row: Record<string, unknown>) => {
       appendFileSync(path.join(runDirectory, file), `${JSON.stringify(row)}\n`, 'utf8');
@@ -151,6 +152,26 @@ describe('offline judge pass over a completed eval run', () => {
       write('judge-kernel.jsonl', { id: task.id, kernel: task.kernel, ...verdict });
       bump('kernel-judgment', !verdict.isJudgment);
       bump('kernel-entailed', !verdict.entailed);
+    });
+
+    // ── s2 外壳可信度（换说法合格，稀释/替换专业词不合格）──────────────
+    const shellTasks = readRows(runDirectory, 's2-shell-fidelity.jsonl').flatMap((row) => {
+      const answer = (row.submittedAnswer as string | undefined) ?? '';
+      if (!answer) return [];
+      const fidelities = (row.fidelities as number[] | undefined) ?? [];
+      return ((row.shells as string[] | undefined) ?? []).map((shell, index) => ({
+        id: String(row.id), shell, answer, fidelity: fidelities[index] ?? null,
+      }));
+    });
+    await inPool(shellTasks, async (task) => {
+      const verdict = await guard(
+        `shell:${task.id}`, () => judgeShellFaithfulness(config, task.shell, task.answer),
+      );
+      if (!verdict) return;
+      write('judge-shells.jsonl', {
+        id: task.id, shell: task.shell, fidelity: task.fidelity, ...verdict,
+      });
+      bump('shell-faithful', !verdict.faithful);
     });
 
     // ── s4 接地率 ──────────────────────────────────────────────────────
