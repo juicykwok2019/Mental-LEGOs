@@ -9,7 +9,7 @@ import type {
 } from '../shared/contracts';
 import { AboutView } from './views/AboutView';
 import { BusyIndicator } from './components/BusyIndicator';
-import { Logo } from './components/Logo';
+import { LogoGlyph } from './components/Logo';
 import { ChatView } from './views/ChatView';
 import { FoundationView } from './views/FoundationView';
 import { HomeView } from './views/HomeView';
@@ -283,12 +283,9 @@ export function App() {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <div className="brand">
-          <Logo size={46} />
-          <div>
-            <p className="eyebrow">心智乐高 · 不再从零思考表达，拼装你的认知积木</p>
-            <h1>Mental LEGOs</h1>
-          </div>
+        <div>
+          <p className="eyebrow">心智乐高 · 不再从零思考表达，拼装你的认知积木</p>
+          <h1><LogoGlyph />ental LEGOs</h1>
         </div>
         <nav className="main-nav">
           {([

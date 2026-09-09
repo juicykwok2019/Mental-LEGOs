@@ -38,14 +38,14 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   margin: 0 auto;
 }
 
-/* 标志与标题并排；标志对齐到标题那一行，不跟着 eyebrow 往上跑。 */
-.brand {
-  display: flex;
-  align-items: flex-end;
-  gap: 14px;
+/* 标题里的 M 由标志充当。高度取 Georgia 的大写字高（约 0.69em），所以
+   换上去之后 M 还是原来那么大；字形底边就是基线，直接按基线对齐。 */
+.logo-glyph {
+  height: 0.69em;
+  width: auto;
+  vertical-align: baseline;
+  margin-right: 0.03em;
 }
-
-.brand svg { flex: none; margin-bottom: 2px; }
 
 .eyebrow, .step-label {
   margin: 0 0 9px;
