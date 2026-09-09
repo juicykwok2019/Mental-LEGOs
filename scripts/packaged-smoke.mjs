@@ -27,6 +27,9 @@ await new Promise((resolve, reject) => {
   const child = spawn(executablePath, [
     '--disable-error-dialogs',
     '--smoke-test',
+    // Squirrel 装完后就是用这个参数启动应用的。当成生命周期事件处理会让应用
+    // 装完即退，所以正常启动路径必须带着它跑一遍。
+    '--squirrel-firstrun',
     ...extraArguments,
   ], {
     cwd: path.dirname(executablePath),
@@ -68,8 +71,20 @@ await new Promise((resolve, reject) => {
   });
   child.once('exit', (code, signal) => {
     clearTimeout(timeout);
-    if (code === 0) {
+    // 退出码 0 只说明进程没崩。应用在 ready 之前自己 quit 掉时退出码也是 0，
+    // 所以还要看主进程有没有真的走到就绪。
+    if (code === 0 && stdout.includes('packaged-smoke-ready')) {
       resolve(undefined);
+      return;
+    }
+    if (code === 0) {
+      reject(new Error([
+        'Packaged application exited cleanly without reaching readiness '
+        + '(no packaged-smoke-ready marker) — it quit before the renderer, '
+        + 'agent and ASR runtimes came up.',
+        stdout,
+        stderr,
+      ].filter(Boolean).join('\n')));
       return;
     }
     reject(new Error([

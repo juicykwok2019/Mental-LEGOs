@@ -197,6 +197,9 @@ function completePackagedSmokeTest(): void {
   if (isPackagedSmokeTest && rendererSmokeReady && agentSmokeReady && asrSmokeReady) {
     agentWorkerHost?.close();
     asrWorkerHost?.close();
+    // 冒烟脚本要认这一行。只看退出码不够：应用在 ready 之前就 app.quit() 时
+    // 退出码同样是 0，v0.2.1 的 --squirrel-firstrun 回归就是这么漏过去的。
+    console.log('packaged-smoke-ready');
     app.exit(0);
   }
 }

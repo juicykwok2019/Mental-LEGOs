@@ -25,15 +25,22 @@ export function resolveSquirrelAction(
   const event = argv[1];
   if (event === undefined || !event.startsWith('--squirrel-')) return null;
 
-  const updateExe = path.resolve(path.dirname(execPath), '..', 'Update.exe');
+  // 只有这四个事件意味着"建完快捷方式就退出"。**不能**按前缀一刀切：装完之后
+  // Squirrel 正是用 --squirrel-firstrun 启动应用的，那是一次正常启动；把它当
+  // 生命周期事件处理，应用会在装完后自己退出（v0.2.1 打包时踩过）。
   const exeName = path.basename(execPath);
-  // --squirrel-obsolete（旧版本即将被删）和任何未知的 --squirrel-* 事件都只
-  // 需要安静退出，不该碰快捷方式。
-  const updateArgs = event === '--squirrel-install' || event === '--squirrel-updated'
-    ? [`--createShortcut=${exeName}`]
-    : event === '--squirrel-uninstall'
-      ? [`--removeShortcut=${exeName}`]
-      : null;
+  const shortcutArgs: Record<string, string[] | null> = {
+    '--squirrel-install': [`--createShortcut=${exeName}`],
+    '--squirrel-updated': [`--createShortcut=${exeName}`],
+    '--squirrel-uninstall': [`--removeShortcut=${exeName}`],
+    // 旧版本即将被删：安静退出，不碰快捷方式。
+    '--squirrel-obsolete': null,
+  };
+  if (!(event in shortcutArgs)) return null;
 
-  return { event, updateExe, updateArgs };
+  return {
+    event,
+    updateExe: path.resolve(path.dirname(execPath), '..', 'Update.exe'),
+    updateArgs: shortcutArgs[event] ?? null,
+  };
 }
